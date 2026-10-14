@@ -102,6 +102,7 @@ oauth-web/
 │   ├── utils/           # Utilities (request wrapper / validation / storage)
 │   └── view/            # Pages: web desktop / app mobile / tablet layouts
 ├── config/aliases.ts    # Single source of truth for path aliases
+├── docs/                # Project docs (frontend generation guide, …)
 ├── __tests__/           # Unit tests (Vitest)
 ├── e2e/                 # End-to-end tests
 ├── public/              # Static files copied as-is
