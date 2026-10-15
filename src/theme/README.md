@@ -11,7 +11,7 @@
 > 的导入面一个字不变（`@/theme` 那个 barrel 也照旧转发这些常量）。
 > 后续每期都按「迁一个实现 → 在原地留一只壳」推进，任何一期都能独立回滚。
 > 设计、注入点契约、迁移分期与每期验收判据见
-> `docs/frontend/theme-package-extraction.md`（文档站：/frontend/theme-package-extraction）。
+> CoreFlow `https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/theme-package-extraction.md`。
 
 一个目录管三层，**层级即语义**（主题包 → 设备 → 页面 → 配色）：
 
@@ -150,7 +150,7 @@ themes/<包>/<设备>/<页面>/colors/<配色>/      ← 该页的配色
 > `compact` 包只覆盖 `mobile × register`，就在 `index.ts` 里写
 > `coverage: { devices: ['mobile'], pages: ['register'] }`。
 > 目录口径关卡据此推导该包应有的目录，不再写死包名 —— 声明与实现同目录，
-> 复制主题包时声明跟着走（见 `docs/frontend/multi-theme.md` §八「coverage 覆盖声明」）。
+> 复制主题包时声明跟着走（见 `../docs/multi-theme.md` §八「coverage 覆盖声明」）。
 
 **加一种版式**（换 DOM 结构）＝ **加一个包**，不是加深目录：
 
@@ -494,7 +494,7 @@ store（`main.ts` → `setupThemeDeviceSync(router)`）。store 用这个值决�
 - **改契约要同步两边**：容器组装 `ctx` 时有编译期自检（`assertRegisterContract` /
   `assertLoginContract` / `assertForgotPasswordContract`，各页一枚，在容器 `index.vue` 里），
   改 `views/<page>.ts` 后容器与**所有包所有设备**的版式都会在类型检查时报错，不会悄悄跑偏。
-- **契约要能"真的拦住"**：类型闸门自身也可能空转（见 `docs/frontend/coding-standard.md`
+- **契约要能"真的拦住"**：类型闸门自身也可能空转（见 CoreFlow `https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/coding-standard.md``
   的「类型闸门必须是"真检查"」）。改完 `views/<page>.ts` 临时写一行 `export const __p: number = 'x';`，
   跑 `npm run type-check` 必须报错，撤销后恢复绿 —— 恒绿的闸门等于没有闸门。
 
@@ -515,7 +515,7 @@ node .tmp-probe/measure-load-budget.mjs       # 真实流量（生产构建，�
   `npx vite preview --outDir dist-measure-1 --port 5189 --strictPort`，然后
   `node .tmp-probe/measure-load-budget.mjs http://127.0.0.1:5189 <abs dist 路径>`。
   ℹ️ `--block-sw` 参数仍在，但 **oauth21 已于 2026-09-27 移除 PWA**，屏蔽与否已无差别
-  （dev server 下本来就没有 SW）。移除原因与必须留的自毁迁移见 `docs/frontend/PWA_GUIDE.md` 第六节。
+  （dev server 下本来就没有 SW）。移除原因与必须留的自毁迁移见 CoreFlow `https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/pwa-guide.md` 第六节。
   ⚠️ outDir 每次用**全新目录名**（沙箱会拦已存在目录的清理）。
 
 - `verify-view-priority.mjs` 的第 4 档（`VITE_<PAGE>_VIEW`）需要一个**带环境变量启动**的实例：

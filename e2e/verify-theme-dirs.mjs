@@ -1,7 +1,7 @@
 /**
  * 静态关卡：主题目录口径（**四级结构**）+ 「版式跟随主题包与设备」的实现口径
  *
- * 守护的规则（`docs/frontend/multi-theme.md` 与 `oauth21/src/theme/README.md`）：
+ * 守护的规则（`docs/multi-theme.md` 与 `oauth21/src/theme/README.md`）：
  *
  *   结构 · 四级（主题包 → 设备 → 页面 → 配色）
  *     1. `themes/` 下一层目录 = 一个**主题包**，目录名即 id（只允许 [a-z0-9-]）
@@ -34,7 +34,7 @@
  *    16. 容器写死 `THEME_DEVICE` 常量（设备是页面身份，不跑视口判定）
  *    17. 设备同步用 watch(router.currentRoute, {immediate:true})，由 main.ts 在 pinia 之后调用
  *
- *   抽包 · 内核与宿主解耦（2026-09-26 起，见 docs/frontend/theme-package-extraction.md）
+ *   抽包 · 内核与宿主解耦（2026-09-26 起，见 https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/theme-package-extraction.md）
  *    18. 🔴 内核包 `packages/theme-core` **不得知道宿主**：无 `import.meta`、无
  *        `window.` / `document.`、无 `localStorage`、无非 `import type` 的 `vue`、
  *        无 `vue-router`、无 `axios` / `fetch`、无 `@/` 别名（「〇、一条原则」的机械保障）

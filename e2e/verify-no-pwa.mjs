@@ -3,7 +3,7 @@
  *
  * === 它守的是什么 ===
  * 2026-09-27 移除了 oauth21 的 `vite-plugin-pwa`。移除原因与迁移路径见
- * `docs/frontend/PWA_GUIDE.md` 第六节；这个脚本只负责一件事：**别让它静默回来**。
+ * `https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/pwa-guide.md` 第六节；这个脚本只负责一件事：**别让它静默回来**。
  *
  * 为什么这条不变式需要关卡、而不是靠人自觉 —— 三条叠起来正好构成"谁都发现不了"：
  *   ① 它**不是**"少一个功能"，而是会**破坏后端功能**：无 denylist 的 `NavigationRoute`
@@ -204,7 +204,7 @@ console.log(`════════ 结果：${pass} 通过 / ${fail} 失败 �
 if (fail > 0) {
   console.log('');
   console.log('含义：PWA 要么被加了回来、要么移除得不彻底。');
-  console.log('     回看 docs/frontend/PWA_GUIDE.md 第六节：登录页属于规范里明确写的「不适用」场景，');
+  console.log('     回看 https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/pwa-guide.md 第六节：登录页属于规范里明确写的「不适用」场景，');
   console.log('     且无 denylist 的 NavigationRoute 会顶掉后端设备码授权页。');
   process.exit(1);
 }

@@ -18,7 +18,7 @@
  *   node oauth21/e2e/verify-all.mjs --only static       # 只跑静态关卡（无浏览器/服务器）
  *   node oauth21/e2e/verify-all.mjs --list              # 只打印关卡清单，不跑
  *
- * 端口约定（与 docs/frontend/multi-theme.md §十、MEMORY §9 一致）：
+ * 端口约定（与 docs/multi-theme.md §十、MEMORY §9 一致）：
  *   5174 = dev（默认实例）  5177 = compact 版式实例  5197 = color-peer 专用
  *   5189 = dist 预览（生产构建，量流量/验 SW 用）
  *
