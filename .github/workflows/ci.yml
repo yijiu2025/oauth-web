@@ -1,0 +1,82 @@
+# ============================================================================
+# CI —— 提交门禁（oauth-web 独立仓）
+#
+# 本仓 2026-10-14 从 CoreFlow 拆出，此前前端门禁跑在根仓 ci.yml 的 frontend
+# job 里（`npm ci --prefix oauth21`）。独立后门禁必须自带 —— 否则提交没有
+# 任何自动拦截，类型/规范/单测/关卡全裸奔。
+#
+# 单个 job 内顺序执行（不拆并行 job）：后三步要吃前一步的产物 ——
+# 静态关卡里的 verify-bundle-budget 扫 `dist/`、verify-no-pwa 扫
+# `dist-nopwa/`，拆分 job 要在 job 之间传 artifact，反而更脆。
+#
+# 顺序口径与根仓一致：「类型 → 规范 → 单测 → 构建」：
+#   类型错最便宜（不进构建），先挡；构建最贵，放后面兜底。
+#   构建之后再跑静态关卡 —— 它们需要 dist 真实存在才不跳过。
+#
+# 依赖安装：`npm ci --ignore-scripts`。
+#   • lock 已入库 → `npm ci` 可复现（外部用户 `npm install` 同此路径，2026-10-14 已验证）；
+#   • `--ignore-scripts` 挡 postinstall 供应链面；esbuild 的平台二进制走
+#     optionalDependencies（@esbuild/linux-x64 等），不依赖 postinstall，可安全跳过；
+#   • 本仓无 husky，不存在"跳过 prepare 丢钩子"问题。
+#
+# ⚠️ dev/prod 两组关卡（verify-all.mjs 的 ②③④）需要 dev server / preview
+#    服务器（5174 / 5197 / 5189 端口），CI 里起服务反而易 flake，刻意不进 CI，
+#    由本地 `node e2e/verify-all.mjs` 全量跑。CI 只覆盖"无服务器"部分。
+# ============================================================================
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 类型 / 规范 / 单测 / 构建 / 静态关卡
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖（lock 复现）
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      # 类型错最便宜，先挡（build 里还会再跑一次，那是构建期兜底）
+      - name: 类型检查（vue-tsc -b）
+        run: npm run type-check
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: 单元测试（vitest）
+        run: npm run test
+        env:
+          CI: true
+
+      # 生产构建 → dist/（脚本内已含 type-check）
+      - name: 生产构建
+        run: npm run build
+
+      # verify-no-pwa 关卡要扫的第二份产物：与 dist 同参数、不同 outDir。
+      # 不加这步，CI 上该关卡会被"环境没就绪 → 跳过" silently 放空。
+      - name: 附加构建（dist-nopwa，PWA 关卡需要）
+        run: npx vite build --outDir dist-nopwa
+
+      # 静态关卡：主题目录形态 / glob 设备名 / 别名单一来源 / 内核零框架耦合 /
+      #           console 剥离 / any 债务 / PWA 已移除 / 包体积预算
+      - name: 静态关卡
+        run: node e2e/verify-all.mjs --only static

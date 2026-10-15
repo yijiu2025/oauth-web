@@ -53,6 +53,25 @@ export default [
       '@typescript-eslint/no-unused-vars': 'warn'
     }
   },
+  // scripts/ 是入库的 Node 工具脚本（release-web.mjs 等）：纯 Node 环境，
+  // 与 e2e/ 同样是"两套全局"之外的第三种。2026-10-15 补：release-web.mjs
+  // 引入时没配这块，`eslint .` 对它报一片 no-undef（process/console/fetch），
+  // CI 的 lint 步骤直接红 —— 新增 scripts/ 下的脚本前先确认这里覆盖到。
+  {
+    files: ['scripts/**/*.{mjs,js}'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: { ...globals.node, ...globals.es2022 }
+    },
+    rules: {
+      // 工具脚本靠 console 输出结论（与 src 的"禁 log"是两回事）
+      'no-console': 'off',
+      'no-undef': 'off',       // Node 全局（process/fetch/console）由运行时提供
+      'no-empty': 'off',       // catch {} = 静默降级（如拉取失败不阻塞发版）
+      '@typescript-eslint/no-unused-vars': 'warn'
+    }
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...vue.configs['flat/recommended'],
