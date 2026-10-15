@@ -20,6 +20,79 @@
          万一某个内核连这条最简写法也丢，由 src/utils/viewport-fix.ts 兜住整页比例。 -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Enterprise SSO Login</title>
+
+    <!-- ===== 网站说明（SEO / 分享 / 移动端行为）=====
+         登录页的元信息有两个读者：搜索引擎/分享抓取器，和移动端浏览器。
+         顺序按「通用 → 分享 → 移动端」排，新增条目不插中间。 -->
+    <meta
+      name="description"
+      content="开源统一身份认证（SSO）登录前端：OAuth 2.1 + PKCE、多主题多版式、iframe 嵌入与移动端适配。"
+    />
+    <meta name="keywords" content="SSO,单点登录,OAuth 2.1,身份认证,登录页,开源" />
+    <meta name="author" content="yijiu2025" />
+    <!-- noindex：登录/注册页本身不该被搜索引擎收录（含开源演示部署）。
+         若部署方把它当产品官网入口用，按需改成 index,follow。 -->
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- theme-color：影响移动端浏览器地址栏/任务栏配色。两档各写一条，
+         取默认包 white(#f8fafc) / black(#000000) 的 --mauth-bg 值；
+         部署方换整体底色时记得同步这两条。 -->
+    <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <!-- format-detection：iOS Safari 默认把符合电话/邮箱格式的文本变成蓝色链接，
+         登录页的账号输入框附近尤其容易误触发（用户输入被"识别"后不可编辑）。
+         telephone=no 关掉电话号码识别；email/address 一并关，保持页面可控。 -->
+    <meta name="format-detection" content="telephone=no, email=no, address=no" />
+
+    <!-- Open Graph：微信/QQ/Twitter 等分享卡片的数据源。
+         og:image 刻意不放：OG 规范要 png/jpg（绝对 URL），本仓只有 favicon.svg，
+         抓取器不认 SVG；部署方按需在 public/ 放一张 1200×630 的图再补这条。 -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="oauth-web" />
+    <meta property="og:title" content="oauth-web · 开源统一身份认证登录前端" />
+    <meta
+      property="og:description"
+      content="OAuth 2.1 + PKCE、多主题多版式、iframe 嵌入与移动端适配的开源 SSO 登录前端。"
+    />
+    <meta property="og:locale" content="zh_CN" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="oauth-web · 开源统一身份认证登录前端" />
+    <meta
+      name="twitter:description"
+      content="OAuth 2.1 + PKCE、多主题多版式、iframe 嵌入与移动端适配的开源 SSO 登录前端。"
+    />
+
+    <!-- ===== 暗色预置（防首屏白闪）=====
+         store 在 app.mount 之后才给 <html> 挂 .dark（stores/theme.ts），
+         这中间有一帧浅色底 —— 暗色偏好用户会看到一次白闪。
+         这段内联脚本在模块脚本（main.ts，deferred）之前同步执行，先把 class 挂对。
+         🔴 判定口径必须与 src/stores/theme-persistence.ts 的 readInitialMode()
+            逐字一致（含 theme-manual 迁移规则），否则预置与 store 初始值打架，
+            会出现"闪一下另一种主题"的更差效果。改 store 时记得回来改这里。
+         🔴 若部署方 CSP 禁内联脚本（无 'unsafe-inline'/nonce），把这段改成
+            同源外部文件 <script src="/theme-init.js"> 即可，逻辑原样搬走。 -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('theme');
+          var manual = localStorage.getItem('theme-manual') === 'true';
+          // 'system' → 跟随系统；'light'/'dark' 仅 manual 标记过才算用户选择；其余 → system
+          var mode =
+            saved === 'system'
+              ? 'system'
+              : (saved === 'light' || saved === 'dark') && manual
+                ? saved
+                : 'system';
+          var dark =
+            mode === 'dark' ||
+            (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+        } catch (e) {
+          /* 隐私模式读不了 localStorage：保持默认浅色，与 store 兜底一致 */
+        }
+      })();
+    </script>
+
     <!-- 字体：不再外链 Google Fonts（DM Sans / Outfit / Sora）。
          理由：外链 CSS 是渲染阻塞资源，国内可达性差会导致 FOUT 甚至长时间空白，
          且引入第三方域名隐私合规成本。正文字体降级为系统字体栈
