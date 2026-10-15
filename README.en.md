@@ -2,6 +2,8 @@
 
 **简体中文** | [English](README.en.md)
 
+[![CI](https://github.com/yijiu2025/oauth-web/actions/workflows/ci.yml/badge.svg)](https://github.com/yijiu2025/oauth-web/actions/workflows/ci.yml)
+
 The **pure frontend** of an enterprise unified identity (SSO) system: a complete set of pages for
 login, registration, password recovery, QR-code login and the OAuth 2.1 app authorization flow
 (`authorize` / `consent`), plus multi-theme, multi-device layouts, zh/en i18n and dark mode.
@@ -67,6 +69,12 @@ npm run dev            # http://localhost:5174
 | `npm test` | Vitest unit tests (`__tests__/` and `e2e/`) |
 | `npm run lint` / `lint:fix` | ESLint check / auto-fix |
 | `npm run type-check` | Type-check only (`vue-tsc -b`) |
+| `node e2e/verify-all.mjs --only static` | Static gates: theme dir shape / alias single source / kernel zero-coupling / console strip / any debt / PWA / bundle budget |
+
+**CI**: on push to `main` or PR, GitHub Actions runs type-check → ESLint → Vitest →
+production build → static gates (`.github/workflows/ci.yml`). The dev / prod gate groups
+(which need dev/preview servers) are deliberately excluded to avoid flakiness — run the
+full suite locally with `node e2e/verify-all.mjs`.
 
 ### Environment Variables
 
@@ -116,7 +124,7 @@ oauth-web/
 │   ├── utils/           # Utilities (request wrapper / validation / storage)
 │   └── view/            # Pages: web desktop / app mobile / tablet layouts
 ├── config/aliases.ts    # Single source of truth for path aliases
-├── docs/                # Project docs (frontend generation guide, theme replacement spec, Git release rules, …)
+├── docs/                # Project docs (frontend generation guide, theme replacement spec, theme hot-update design, Git release rules, …)
 ├── scripts/             # Release script (release-web.mjs: commit-driven tag + GitHub Release)
 ├── __tests__/           # Unit tests (Vitest)
 ├── e2e/                 # End-to-end tests
@@ -189,6 +197,10 @@ Host apps (same pattern as retroweb / posecraft / firewall) embed `/mini-login` 
 - **Full mechanism doc**: [docs/theme-replacement.md](docs/theme-replacement.md) (directory
   contract, replacement entries, priorities, security boundaries, acceptance checklist — maintained
   in the master docs too, ready to be adopted by other projects).
+- **Hot-update design**: [docs/theme-hot-update.md](docs/theme-hot-update.md) — a three-layer
+  model for changing themes without redeploying the frontend (backend token overrides / palette
+  switching / theme-package hot updates from CDN). The first two layers are implemented; the third
+  is a design document.
 
 ## 6. Known Constraints
 

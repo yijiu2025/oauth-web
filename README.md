@@ -2,6 +2,8 @@
 
 [English](README.en.md) | **简体中文**
 
+[![CI](https://github.com/yijiu2025/oauth-web/actions/workflows/ci.yml/badge.svg)](https://github.com/yijiu2025/oauth-web/actions/workflows/ci.yml)
+
 企业统一身份认证（SSO）体系的**纯前端部分**：登录、注册、找回密码、扫码登录、OAuth 2.1
 应用授权页（authorize / consent）一整套页面，外加多主题、多设备版式、中英文国际化与深色模式。
 后端账号与授权服务在另一个仓库 [CoreFlow（nodeservers）](https://github.com/yijiu2025/CoreFlow)。
@@ -64,6 +66,12 @@ npm run dev            # http://localhost:5174
 | `npm test` | Vitest 跑单元测试（`__tests__/` 与 `e2e/`） |
 | `npm run lint` / `lint:fix` | ESLint 检查 / 自动修复 |
 | `npm run type-check` | 仅类型检查（`vue-tsc -b`） |
+| `node e2e/verify-all.mjs --only static` | 静态关卡：主题目录形态 / 别名单一来源 / 内核零框架耦合 / console 剥离 / any 债务 / PWA / 包体积预算 |
+
+**CI**：推送到 `main` 或开 PR 时，GitHub Actions 自动跑「类型检查 → ESLint →
+Vitest → 生产构建 → 静态关卡」（`.github/workflows/ci.yml`）。需要 dev server 的
+dev / prod 关卡组刻意不进 CI（起服务易 flake），本地 `node e2e/verify-all.mjs`
+全量跑。
 
 ### 环境变量
 
@@ -113,7 +121,7 @@ oauth-web/
 │   ├── utils/           # 通用工具（request 封装 / 校验 / 存储）
 │   └── view/            # 页面：web 桌面 / app 移动 / tablet 平板三套版式
 ├── config/aliases.ts    # 路径别名单一来源
-├── docs/                # 项目文档（前端生成手册、主题替换规范、Git 发版规则等）
+├── docs/                # 项目文档（前端生成手册、主题替换规范、主题热更新设计、Git 发版规则等）
 ├── scripts/             # 发布脚本（release-web.mjs：按提交类型打 tag + 建 GitHub Release）
 ├── __tests__/           # 单元测试（Vitest）
 ├── e2e/                 # 端到端测试
@@ -180,6 +188,8 @@ oauth-web/
 - **国际化**：`src/i18n/index.ts`，默认 `zh_cn`，`en` 兜底；新增语言加一个 messages 对象即可。
 - **完整机制文档**：[docs/theme-replacement.md](docs/theme-replacement.md)（目录契约 / 替换入口 /
   优先级 / 安全边界 / 验收清单，总文档同步维护，别的项目可直接套用）。
+- **热更新设计**：[docs/theme-hot-update.md](docs/theme-hot-update.md) —— 不重新发版就换主题的
+  三层模型（后端 token 覆写 / 配色切换 / 主题包 CDN 热更）；前两层已实现，第三层为设计文档。
 
 ## 六、已知约束
 

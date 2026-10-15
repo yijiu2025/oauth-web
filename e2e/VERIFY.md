@@ -20,7 +20,7 @@ node oauth21/e2e/verify-all.mjs --dev http://127.0.0.1:5174   # 覆盖端口
 **环境预检**：某关卡的端口没起、或产物目录不存在，会标「⏭️ 跳过」而非「❌ 失败」——
 避免"没起环境"被误读成"代码红了"。
 
-## 二、端口约定（与 docs/frontend/multi-theme.md §十、MEMORY §9 一致）
+## 二、端口约定（与 docs/multi-theme.md §十、MEMORY §9 一致）
 
 | 端口 | 用途 |
 | --- | --- |
