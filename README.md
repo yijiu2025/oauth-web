@@ -99,7 +99,8 @@ oauth-web/
 │   ├── utils/           # 通用工具（request 封装 / 校验 / 存储）
 │   └── view/            # 页面：web 桌面 / app 移动 / tablet 平板三套版式
 ├── config/aliases.ts    # 路径别名单一来源
-├── docs/                # 项目文档（前端生成手册等）
+├── docs/                # 项目文档（前端生成手册、Git 发版规则等）
+├── scripts/             # 发布脚本（release-web.mjs：按提交类型打 tag + 建 GitHub Release）
 ├── __tests__/           # 单元测试（Vitest）
 ├── e2e/                 # 端到端测试
 ├── public/              # 原样拷贝的静态资源
