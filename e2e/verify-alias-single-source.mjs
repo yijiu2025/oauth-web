@@ -13,12 +13,21 @@
  *   - tsconfig 漏改 → `vue-tsc -b` 可能退化成 any / 或报"找不到声明"，
  *     也可能因为路径仍存在（只是指向别处）而**完全静默**
  *   - aliases.ts 与 tsconfig 各指不同实现 → 类型检查用 A、运行用 B，最阴险
- * 所以这里做三件事：
- *   (1) 逐条比对 aliases.ts 与 tsconfig.app.json 的**语义一致**（解析到同一绝对路径）
- *   (2) 确认 aliases.ts 里每条在 tsconfig 里都有对应项（反之亦然）
- *   (3) 真起一次 vitest 的 alias 解析（用 vite 的 resolveConfig + resolveId 探针），
- *       确认 `skinsuite` / `stable-deviceid` 真的解析到 packages 下的 src/index.ts
- *       而不是 node_modules 里的 dist 目录
+ *
+ * === 双形态分流（2026-10-15）===
+ * `config/aliases.ts` 对两个本地包做**存在性回落**（详见其文件头「双形态」）：
+ *   - **monorepo 形态**（上级有 packages/）：alias 指源码 src/index.ts，本关跑
+ *     全部历史断言（源码直供 / 不指 node_modules / 三处语义同源）。
+ *   - **standalone 形态**（单仓 checkout / CI / 开源用户）：两个 alias 键不注册，
+ *     解析走 node_modules 的 npm 版。此时：
+ *       · alias 表应恰为 1 个键（`@`）；
+ *       · tsconfig 仍**声明**两个 pkg 键（静态描述不随形态裁剪，否则丢
+ *         monorepo 的类型直供），TS 会回落 node_modules —— 因此"tsconfig 声明了
+ *         该键"仍要断言，"与 aliases.ts 解析到同一文件"按设计跳过；
+ *       · 探针改用 node 原生 `import.meta.resolve` 断言裸说明符命中
+ *         `node_modules/<pkg>/dist/` 且文件真实存在（刻意不用 vite 探针：dev
+ *         server 的 optimizeDeps 会把裸包预热成 `.vite/deps/` 缓存产物，
+ *         resolveId 命中的是预构建文件，验证不到"命中 npm 版"的语义）。
  *
  * 退出码：0 全绿 / 1 有失败
  */
@@ -30,6 +39,21 @@ import { createServer } from 'vite';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..'); // oauth21/
+
+/** monorepo 根（oauth21 的上一级，packages/ 的所在处）。 */
+const MONOREPO_ROOT = resolve(ROOT, '..');
+
+/** 源码直供目标（两个本地包的 monorepo 入口）。 */
+const LOCAL_PKG_SOURCE = {
+  skinsuite: resolve(MONOREPO_ROOT, 'packages/theme-core/src/index.ts'),
+  'stable-deviceid': resolve(MONOREPO_ROOT, 'packages/shared-device/src/index.ts')
+};
+
+/**
+ * 形态判定：monorepo 源码在 → 源码直供形态；不在 → standalone（npm 版回落）形态。
+ * 与 `config/aliases.ts` 的注册判定保持同一物理条件。
+ */
+const MONOREPO_FORM = existsSync(LOCAL_PKG_SOURCE.skinsuite);
 
 let pass = 0;
 const failures = [];
@@ -63,7 +87,7 @@ async function readJsonc(file) {
 }
 
 // ---------------------------------------------------------------- 1) 加载 aliases.ts
-console.log('== 1) config/aliases.ts ==');
+console.log(`== 1) config/aliases.ts（形态：${MONOREPO_FORM ? 'monorepo 源码直供' : 'standalone npm 版回落'}）==`);
 const aliasesFile = join(ROOT, 'config', 'aliases.ts');
 check('config/aliases.ts 存在', existsSync(aliasesFile), aliasesFile);
 
@@ -78,11 +102,20 @@ try {
 }
 
 const aliasKeys = Object.keys(aliases).sort();
-check(
-  '导出 aliases 含 3 个键（@ / skinsuite / stable-deviceid）',
-  aliasKeys.length === 3 && aliasKeys.join(',') === '@,skinsuite,stable-deviceid',
-  `实际：${aliasKeys.join(', ') || '(空)'}`
-);
+if (MONOREPO_FORM) {
+  check(
+    '导出 aliases 含 3 个键（@ / skinsuite / stable-deviceid）',
+    aliasKeys.length === 3 && aliasKeys.join(',') === '@,skinsuite,stable-deviceid',
+    `实际：${aliasKeys.join(', ') || '(空)'}`
+  );
+} else {
+  // standalone：两个本地包按设计不注册，解析回落 node_modules
+  check(
+    'standalone 形态 aliases 恰 1 个键（@，本地包回落 node_modules）',
+    aliasKeys.length === 1 && aliasKeys[0] === '@',
+    `实际：${aliasKeys.join(', ') || '(空)'}`
+  );
+}
 
 // 解析出的绝对路径必须真实存在（否则构建期就是 Cannot find module）
 for (const [k, v] of Object.entries(aliases)) {
@@ -90,18 +123,29 @@ for (const [k, v] of Object.entries(aliases)) {
 }
 
 // 两个本地包必须指向源码（src/index.ts），不是 node_modules dist
-for (const pkg of ['skinsuite', 'stable-deviceid']) {
-  const target = aliases[pkg] || '';
-  check(
-    `${pkg} 指向 packages/*/src/index.ts（源码直供）`,
-    /packages\/(theme-core|shared-device)\/src\/index\.ts$/.test(target.replace(/\\/g, '/')),
-    `实际：${target}`
-  );
-  check(
-    `${pkg} 不指向 node_modules`,
-    !target.includes('node_modules'),
-    `实际：${target}`
-  );
+// —— 仅 monorepo 形态适用；standalone 形态由第 3) 段探针验证 node_modules 回落
+if (MONOREPO_FORM) {
+  for (const pkg of ['skinsuite', 'stable-deviceid']) {
+    const target = aliases[pkg] || '';
+    check(
+      `${pkg} 指向 packages/*/src/index.ts（源码直供）`,
+      /packages\/(theme-core|shared-device)\/src\/index\.ts$/.test(target.replace(/\\/g, '/')),
+      `实际：${target}`
+    );
+    check(
+      `${pkg} 不指向 node_modules`,
+      !target.includes('node_modules'),
+      `实际：${target}`
+    );
+  }
+} else {
+  for (const pkg of ['skinsuite', 'stable-deviceid']) {
+    check(
+      `${pkg} 未注册 alias（standalone 设计如此，走 node_modules）`,
+      !Object.prototype.hasOwnProperty.call(aliases, pkg),
+      `实际已注册：${aliases[pkg]}`
+    );
+  }
 }
 
 // ---------------------------------------------------------------- 2) 与 tsconfig.app.json 比对
@@ -120,7 +164,7 @@ function resolveTsPath(p) {
   return resolve(ROOT, p).replace(/\\/g, '/');
 }
 
-// @ → src
+// @ → src（两种形态都成立：src/ 是本仓自有目录）
 const tsAt = (tsPaths['@/*'] || [])[0];
 check(
   'tsconfig `@/*` 与 aliases.ts 的 `@` 同源（都指 oauth21/src）',
@@ -135,7 +179,10 @@ for (const pkg of ['skinsuite', 'stable-deviceid']) {
     Boolean(tsVal),
     tsVal ? '' : '缺少该键'
   );
-  if (tsVal) {
+  // "解析到同一文件"仅 monorepo 形态可比：standalone 下 tsconfig 指向的
+  // ../packages/... 不存在，TS 回落 node_modules（paths 未命中不报错），
+  // 这是 aliases.ts 文件头记录的设计行为。
+  if (tsVal && MONOREPO_FORM) {
     check(
       `tsconfig "${pkg}" 与 aliases.ts 解析到同一文件`,
       resolveTsPath(tsVal) === aliases[pkg].replace(/\\/g, '/'),
@@ -145,14 +192,19 @@ for (const pkg of ['skinsuite', 'stable-deviceid']) {
 }
 
 // 反向：tsconfig 里的别名键，aliases.ts 里应当有非通配的对应项
+// —— standalone 形态豁免两个本地包（按设计不注册，回落 node_modules）
 const tsKeys = Object.keys(tsPaths);
 for (const k of tsKeys) {
   const base = k.replace(/\/\*$/, '');
   if (base === '@') continue; // @/* 已在上面单比
+  const inAliases =
+    Object.prototype.hasOwnProperty.call(aliases, base) ||
+    Object.prototype.hasOwnProperty.call(aliases, k);
+  const exemptStandalone = !MONOREPO_FORM && (base === 'skinsuite' || base === 'stable-deviceid');
   check(
     `tsconfig 键 "${k}" 在 aliases.ts 里有对应项`,
-    Object.prototype.hasOwnProperty.call(aliases, base) || Object.prototype.hasOwnProperty.call(aliases, k),
-    `aliases 里有：${aliasKeys.join(', ')}`
+    inAliases || exemptStandalone,
+    `aliases 里有：${aliasKeys.join(', ')}${exemptStandalone ? '（standalone 豁免）' : ''}`
   );
 }
 
@@ -169,38 +221,65 @@ if (Object.keys(tsconfigPathsExport).length) {
   );
 }
 
-// ---------------------------------------------------------------- 3) 真解析探针（vite resolve）
-console.log('\n== 3) vite/vitest 实解析探针 ==');
-let server;
-try {
-  server = await createServer({
-    root: ROOT,
-    configFile: join(ROOT, 'vitest.config.ts'),
-    server: { middlewareMode: true },
-    logLevel: 'silent'
-  });
+// ---------------------------------------------------------------- 3) 真解析探针
+console.log('\n== 3) 解析探针 ==');
+if (MONOREPO_FORM) {
+  // monorepo 形态：vite alias 精确匹配 → 必须命中 packages/ 源码
+  let server;
+  try {
+    server = await createServer({
+      root: ROOT,
+      configFile: join(ROOT, 'vitest.config.ts'),
+      server: { middlewareMode: true },
+      logLevel: 'silent'
+    });
 
+    for (const [spec, expectSuffix] of [
+      ['skinsuite', 'packages/theme-core/src/index.ts'],
+      ['stable-deviceid', 'packages/shared-device/src/index.ts']
+    ]) {
+      try {
+        const resolved = await server.pluginContainer.resolveId(spec, join(ROOT, 'src', '__probe__.ts'));
+        const id = (resolved && resolved.id) || '';
+        const norm = id.replace(/\\/g, '/');
+        check(
+          `vite 运行期解析 ${JSON.stringify(spec)} → ${expectSuffix}`,
+          norm.endsWith(expectSuffix),
+          `实际：${id || '(未解析)'}`
+        );
+      } catch (e) {
+        check(`vite 运行期解析 ${JSON.stringify(spec)}`, false, e.message);
+      }
+    }
+  } catch (e) {
+    check('起 vite 解析探针', false, e.message);
+  } finally {
+    if (server) await server.close();
+  }
+} else {
+  // standalone 形态：alias 键已删，要验证的是"裸说明符经 node 标准解析命中
+  // node_modules 的 npm 版"这条回落机制本身。刻意不用 vite 探针 —— dev server 的
+  // optimizeDeps 会把裸包预热成 node_modules/.vite/deps/<pkg>.js 缓存产物，
+  // resolveId 命中的是预构建文件而非包入口，验证不到"命中 npm 版"的语义。
+  const parentUrl = pathToFileURL(join(ROOT, 'src', '__probe__.ts')).href;
   for (const [spec, expectSuffix] of [
-    ['skinsuite', 'packages/theme-core/src/index.ts'],
-    ['stable-deviceid', 'packages/shared-device/src/index.ts']
+    ['skinsuite', 'node_modules/skinsuite/dist/index.js'],
+    ['stable-deviceid', 'node_modules/stable-deviceid/dist/index.js']
   ]) {
     try {
-      const resolved = await server.pluginContainer.resolveId(spec, join(ROOT, 'src', '__probe__.ts'));
-      const id = (resolved && resolved.id) || '';
+      // await 兼容同步 string / Promise 两种返回（node 版本差异）
+      const resolved = await import.meta.resolve(spec, parentUrl);
+      const id = resolved ? fileURLToPath(resolved) : '';
       const norm = id.replace(/\\/g, '/');
       check(
-        `运行期解析 ${JSON.stringify(spec)} → ${expectSuffix}`,
-        norm.endsWith(expectSuffix),
+        `node 解析 ${JSON.stringify(spec)} → ${expectSuffix}`,
+        norm.endsWith(expectSuffix) && existsSync(id),
         `实际：${id || '(未解析)'}`
       );
     } catch (e) {
-      check(`运行期解析 ${JSON.stringify(spec)}`, false, e.message);
+      check(`node 解析 ${JSON.stringify(spec)}`, false, e.message);
     }
   }
-} catch (e) {
-  check('起 vite 解析探针', false, e.message);
-} finally {
-  if (server) await server.close();
 }
 
 // ---------------------------------------------------------------- 汇总

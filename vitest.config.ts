@@ -10,6 +10,9 @@
  * === alias 单一来源 ===
  * `@` / `skinsuite` / `stable-deviceid` 三个别名来自 `config/aliases.ts`，
  * 与 `vite.config.ts` 共用同一份定义（此前是两处手抄，漏改即静默解析失败）。
+ * 注意 `skinsuite` / `stable-deviceid` 是**条件注册**的：monorepo 里源码直供，
+ * 单仓 checkout（CI / 开源用户）没有 packages/ 时不注册、解析回落 node_modules
+ * 的 npm 版 —— 双形态设计见 `config/aliases.ts` 文件头。
  * `tsconfig.app.json` 的 `paths` 因是静态 JSON 无法 import，仍手写 ——
  * 由 `e2e/verify-alias-single-source.mjs` 守三处一致。
  */

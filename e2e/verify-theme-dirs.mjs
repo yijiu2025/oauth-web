@@ -120,8 +120,18 @@ const read = p => readFileSync(p, 'utf8');
  * 实现还在 src 就命中 src，搬进包就命中包 —— 断言逻辑一个字都不用改。
  *
  * 容错：包目录还不存在（抽包进行中）时 `existsSync` 直接跳过，等价于旧行为。
+ *
+ * === 双形态（2026-10-15）===
+ * CORE 的位置随仓形态切换（与 `config/aliases.ts` 同一物理条件）：
+ *   - monorepo 形态（上级有 packages/）→ `packages/theme-core/src`
+ *   - standalone 形态（单仓 checkout / CI / 开源用户）→ `node_modules/skinsuite/src`
+ *     npm 版发布时 files 白名单带 `src`，7 个 .ts 与 monorepo 版逐文件对应，
+ *     断言语义不变。
  */
-const CORE = join(HERE, '..', '..', 'packages', 'theme-core', 'src');
+const MONOREPO_FORM = existsSync(join(HERE, '..', '..', 'packages', 'theme-core', 'src', 'index.ts'));
+const CORE = MONOREPO_FORM
+  ? join(HERE, '..', '..', 'packages', 'theme-core', 'src')
+  : join(ROOT, '..', 'node_modules', 'skinsuite', 'src');
 function implText(relPaths) {
   const chunks = [];
   for (const rel of relPaths) {
@@ -1129,7 +1139,7 @@ console.log('\n=== 13. theme-core 包契约（依赖方向 + 公开面 + 壳无�
 
   if (!isDir(CORE)) {
     check(
-      '内核包 packages/theme-core/src 存在',
+      `内核包实现目录存在（${MONOREPO_FORM ? 'packages/theme-core/src' : 'node_modules/skinsuite/src'}）`,
       false,
       `未找到 ${CORE} —— 抽包后退化成"没有内核包"，本节的其余断言失去意义`
     );
