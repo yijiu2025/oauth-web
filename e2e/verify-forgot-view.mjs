@@ -173,7 +173,7 @@ console.log('\n=== E 业务完整性（容器侧）===');
   await page.click('.mauth-submit');
   await page.waitForTimeout(700);
   const codeErr = await text(page, '.mauth-cell >> nth=0 >> .mauth-err');
-  check('E4 邮箱码留空 → 报错且不发请求', codeErr.length > 0 && capturedReset === null, `err="${codeErr}"`);
+  check('E4 邮箱码留空 → 报错且不发请求', codeErr.length > 0 && capturedReset === undefined, `err="${codeErr}"`);
 
   // E5 两次密码不一致 → 必须显式比对（zod 的 object 级 refine 不被 validateField 执行）
   capturedReset = undefined;
@@ -183,7 +183,7 @@ console.log('\n=== E 业务完整性（容器侧）===');
   await page.click('.mauth-submit');
   await page.waitForTimeout(700);
   const confirmErr = await text(page, '.mauth-cell >> nth=2 >> .mauth-err');
-  check('E5 两次密码不一致 → 报错且不发请求（refine 补丁生效）', confirmErr.length > 0 && capturedReset === null, `err="${confirmErr}"`);
+  check('E5 两次密码不一致 → 报错且不发请求（refine 补丁生效）', confirmErr.length > 0 && capturedReset === undefined, `err="${confirmErr}"`);
 
   // E6 密码太弱（两次都填 'abc'，避免落到"不一致"分支）→ 报错且不发请求
   capturedReset = undefined;
@@ -192,7 +192,7 @@ console.log('\n=== E 业务完整性（容器侧）===');
   await page.click('.mauth-submit');
   await page.waitForTimeout(700);
   const pwdErr = await text(page, '.mauth-cell >> nth=1 >> .mauth-err');
-  check('E6 密码太弱 → 报错且不发请求', pwdErr.length > 0 && capturedReset === null, `err="${pwdErr}"`);
+  check('E6 密码太弱 → 报错且不发请求', pwdErr.length > 0 && capturedReset === undefined, `err="${pwdErr}"`);
 
   // E7 合法提交 → reset-password，密码走加密信封
   capturedReset = undefined;

@@ -60,9 +60,13 @@ const aBlack = await probe('/m/register' + QS + '&theme=black');
 check('A1 register base: theme=black 生效（data-mauth-theme=black）', aBlack.theme === 'black', `theme=${aBlack.theme}`);
 /* 🔴 2026-09-25 改：black / white 不再零 token —— 它们现在是和蓝青**并列的普通颜色**，
    各自自带底色（否则选黑还是选蓝都会随用户明暗偏好变，就是用户报的"白蓝/黑蓝"问题）。
-   本段因此从"断言零 token"改为"断言自带黑底且明暗不影响它"。 */
-check('A2 register base: black 自带深色底 --mauth-bg=#020617', aBlack.bg === '#020617', `bg=${aBlack.bg}`);
-check('A2b register base: black 自带画布色 #020617', aBlack.canvas === '#020617', `canvas=${aBlack.canvas}`);
+   本段因此从"断言零 token"改为"断言自带黑底且明暗不影响它"。
+   🔴 2026-10-15 改：#020617(slate-950) → #000000(纯黑) —— 主题源码
+   `src/theme/themes/` 下各包的 `register/colors/black/index.ts` 已改为"选黑就是纯黑"
+   （用户原话："黑色背景就要使用纯黑"，不再借 slate-950 那套深蓝灰）。
+   本关卡此前仍断言旧值，属于期望值漂移（产品已是新值）。 */
+check('A2 register base: black 自带深色底 --mauth-bg=#000000', aBlack.bg === '#000000', `bg=${aBlack.bg}`);
+check('A2b register base: black 自带画布色 #000000', aBlack.canvas === '#000000', `canvas=${aBlack.canvas}`);
 
 const aCyan = await probe('/m/register' + QS + '&theme=cyan');
 check('A3 register base: theme=cyan 生效', aCyan.theme === 'cyan', `theme=${aCyan.theme}`);

@@ -173,7 +173,10 @@ console.log('\n=== G 三块面板由容器判定 ===');
   check('G1 默认落在登录表单面板', (await text(page, '.mauth-title')) === '欢迎回来' && (await page.$('.mauth-tabs')) !== null);
 
   // G2 后端返回 action=consent → 授权确认面板（同一份 ConsentPanel 组件）
-  loginData = { action: 'consent', consentKey: 'ck-1', client_name: 'PoseCraft', scope: 'user', consentKey2: 'x' };
+  // 🔴 user 是 schema 必填（loginUserSchema：id + username）—— 2026-10-15 实测：
+  //    缺它时 zod 判别联合落到 kind:'unknown'，容器走"登录响应格式异常"分支，
+  //    授权面板永远不渲染（标题停在"欢迎回来"）。这不是产品 bug，是 fixture 缺字段。
+  loginData = { action: 'consent', consentKey: 'ck-1', client_name: 'PoseCraft', scope: 'user', consentKey2: 'x', user: { id: 1, username: 'tester' } };
   await open(page, '/m/login' + QS);
   await page.fill('.mauth-input >> nth=0', 'user@example.com');
   await page.fill('.mauth-input >> nth=1', '123456');

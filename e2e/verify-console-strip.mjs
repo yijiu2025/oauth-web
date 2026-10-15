@@ -80,11 +80,14 @@ console.log(`    （参考：源码里共 ${srcConsoleCount} 处 console.*）`);
 
 // ---------------------------------------------------------------- 3) 真构建 + 扫产物
 console.log('\n== 3) 真构建并扫描产物 ==');
-const outDirName = `dist-console-guard`;
+// 🔴 2026-10-15 改：outDir 带 pid 后缀，每次运行都是"全新目录"。
+//    此前用固定名 `dist-console-guard`：构建后的清理若失败一次（如本机
+//    safe-delete shim 的 trash 中止），残留目录会让下一轮的"构建前清旧"
+//    抛异常，而被 catch 当成"生产构建失败"—— 判定被清理问题污染。
+//    唯一目录名同时绕开沙箱"不允许清空已存在目录"的限制。
+const outDirName = `dist-console-guard-${process.pid}`;
 const outDir = join(ROOT, outDirName);
 try {
-  if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true });
-
   console.log(`    构建中（--outDir ${outDirName}）…`);
   execFileSync(process.execPath, [join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js'), 'build', '--outDir', outDirName], {
     cwd: ROOT,

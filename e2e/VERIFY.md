@@ -25,9 +25,11 @@ node oauth21/e2e/verify-all.mjs --dev http://127.0.0.1:5174   # 覆盖端口
 | 端口 | 用途 |
 | --- | --- |
 | `5174` | dev 默认实例（大部分 Playwright 关卡） |
+| `5175` | **link 模式实例**（`VITE_PASSWORD_RESET_MODE=link`；`verify-forgot-view.mjs` 的 E 段 link 流程） |
 | `5177` | compact 版式实例（`VITE_REGISTER_VIEW=compact`；版式优先级第 4 档 / 首屏预算） |
+| `5184` | **移动端实例**（`verify-colors-in-views.mjs` 的 `/m/*` 路由探针） |
 | `5197` | color-peer 专用实例 |
-| `5189` | dist 预览（生产构建，验 SW 迁移 / 宽窄切换） |
+| `5189` | dist 预览（生产构建，验 SW 迁移 / 宽窄切换）—— ⚠️ 必须 `--outDir dist-nopwa`，见 §八 |
 
 ⚠️ 起多个实例**必须串行**（前一个 curl 到 200 再起下一个）：几个 Vite 共用
 `node_modules/.vite`，同时冷启会互相废掉 optimizeDeps → 白屏 + `504 (Outdated Optimize Dep)`。
