@@ -775,5 +775,12 @@ oauth21 iframe 挂载 → postToParent({ type: 'SSO_READY' })
 `import.meta` / `window.` / `document.` / `localStorage` / 非 `import type` 的 `vue` /
 `vue-router` / `axios` / `@/` 别名；壳里除转发不得有任何逻辑（"同一时刻只有一个实现"）。
 
+**双形态**（2026-10-15）：`../../packages/` 是 monorepo 开发态才有的路径。本仓作为
+独立仓 clone / CI / 开源用户使用时，`config/aliases.ts` 检测到 `packages/` 不存在即
+**删掉两个本地包的 alias 键**，解析回落 `node_modules` 里的 npm 发布版（`skinsuite` /
+`stable-deviceid`，导出集合与源码实测零缺口）；相关关卡（`verify-alias-single-source` /
+`verify-theme-dirs` / `verify-kernel-zero-coupling`）按同一条件分流验证两种形态。
+**npm 版与源码版的一致性靠发包纪律维持**：改包源码必须同步发版，否则 CI 验的是旧发布版。
+
 > 相关：[主题框架抽包立项](https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/theme-package-extraction.md)、[主题系统](https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/theme-baseline.md)（各前端通用的 HSL 变量 / Store 约定）、
 > [前端统一规范](https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/coding-standard.md)、[跨内核渲染基线](https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/browser-baseline.md)。

@@ -59,6 +59,24 @@ npm install
 npm run dev            # http://localhost:5174
 ```
 
+### About the `skinsuite` / `stable-deviceid` dependencies
+
+The theme kernel (`skinsuite`) and device-ID helper (`stable-deviceid`) switch
+between two runtime modes automatically, based on whether a `packages/`
+directory exists one level up (conditional registration in `config/aliases.ts`):
+
+- **Standalone repo** (the clone flow above — also CI and open-source users):
+  both packages resolve to the npm published versions in `node_modules` (the
+  versions declared in `package.json`). No extra directories needed; works
+  right after `npm install`.
+- **Monorepo development** (inside the CoreFlow main repo): when `packages/`
+  exists upstream, aliases point at the package sources (source-direct supply,
+  so package edits take effect immediately).
+
+Gate `e2e/verify-alias-single-source.mjs` and its peers verify both modes under
+the same physical condition; unit tests, builds and static gates are green in
+both modes.
+
 ### Common Commands
 
 | Command | Purpose |

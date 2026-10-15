@@ -56,6 +56,20 @@ npm install
 npm run dev            # http://localhost:5174
 ```
 
+### 关于 `skinsuite` / `stable-deviceid` 两个依赖
+
+本仓的主题内核（`skinsuite`）与设备 ID 工具（`stable-deviceid`）按上级目录是否
+存在 `packages/` 自动切换两种运行形态（`config/aliases.ts` 条件注册）：
+
+- **单仓使用**（本 README 的 clone 方式，也是 CI / 开源用户的形态）：两个包走
+  `node_modules` 里的 npm 发布版（`package.json` 声明的版本号），无需任何额外
+  目录，`npm install` 装完即用；
+- **monorepo 协作**（CoreFlow 主仓库内）：上级有 `packages/` 时 alias 自动指向
+  包源码（源码直供，改包源码即时生效）。
+
+关卡 `e2e/verify-alias-single-source.mjs` 等按同一物理条件分流验证两种形态，
+两种形态下单测 / 构建 / 静态关卡均全绿。
+
 ### 常用命令
 
 | 命令 | 作用 |
