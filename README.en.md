@@ -70,19 +70,33 @@ npm run dev            # http://localhost:5174
 
 ### Environment Variables
 
-Copy `.env.example` to `.env` (dev reads `.env.development`; never commit real secrets):
+Start by copying `.env.example` to `.env`. All four env files list the variables in the **exact same order** and stack by environment:
+
+| File | Role | Tracked |
+| --- | --- | --- |
+| `.env` | Local base config (your machine defaults) | No (`.gitignore`) |
+| `.env.development` | Overrides `.env` for `npm run dev` | Yes |
+| `.env.production` | Overrides `.env` for `npm run build` (defaults/placeholders only — inject real secrets via the deploy platform) | Yes |
+| `.env.example` | Sanitized template | Yes |
+
+The comments inside each file are the full explanation (including failure symptoms and security boundaries); an unused variable is left empty = "disabled" — do not delete the line. Full list (same order as in the files):
 
 | Variable | Description | Default |
 | --- | --- | --- |
-| `VITE_API_BASE_URL` | Backend API base URL; in dev, `/api` is proxied by vite | `http://localhost:3000` |
-| `VITE_APP_TITLE` | Page title | `Enterprise Identity System` |
-| `VITE_RECAPTCHA_ENABLED` | Enable captcha (must match backend `RECAPTCHA_ENABLED`) | `false` |
-| `VITE_RECAPTCHA_SITE_KEY` | hCaptcha site key (site keys are public by design) | — |
-| `VITE_PASSWORD_RESET_MODE` | `code` (verification code) / `link` (email link) | `code` |
-| `VITE_ALLOWED_PARENT_ORIGINS` | Comma-separated parent origins allowed to embed via iframe | Local dev origins |
-| `VITE_SIGN_APP_KEY` | H5 signing appKey (shared with backend; weak anti-crawl — real security is session + permissions) | — |
+| `VITE_API_BASE_URL` | Backend API base URL; in dev, `/api` is proxied by vite; empty in production = same-origin deploy | `http://localhost:3000` (code fallback) |
+| `VITE_LOGIN_VIEW` | Deploy-level default layout for the login page (theme package dir name, e.g. `compact`); a single visit can override via `?view=` | empty = base layout |
+| `VITE_REGISTER_VIEW` | Default layout for the register page (same rules) | empty |
+| `VITE_FORGOT_PASSWORD_VIEW` | Default layout for the forgot-password page (same rules) | empty |
+| `VITE_RECAPTCHA_ENABLED` | Enable hCaptcha (must match backend `RECAPTCHA_ENABLED`) | `false` |
+| `VITE_RECAPTCHA_SITE_KEY` | hCaptcha site key (public by design; the secret lives only on the backend) | — |
+| `VITE_TURNSTILE_ENABLED` | Enable Cloudflare Turnstile (takes precedence over hCaptcha when both are on) | `false` |
+| `VITE_TURNSTILE_SITE_KEY` | Turnstile site key (from the Cloudflare Dashboard) | — |
+| `VITE_PASSWORD_RESET_MODE` | `code` (verification code) / `link` (email link); must match the backend | `code` |
 | `VITE_SOCIAL_ENDPOINT` | Social-login authorize endpoint — **relative in-site paths only** (absolute URLs are deliberately rejected) | empty |
-| `VITE_SOCIAL_PROVIDERS` | Default visible providers (`wechat,alipay,qq,weibo,github,apple`) | empty |
+| `VITE_SOCIAL_PROVIDERS` | Default visible providers (`wechat,alipay,qq,weibo,github,apple`); `?social=` overrides per visit | empty |
+| `VITE_ALLOWED_PARENT_ORIGINS` | Comma-separated parent origins allowed to embed via iframe; a missing entry shows up as the host dialog waiting out a 3s fallback timeout (not an error) | Local dev origins |
+| `VITE_SIGN_APP_KEY` | H5 signing appKey (shared with backend; weak anti-crawl — real security is session + permissions) | — |
+| `VITE_THEME_ENDPOINT` | Backend theme-config endpoint (per-client_id color/mode/tokens); unset = mechanism off, zero requests | empty |
 
 ## 2. Project Structure
 
@@ -102,7 +116,7 @@ oauth-web/
 │   ├── utils/           # Utilities (request wrapper / validation / storage)
 │   └── view/            # Pages: web desktop / app mobile / tablet layouts
 ├── config/aliases.ts    # Single source of truth for path aliases
-├── docs/                # Project docs (frontend generation guide, Git release rules, …)
+├── docs/                # Project docs (frontend generation guide, theme replacement spec, Git release rules, …)
 ├── scripts/             # Release script (release-web.mjs: commit-driven tag + GitHub Release)
 ├── __tests__/           # Unit tests (Vitest)
 ├── e2e/                 # End-to-end tests
@@ -172,6 +186,9 @@ Host apps (same pattern as retroweb / posecraft / firewall) embed `/mini-login` 
 - **Dark mode**: theme is pre-applied inline in `index.html` — no first-paint flash;
 - **i18n**: `src/i18n/index.ts`, default `zh_cn`, `en` fallback; add a messages object for a new
   language.
+- **Full mechanism doc**: [docs/theme-replacement.md](docs/theme-replacement.md) (directory
+  contract, replacement entries, priorities, security boundaries, acceptance checklist — maintained
+  in the master docs too, ready to be adopted by other projects).
 
 ## 6. Known Constraints
 
@@ -179,8 +196,9 @@ Host apps (same pattern as retroweb / posecraft / firewall) embed `/mini-login` 
   error out);
 - **Port is pinned to 5174**: `strictPort` — startup fails if taken, deliberately, so phones don't
   connect to the wrong port;
-- **`.env` is not committed**: only `.env.example` and `.env.development` are; real secrets go
-  through deployment env vars;
+- **`.env` is not committed**: only `.env.example`, `.env.development` and `.env.production`
+  are (the latter two hold defaults/placeholders only); real secrets go through deployment
+  env vars;
 - **H5 signing is weak anti-crawl**: the frontend can be de-compiled, so the appKey is obtainable —
   the real security boundary is backend session + permission checks;
 - **Social-login endpoints accept relative in-site paths only**: an externally settable endpoint

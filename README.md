@@ -67,19 +67,33 @@ npm run dev            # http://localhost:5174
 
 ### 环境变量
 
-复制 `.env.example` 为 `.env`（开发环境默认读 `.env.development`，两者都不要提交真实密钥）：
+复制 `.env.example` 为 `.env` 起步。四个 env 文件的**变量顺序完全一致**，按环境叠加取值：
+
+| 文件 | 角色 | 入库 |
+| --- | --- | --- |
+| `.env` | 本地基础配置（本机默认值） | 否（`.gitignore`） |
+| `.env.development` | `npm run dev` 时覆盖 `.env` | 是 |
+| `.env.production` | `npm run build` 时覆盖 `.env`（只放默认值/占位符，真实密钥由部署平台注入） | 是 |
+| `.env.example` | 脱敏模板 | 是 |
+
+每个文件内的注释就是完整解释（含漏配症状与安全边界）；用不到的变量留空即"不启用"，不要删行。完整变量清单（顺序同文件内）：
 
 | 变量 | 说明 | 默认 |
 | --- | --- | --- |
-| `VITE_API_BASE_URL` | 后端 API 基地址；开发环境由 vite proxy 转发 `/api` | `http://localhost:3000` |
-| `VITE_APP_TITLE` | 页面标题 | `Enterprise Identity System` |
-| `VITE_RECAPTCHA_ENABLED` | 是否启用人机验证（与后端 `RECAPTCHA_ENABLED` 对应） | `false` |
-| `VITE_RECAPTCHA_SITE_KEY` | hCaptcha site key（site key 本就公开） | — |
-| `VITE_PASSWORD_RESET_MODE` | 密码重置方式：`code` 验证码 / `link` 邮件链接 | `code` |
-| `VITE_ALLOWED_PARENT_ORIGINS` | iframe 父应用 origin 白名单，逗号分隔 | 本地开发用的一组 origin |
-| `VITE_SIGN_APP_KEY` | H5 签名 appKey（前后端共享；弱防爬，敏感操作仍靠登录态 + 权限） | — |
+| `VITE_API_BASE_URL` | 后端 API 基地址；开发由 vite proxy 转发 `/api`，生产留空 = 同源部署 | 代码内兜底 `http://localhost:3000` |
+| `VITE_LOGIN_VIEW` | 登录页部署级默认版式（主题包目录名，如 `compact`）；URL `?view=` 可单次覆盖 | 空 = 基础版式 |
+| `VITE_REGISTER_VIEW` | 注册页默认版式（规则同上） | 空 |
+| `VITE_FORGOT_PASSWORD_VIEW` | 忘记密码页默认版式（规则同上） | 空 |
+| `VITE_RECAPTCHA_ENABLED` | 启用人机验证 hCaptcha（与后端 `RECAPTCHA_ENABLED` 对应） | `false` |
+| `VITE_RECAPTCHA_SITE_KEY` | hCaptcha site key（公开值；secret 只放后端） | — |
+| `VITE_TURNSTILE_ENABLED` | 启用 Cloudflare Turnstile（与 hCaptcha 同时开启时优先） | `false` |
+| `VITE_TURNSTILE_SITE_KEY` | Turnstile site key（Cloudflare Dashboard 获取） | — |
+| `VITE_PASSWORD_RESET_MODE` | 密码重置方式：`code` 验证码 / `link` 邮件链接（须与后端一致） | `code` |
 | `VITE_SOCIAL_ENDPOINT` | 第三方登录授权端点，**只接受站内相对路径**（刻意不支持绝对地址） | 空 |
-| `VITE_SOCIAL_PROVIDERS` | 默认展示的第三方 provider，逗号分隔（`wechat,alipay,qq,weibo,github,apple`） | 空 |
+| `VITE_SOCIAL_PROVIDERS` | 默认展示的 provider，逗号分隔；`?social=` 可单次覆盖 | 空 |
+| `VITE_ALLOWED_PARENT_ORIGINS` | iframe 父应用 origin 白名单，逗号分隔；漏配症状是宿主弹窗等满 3s 超时（不是报错） | 本地开发用 origin |
+| `VITE_SIGN_APP_KEY` | H5 签名 appKey（前后端共享；弱防爬，敏感操作仍靠登录态 + 权限） | — |
+| `VITE_THEME_ENDPOINT` | 后端主题下发端点（按 client_id 下发配色/明暗/token）；未配置 = 机制不生效、零请求 | 空 |
 
 ## 二、目录结构
 
@@ -99,7 +113,7 @@ oauth-web/
 │   ├── utils/           # 通用工具（request 封装 / 校验 / 存储）
 │   └── view/            # 页面：web 桌面 / app 移动 / tablet 平板三套版式
 ├── config/aliases.ts    # 路径别名单一来源
-├── docs/                # 项目文档（前端生成手册、Git 发版规则等）
+├── docs/                # 项目文档（前端生成手册、主题替换规范、Git 发版规则等）
 ├── scripts/             # 发布脚本（release-web.mjs：按提交类型打 tag + 建 GitHub Release）
 ├── __tests__/           # 单元测试（Vitest）
 ├── e2e/                 # 端到端测试
@@ -164,12 +178,14 @@ oauth-web/
 - **URL 参数**：`?theme=` / `?skin=` 设备无关；`?view=<page>` 覆盖版式声明，非法值不回退；
 - **深色模式**：`index.html` 内联预置主题，首屏无白闪；
 - **国际化**：`src/i18n/index.ts`，默认 `zh_cn`，`en` 兜底；新增语言加一个 messages 对象即可。
+- **完整机制文档**：[docs/theme-replacement.md](docs/theme-replacement.md)（目录契约 / 替换入口 /
+  优先级 / 安全边界 / 验收清单，总文档同步维护，别的项目可直接套用）。
 
 ## 六、已知约束
 
 - **强依赖后端**：没有 CoreFlow 后端时，登录 / 授权 / 扫码全部不可用（页面能打开，接口会失败）；
 - **端口写死 5174**：`strictPort`，被占用会直接启动失败——这是故意的，避免手机调试连错端口；
-- **`.env` 不入库**：只提交 `.env.example` 与 `.env.development`，真实密钥一律走部署环境变量；
+- **`.env` 不入库**：只提交 `.env.example` / `.env.development` / `.env.production`（后两者只放默认值与占位符），真实密钥一律走部署环境变量；
 - **H5 签名是弱防爬**：前端代码可被反编译，appKey 拿得到，真正的安全边界在后端登录态 + 权限校验；
 - **第三方登录端点只认站内相对路径**：端点一旦能由外部指定，"把用户送去任意外域"就从漏洞变成配置问题。
 

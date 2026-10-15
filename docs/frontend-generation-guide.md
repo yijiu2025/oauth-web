@@ -293,12 +293,16 @@ async function handle401(config: AxiosRequestConfig) {
 
 ### 7.1 环境变量管理 (.env)
 
-AI 必须为项目生成以下环境配置文件：
+环境配置文件固定为四个，**变量顺序与注释在四个文件里完全一致**（按环境叠加取值）：
 
-- `.env`: 通用基础配置。
-- `.env.development`: 开发环境 (`VITE_API_BASE_URL=/api`, `VITE_MOCK_ENABLED=true`)。
-- `.env.staging`: 预发布/测试环境。
-- `.env.production`: 生产环境。
+- `.env`：本地基础配置，**不入库**（`.gitignore` 精确匹配 `.env` 这一行）。
+- `.env.development`：`npm run dev` 时覆盖 `.env`。
+- `.env.production`：`npm run build` 时覆盖 `.env`；只放默认值 / 占位符，真实密钥由部署平台（CI secret / 容器环境变量）在构建时注入。
+- `.env.example`：脱敏模板，`cp .env.example .env` 起步。
+
+约定：四个文件都列出全部变量；用不到的留空即"不启用"，**不要删行**（删了后人不知道它存在过）；每个文件内的注释就是完整解释（含漏配症状与安全边界）。
+
+当前变量清单（14 个，顺序即文件内顺序）以 `README.md`「环境变量」一节与各 `.env*` 文件为准，两边保持同步。
 
 ### 7.2 表单校验方案 (VeeValidate + Zod)
 
