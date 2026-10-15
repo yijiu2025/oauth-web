@@ -66,6 +66,8 @@ const GROUPS = [
       // 2026-09-28 新增：类型逃逸清零（any/@ts-ignore 关在 types/external.ts 单一入口）
       { name: 'verify-no-any-debt', cmd: ['verify-no-any-debt.mjs'], needs: {} },
       { name: 'verify-no-pwa', cmd: ['verify-no-pwa.mjs', '--dir', 'dist-nopwa'], needs: { dist: join(OA, 'dist-nopwa') } },
+      // 2026-10-15 新增：包体积预算（首屏静态集 gz / 单 chunk / dist 总量，防悄悄膨胀）
+      { name: 'verify-bundle-budget', cmd: ['verify-bundle-budget.mjs', '--dir', 'dist'], needs: { dist: join(OA, 'dist') } },
     ],
   },
   {

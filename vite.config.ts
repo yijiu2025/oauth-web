@@ -86,9 +86,31 @@ export default defineConfig({
     }
   },
   build: {
+    // === 为什么**不**显式设 build.target ===
+    // Vite 8 的默认值就是 'baseline-widely-available'（vite dist/node/chunks 内
+    // ESBUILD_BASELINE_WIDELY_AVAILABLE_TARGET，约 chrome107 / edge107 / ff104 /
+    // safari16），即"不需要为存量浏览器付转译成本"的官方基线。此前手写 'es2020'
+    // 反而比它更宽（es2020 不含 safari16 才稳定的若干特性），写死只会让配置
+    // 落后于上游默认值。此处刻意留空，跟随默认。
+    //
     // 生产不输出 .map 文件（防源码泄露到 dist）
     // 需要调试时单独配 sourcemap: true 单独 build
     sourcemap: false,
+    // 关闭 Vite 默认注入的 modulepreload polyfill（构建产物里一段 ~0.4KB 的
+    // inline script：检测 link.relList.supports('modulepreload')）。
+    // 权衡（2026-10-15 定）：原生 modulepreload = Chrome 66+ / Edge 79+ /
+    // Firefox 68+ / Safari 16.4+（2023-03 发布）。不支持的浏览器分两类：
+    //   ① 连 ESM 都不支持的（IE11 / 极老 UC 内核）—— 入口的 type="module"
+    //      本就跑不起来，polyfill 无从救起；
+    //   ② Safari 16.3 及以下 —— 失去的只是"预加载加速"，动态 import 仍可
+    //      现场拉取，功能不受影响。
+    // 登录页"用完即走"的形态下，为第二类 <1% 的存量浏览器在每次访问都多付
+    // 0.4KB + 一段同步执行，不划算。
+    // ⚠️ 若未来要覆盖 iPadOS 老机型 / 企业内网旧 Safari，把这里改回 true 即可，
+    //    不影响其它配置。
+    modulePreload: {
+      polyfill: false
+    },
     // chunk 大小警告阈值：回落 Vite 默认 500 KB。
     // 实测最大 chunk 仅 170.91 KB，远未触及 500 KB 默认线 —— 此前抬高到 1024 无实际收益，
     // 反而会掩盖未来的真实膨胀，故回落默认值，让体积告警重新生效。

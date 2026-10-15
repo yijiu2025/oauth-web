@@ -2,7 +2,11 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <!-- favicon：必须指向 public/ 下真实存在的文件。此前写的 /vite.svg 是 Vite
+         脚手架模板残留 —— public/ 里没有这个文件，请求会被 SPA fallback 吃成
+         index.html（浏览器拿到 text/html 直接丢弃，标签页图标 silently 失效），
+         还白背一次 1.8KB 的 HTML。真文件是 public/favicon.svg。 -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <!-- viewport：**单行 + 只留最通用的键** —— 写的键越"先进"，被整条丢弃的概率越高。
          两次真机实测的教训：
            ① 跨 4 行书写            → 小米浏览器整条丢弃；
