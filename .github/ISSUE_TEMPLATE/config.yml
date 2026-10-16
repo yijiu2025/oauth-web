@@ -1,0 +1,15 @@
+blank_issues_enabled: true
+
+contact_links:
+  - name: 安全漏洞报告（私密渠道）
+    url: https://github.com/yijiu2025/oauth-web/security/advisories/new
+    about: 安全漏洞请勿开公开 issue，走私密报告（需管理员已开启 Private vulnerability reporting）
+  - name: 后端问题（CoreFlow）
+    url: https://github.com/yijiu2025/CoreFlow/issues
+    about: 账号 / 授权 / 会话 / 限速等后端行为请到 CoreFlow 仓库报告
+  - name: 项目文档
+    url: https://github.com/yijiu2025/oauth-web/tree/main/docs
+    about: 前端生成手册、主题替换规范、主题热更新设计、Git 发版规则
+  - name: 贡献指南
+    url: https://github.com/yijiu2025/oauth-web/blob/main/CONTRIBUTING.md
+    about: 上手、代码红线、提交与 PR 流程，提 bug 前建议先读

@@ -1,0 +1,152 @@
+name: 缺陷报告
+description: 报告一个可复现的问题（登录 / 授权 / 主题 / 版式 / 构建等）
+labels: ['bug']
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 发生了什么，期望发生了什么
+      placeholder: |
+        例：深色模式下 /login 页「忘记密码」链接对比度不足，几乎看不见。
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      description: 从零开始的完整步骤，越具体越好
+      placeholder: |
+        1. npm run dev 打开 http://localhost:5174/login
+        2. 右上角切换到深色模式
+        3. 观察「忘记密码」链接
+    validations:
+      required: true
+
+  - type: input
+    id: route
+    attributes:
+      label: 涉及页面 / 路由
+      description: 如 /login、/authorize、/mini-login；带 URL 参数请一并写上（?view= / ?theme= / ?skin= 会影响版式与配色）
+      placeholder: /login?view=compact
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 影响面
+      options:
+        - 登录 / 注册 / 找回密码
+        - OAuth 授权 / 授权确认
+        - 扫码登录
+        - iframe 嵌入（/mini-login / postMessage）
+        - 主题 / 配色 / 深色模式
+        - 设备版式（web / app / tablet / mini）
+        - 国际化
+        - 构建 / CI / 依赖
+        - 文档
+        - 其他
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本 / 提交
+      description: release 版本号或 commit sha（不确定就写「main 最新」）
+      placeholder: v1.0.1 或 58f92e3
+    validations:
+      required: true
+
+  - type: dropdown
+    id: layout
+    attributes:
+      label: 设备版式
+      description: URL 不被视口改写，所见版式由 ?view= / 包声明 / VITE_<PAGE>_VIEW / 包名依次决定
+      options:
+        - web（桌面）
+        - app（移动端）
+        - tablet
+        - mini
+        - 不确定 / 与版式无关
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: 浏览器与版本
+      placeholder: Chrome 131 / Safari 18 / Firefox 133 …
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: 操作系统
+      placeholder: Windows 11 / macOS 15 / Android 15 / iOS 19 …
+    validations:
+      required: true
+
+  - type: input
+    id: viewport
+    attributes:
+      label: 视口宽度与缩放
+      description: 影响响应式表现；用了浏览器缩放的请注明比例
+      placeholder: 1440×900，缩放 100%
+
+  - type: dropdown
+    id: color-mode
+    attributes:
+      label: 明暗模式
+      options:
+        - 浅色
+        - 深色
+        - 跟随系统
+        - 与配色无关
+
+  - type: dropdown
+    id: form
+    attributes:
+      label: 依赖形态
+      description: skinsuite / stable-deviceid 在两种形态下行为一致，但排查路径不同
+      options:
+        - 单仓 clone（npm 版依赖）
+        - monorepo 内（packages/ 源码直供）
+        - CI 环境
+        - 不确定
+
+  - type: textarea
+    id: backend
+    attributes:
+      label: 后端情况
+      description: 是否接了 CoreFlow 后端、版本；接口类问题必填（没有后端时接口全部失败是预期现象）
+      placeholder: 未接后端 / CoreFlow v2.28.0 @ localhost:3000
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: 已尝试过什么
+      description: 排除项写清楚，节省双方时间
+      placeholder: 换了浏览器、清了缓存、关了浏览器扩展…
+
+  - type: checkboxes
+    id: desensitize
+    attributes:
+      label: 脱敏检查
+      description: 截图与日志里的敏感信息处理
+      options:
+        - label: 已确认不含真实 token、密钥、邮箱、手机号等敏感信息
+          required: true
+        - label: 控制台错误与网络请求已脱敏（如含 Authorization 头已打码）
+          required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 附加材料
+      description: 截图 / 录屏 / 控制台报错 / HAR，拖进来即可
+    validations:
+      required: false
