@@ -23,7 +23,7 @@
  *
  * 安全：校验 message.origin 在白名单内（与 postToParent 共享白名单），防恶意页面伪造。
  *
- * 用法：在 App.vue 或 main.ts 调 useParentThemeSync()，自动监听 + 卸载清理。
+ * 用法：在 App.vue（或启动编排 bootstrap.ts）调 useParentThemeSync()，自动监听 + 卸载清理。
  *
  * 父应用侧示例（posecraft/firewall）：
  *   // 切主题时通知所有 oauth21 iframe
