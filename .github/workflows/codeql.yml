@@ -1,0 +1,30 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # 每周一 18:00 UTC（北京时间周二凌晨）
+    - cron: "0 18 * * 1"
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          # javascript 一个值覆盖 JS + TS；Vite 项目无需构建，显式写死最稳
+          language: javascript
+          build-mode: none
+          paths-ignore: |
+            node_modules
+            dist
+            .tmp-probe
+
+      - uses: github/codeql-action/analyze@v3
