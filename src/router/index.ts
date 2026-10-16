@@ -81,7 +81,7 @@ router.afterEach((to, failure) => {
  *
  * === 为什么是"在 app setup 里 watch 路由"，而不是写在 afterEach 里 ===
  * 早先的实现把 `setActiveDevice` 放在 `router.afterEach` 里，结果是**首次导航静默失效**：
- * `main.ts` 的顺序是 `app.use(pinia)` → `app.use(router)`，而**首次导航由
+ * `bootstrap.ts` 的顺序是 `app.use(pinia)` → `app.use(router)`，而**首次导航由
  * `app.use(router)` 触发**、且 `afterEach` 是在导航流程结束处同步调用的 ——
  * 那一刻 Pinia 的 activeInstance 还没建立（或正在建立），`useThemeStore()` 抛错，
  * 被 `try/catch` 吞掉 → 设备永远停在默认的 `'mobile'`。

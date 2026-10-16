@@ -116,7 +116,7 @@ export default defineConfig({
     // 反而会掩盖未来的真实膨胀，故回落默认值，让体积告警重新生效。
     chunkSizeWarningLimit: 500,
     // 生产删除 console 调用（防 Error 堆栈 / 内部标识泄露到浏览器 DevTools）。
-    // 关键错误通过 main.ts 的 useErrorReporter 上报到后端（/api/v1/client-error），
+    // 关键错误通过 bootstrap.ts 装配的 useErrorReporter 上报到后端（/api/v1/client-error），
     // 不依赖客户端 console 留痕。
     //
     // 🔴 2026-09-28 修正：此处原写作 `build.esbuild.drop: ['console']` —— **在 Vite 8 下完全无效**。

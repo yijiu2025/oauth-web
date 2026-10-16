@@ -32,7 +32,7 @@
  *    14. 容器静态引入**内置包 × 自身设备**的版式，且硬编码目录名 === `DEFAULT_THEME_PACKAGE`
  *    15. 容器的切换 watch 同时依赖 `themeStore.packageId`
  *    16. 容器写死 `THEME_DEVICE` 常量（设备是页面身份，不跑视口判定）
- *    17. 设备同步用 watch(router.currentRoute, {immediate:true})，由 main.ts 在 pinia 之后调用
+ *    17. 设备同步用 watch(router.currentRoute, {immediate:true})，由 bootstrap.ts 在 pinia 之后调用
  *
  *   抽包 · 内核与宿主解耦（2026-09-26 起，见 https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/theme-package-extraction.md）
  *    18. 🔴 内核包 `packages/theme-core` **不得知道宿主**：无 `import.meta`、无
@@ -884,12 +884,13 @@ console.log(`\n=== 9. store / 路由的设备接线 ===`);
 }
 {
   const router = read(join(ROOT, 'router', 'index.ts'));
-  const main = read(join(ROOT, 'main.ts'));
+  // 🔴 装配在 bootstrap.ts（入口门牌化：main.ts 只引样式 + 转交，规范见 entry-conventions.md）
+  const bootstrap = read(join(ROOT, 'bootstrap.ts'));
 
   check(
     '导出了 setupThemeDeviceSync（设备同步的唯一入口）',
     /export\s+function\s+setupThemeDeviceSync/.test(router),
-    '把设备同步从 afterEach 搬出来后，必须有一个明确的入口供 main.ts 调用'
+    '把设备同步从 afterEach 搬出来后，必须有一个明确的入口供 bootstrap.ts 调用'
   );
   check(
     '设备由 RouteMeta.device 判定（不是视口）',
@@ -908,10 +909,10 @@ console.log(`\n=== 9. store / 路由的设备接线 ===`);
     '没有 immediate 就漏掉首屏那一次'
   );
   check(
-    'main.ts 在 app.use(pinia) 之后调用 setupThemeDeviceSync',
+    'bootstrap.ts 在 app.use(pinia) 之后调用 setupThemeDeviceSync',
     (() => {
-      const piniaAt = main.indexOf('app.use(pinia)');
-      const syncAt = main.indexOf('setupThemeDeviceSync(');
+      const piniaAt = bootstrap.indexOf('app.use(pinia)');
+      const syncAt = bootstrap.indexOf('setupThemeDeviceSync(');
       return piniaAt !== -1 && syncAt !== -1 && syncAt > piniaAt;
     })(),
     '函数内部会 useThemeStore()，必须在 Pinia activeInstance 建立之后调用'
