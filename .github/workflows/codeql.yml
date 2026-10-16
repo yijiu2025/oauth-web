@@ -5,7 +5,7 @@ on:
     branches: [main]
   schedule:
     # 每周一 18:00 UTC（北京时间周二凌晨）
-    - cron: "0 18 * * 1"
+    - cron: '0 18 * * 1'
   workflow_dispatch:
 
 jobs:
@@ -14,17 +14,18 @@ jobs:
     permissions:
       security-events: write
       contents: read
+    strategy:
+      # build-mode 仅在"单语言单 job"时可用，故走 1 元素 matrix（官方推荐形态）
+      matrix:
+        language: [javascript-typescript]
     steps:
       - uses: actions/checkout@v4
 
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
-          # javascript 一个值覆盖 JS + TS；Vite 项目无需构建，显式写死最稳
-          language: javascript
+          # javascript-typescript 一个值覆盖 .js + .ts（不含 .vue，CodeQL 不解析 SFC）；
+          # Vite 项目无需构建，显式写死最稳
+          languages: ${{ matrix.language }}
           build-mode: none
-          paths-ignore: |
-            node_modules
-            dist
-            .tmp-probe
 
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
