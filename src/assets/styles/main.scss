@@ -1,6 +1,8 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+// Tailwind v4：三条 @tailwind 指令合并为一次 @import；
+// @config 指向仓库根的 tailwind.config.js（路径相对本文件），
+// 保留 v3 风格的 JS 配置（darkMode: 'class' / theme.extend / content）。
+@import 'tailwindcss';
+@config '../../../tailwind.config.js';
 
 @layer base {
   :root {
