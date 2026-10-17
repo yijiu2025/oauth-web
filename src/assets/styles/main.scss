@@ -1,8 +1,54 @@
-// Tailwind v4：三条 @tailwind 指令合并为一次 @import；
-// @config 指向仓库根的 tailwind.config.js（路径相对本文件），
-// 保留 v3 风格的 JS 配置（darkMode: 'class' / theme.extend / content）。
+// Tailwind v4 原生形态（2026-10-17 迁移）：原 tailwind.config.js（v3 风格 JS 配置）
+// 已整体搬进本文件，@config 兼容层退役——
+//   theme.extend.colors / borderRadius / fontFamily → @theme（token 名不动）
+//   darkMode: 'class'                                → @custom-variant dark
+//   content 扫描范围                                  → @source（另补 src 下 .html）
+// 色值真身仍在本文件下方 :root / .dark 两组变量，@theme 只做「CSS 变量 → 工具类」映射。
+// 未搬迁：accordion keyframes / animation——全仓零使用（src 无 Accordion 组件、
+// --radix-accordion-content-height 无设置方）的死配置，随迁移一并清除。
 @import 'tailwindcss';
-@config '../../../tailwind.config.js';
+
+// 类名扫描范围（对齐原 content globs，补 .html 一项）
+@source '../../../index.html';
+@source '../../**/*.{vue,js,ts,jsx,tsx,html}';
+
+// 暗色策略显式化：.dark class 切换（对齐原 darkMode: 'class'）。
+// 形态刻意沿用 :is(.dark *) 而非官方示例的 :where(.dark, .dark *)——前者与
+// @config 兼容层的翻译结果逐字节一致（后代匹配 + (0,2,0) 特异性）；换 :where
+// 会新增 .dark 自匹配并把特异性降到 (0,1,0)，在本仓「组件类 + dark: 覆写」
+// 并存的情况下属真实行为变化，不在本次零行为变化迁移范围内。
+@custom-variant dark (&:is(.dark *));
+
+// 语义化设计令牌：hsl(var(--x)) 口径不变，亮暗两套值由下方 :root / .dark 提供
+@theme {
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, Microsoft YaHei, system-ui, sans-serif;
+  --font-mono: JetBrains Mono, Fira Code, monospace;
+}
 
 @layer base {
   :root {

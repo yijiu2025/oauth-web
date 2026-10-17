@@ -7,13 +7,12 @@
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "strict": true,
-    "noEmit": true,
-    /* include 的是构建期脚本（vite/vitest 两个 config + config/aliases.ts）。
-       2026-09-28 起 vite.config 由 .js 改 .ts（与 vitest.config 统一语言、共用 alias 单一来源），
-       因此这里 include 随之改为 .ts。保留 allowJs 是因为 tailwind.config.js 仍是 .js ——
-       不开 allowJs 时 TS 不把 .js 当输入，若某次把 .ts 全部移出 include，
-       `vue-tsc -b` 会以 TS18003「No inputs were found」直接失败。 */
-    "allowJs": true
+    "noEmit": true
   },
-  "include": ["vite.config.ts", "vitest.config.ts", "config/aliases.ts", "tailwind.config.js"]
+  /* include 的是构建期脚本（vite/vitest 两个 config + config/aliases.ts）。
+     2026-09-28 起 vite.config 由 .js 改 .ts（与 vitest.config 统一语言、共用 alias 单一来源），
+     因此这里 include 随之改为 .ts。2026-10-17 tailwind.config.js 整体迁入
+     src/assets/styles/main.scss（Tailwind v4 @theme 化）后已删除，include 不再含 .js 文件，
+     原先为此保留的 allowJs 一并移除（没有 .js 输入时它也失去存在理由）。 */
+  "include": ["vite.config.ts", "vitest.config.ts", "config/aliases.ts"]
 }
