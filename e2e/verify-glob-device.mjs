@@ -1,19 +1,24 @@
 /**
- * SSR glob 探针：确认四级结构（包 → 设备 → 页面 → 配色）下，各 glob 真的扫到了文件
+ * 主题目录扫描探针：确认四级结构（包 → 设备 → 页面 → 配色）真的被扫到
  *
- * 背景：`import.meta.glob` 的路径是**启动期静态扫描**，路径写错（少一层目录、
- * 用相对路径）时**静默扫不到**且不报错 —— 于是"配色永远不出现""版式永远加载不出来"
- * 这类故障没有任何信号。所以每次改动 glob 路径后都要跑一次本探针。
+ * === 背景（2026-10-17 改写）===
+ * 早先主题资产走 `import.meta.glob`，模式必须是**字面量**，「主题目录在哪」因此
+ * 被写死在源码里、改不了。现在改用主题库 `skinsuite/vite` 的 `themeAssets()` 插件
+ * 在构建期扫目录、以虚拟模块 `virtual:theme` 注入 —— 于是本探针的检查对象
+ * 也随之从"源码里的 glob 模式串"变成**插件真实的扫描产物**。
  *
- * 🔴 2026-09-26：**一个主题包 = 一种版式** ⇒ 配色 glob 只剩**一套**（4 段：
- * 包 / 设备 / 页面 / colors / 配色）。旧的 6 段形态（多一层「版式」）已随
- * `<页面>/<版式>/colors/` 目录形态一起删除，所以本探针也改为断言
- * "6 段模式不存在"，而不是"两套都要扫到"。
+ * 这比对模式串更强：模式写对了但目录结构歪了，旧探针是看不出来的。
  *
- * 做法：让 Vite 以 ssr 模式 transform 目标模块，直接读回编译产物里的
- * `import.meta.glob` 展开结果（Vite 会把它替换成静态的路径 → 加载器映射）。
+ * 仍然保留的失败场景：目录少一层、设备名拼错、某个包漏了 `index.ts` ——
+ * 这些都会让注册表静默少几套配色（"配色永远不出现"且没有任何报错）。
  *
- * 退出码：0 全部命中 / 1 有关键 glob 为空
+ * 🔴 2026-09-26：**一个主题包 = 一种版式** ⇒ 配色路径只剩 4 段
+ * （包 / 设备 / 页面 / colors / 配色），所以本探针断言"6 段形态不存在"，
+ * 而不是"两套都要扫到"。
+ *
+ * 做法：让 Vite 以 ssr 模式 transform 目标模块，直接读回编译产物里的路径说明符。
+ *
+ * 退出码：0 全部命中 / 1 有关键项为空
  */
 import { createServer } from 'vite';
 import { fileURLToPath } from 'node:url';
@@ -36,27 +41,17 @@ function check(label, ok, detail = '') {
   }
 }
 
-/** 从编译产物里把所有 glob 展开出来的路径抓出来 */
+/** 从编译产物里把所有被扫描出来的路径抓出来 */
 function extractGlobKeys(code) {
-  // Vite 把 glob 编译成 `{ "path": () => import("...") }` 形式的对象字面量；
-  // 键一定是 `/src/...` 或 `./...` 形态的字符串。抓所有 import 目标即可。
+  // 插件的产物形如 `import * as __packages0 from "/src/theme/themes/x/index.ts";`
   const keys = new Set();
-  const re = /["'](\/src\/theme\/themes\/[^"']+\.(?:vue|ts|scss))["']/g;
+  const re = /["'](\/src\/theme\/themes\/[^"']+\.(?:vue|ts|scss))(?:\?inline)?["']/g;
   let m;
   while ((m = re.exec(code))) keys.add(m[1]);
   // 也抓相对形态（若有人写错成相对路径，这里能看到它是空的）
   const re2 = /["'](\.\/themes\/[^"']+\.(?:vue|ts|scss))["']/g;
   while ((m = re2.exec(code))) keys.add(m[1]);
   return [...keys].sort();
-}
-
-/** 从源码里把 `import.meta.glob('...')` 的模式字符串抓出来（用于断言"模式本身覆盖了某层级"） */
-function globPatternsOf(code) {
-  const out = [];
-  const re = /import\.meta\.glob(?:<[^>]*>)?\(\s*['"]([^'"]+)['"]/g;
-  let m;
-  while ((m = re.exec(code))) out.push(m[1]);
-  return out;
 }
 
 const server = await createServer({
@@ -66,9 +61,33 @@ const server = await createServer({
   appType: 'custom'
 });
 
+/**
+ * 取虚拟模块的编译产物
+ *
+ * `\0` 开头的模块 id 在 URL 里要编码成 `/@id/__x00__<id>`；几种写法都试一遍，
+ * 免得 Vite 内部编码规则一变就整套探针空转（空转的症状是"全部失败"，很好认，
+ * 但先把退路留好）。
+ */
+async function loadVirtualModule() {
+  const candidates = [
+    '/@id/__x00__virtual:theme',
+    '/@id/%00virtual:theme',
+    '\0virtual:theme',
+    'virtual:theme'
+  ];
+  for (const url of candidates) {
+    try {
+      const res = await server.transformRequest(url, { ssr: true });
+      if (res?.code?.includes('/src/theme/themes/')) return res.code;
+    } catch {
+      // 换下一种写法
+    }
+  }
+  return '';
+}
+
 try {
   const targets = [
-    { file: 'src/theme/registry.ts', label: '主题注册表' },
     { file: 'src/theme/views/login.ts', label: 'login 版式注册表' },
     { file: 'src/theme/views/register.ts', label: 'register 版式注册表' },
     { file: 'src/theme/views/forgot-password.ts', label: 'forgot-password 版式注册表' }
@@ -82,9 +101,14 @@ try {
     for (const k of results[t.file]) console.log(`    ${k}`);
   }
 
+  // 主题注册表的资产由插件扫描后经虚拟模块注入 —— 探针直接查这一份产物
+  results['virtual:theme'] = extractGlobKeys(await loadVirtualModule());
+  console.log(`\n=== 主题域虚拟模块（virtual:theme）扫到 ${results['virtual:theme'].length} 条 ===`);
+  for (const k of results['virtual:theme']) console.log(`    ${k}`);
+
   console.log('\n=== 断言 ===');
 
-  const themeKeys = results['src/theme/registry.ts'];
+  const themeKeys = results['virtual:theme'];
   check(
     '主题注册表扫到包定义 themes/*/index.ts',
     themeKeys.includes('/src/theme/themes/default/index.ts'),
@@ -130,22 +154,34 @@ try {
     '样式没扫到 → 配色只有 token 没有背景图'
   );
   // 🔴 2026-09-26：一个主题包 = 一种版式 → 配色路径里**没有**「版式」这一层。
-  //    断言"6 段模式不存在"，而不是"两套模式都要扫到"。
+  //    断言"6 段形态不存在"，而不是"两套形态都要扫到"。
   {
-    const patterns = globPatternsOf(readFileSync(join(ROOT, 'src/theme/registry.ts'), 'utf8'));
-    const colorPatterns = patterns.filter(p => p.includes('/colors/'));
-    // ⚠️ 反面断言要按"`colors` 前恰好 3 个通配段"写：`*/` 在 4 段路径里本来就出现 3 次，
+    const colorKeys = themeKeys.filter(k => k.includes('/colors/'));
+    // ⚠️ 反面断言要按"`colors` 前恰好 3 段"写：`*/` 在 4 段路径里本来就出现 3 次，
     //    用"出现 2 次即违规"这类写法会把正确路径也判成违规。
+    const fourSegment = /\/themes\/[^/]+\/[^/]+\/[^/]+\/colors\/[^/]+\//;
+    const sixSegment = /\/themes\/(?:[^/]+\/){4}colors\//;
     check(
-      '配色 glob 只有一套（4 段：包/设备/页面/colors/配色）',
-      colorPatterns.length === 2 &&
-        colorPatterns.every(p => /themes\/(?:\*\/){3}colors\//.test(p)),
-      `实际模式：${colorPatterns.join(' | ') || '(空)'}`
+      '配色路径只有一套形态（4 段：包/设备/页面/colors/配色）',
+      colorKeys.length > 0 && colorKeys.every(k => fourSegment.test(k)),
+      `实际：${colorKeys.join(' | ') || '(空)'}`
     );
     check(
-      '无 6 段配色 glob 残留（配色路径里没有「版式」这一层）',
-      colorPatterns.every(p => !/themes\/(?:\*\/){4}colors\//.test(p)),
-      '一个主题包 = 一种版式；6 段模式会扫到 0 个文件且静默不报错'
+      '无 6 段配色路径残留（配色路径里没有「版式」这一层）',
+      colorKeys.every(k => !sixSegment.test(k)),
+      '一个主题包 = 一种版式；6 段形态会扫到 0 个文件且静默不报错'
+    );
+    // 机制层面的反面断言：注册表不该再自己写 glob（目录是配置项，写 glob 就退回去了）
+    // ⚠️ 按 `import.meta.glob(` 判（带括号）：文件里还留着"不再来自 import.meta.glob"
+    //    的说明性注释，只按词判会把注释也算成违规。
+    // 2026-10-17：注册表构建层下沉到内核（skinsuite 的 registry.ts），宿主装配点
+    //   src/theme-manifest.ts 只做接线（从 virtual:theme 取资产 + installThemeRegistry），
+    //   这里改查宿主的装配点。
+    const hostIndexSrc = readFileSync(join(ROOT, 'src/theme-manifest.ts'), 'utf8');
+    check(
+      '宿主注册表接线从虚拟模块取资产，且不再使用 import.meta.glob',
+      hostIndexSrc.includes("from 'virtual:theme'") && !hostIndexSrc.includes('import.meta.glob('),
+      'glob 的模式必须是字面量，用了它「主题目录在哪」就又是源码常量了'
     );
   }
 

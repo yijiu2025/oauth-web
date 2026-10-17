@@ -23,7 +23,7 @@
  *
  * @author yijiu2025
  */
-import type { MauthThemeColor } from '@/theme/types';
+import type { MauthThemeColor } from 'skinsuite';
 
 export default {
   meta: {

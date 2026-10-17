@@ -8,21 +8,28 @@
  * 直接复用本仓的 alias 与 vue 插件，是 Vue 3 生态的标准选择。
  *
  * === alias 单一来源 ===
- * `@` / `skinsuite` / `stable-deviceid` 三个别名来自 `config/aliases.ts`，
- * 与 `vite.config.ts` 共用同一份定义（此前是两处手抄，漏改即静默解析失败）。
- * 注意 `skinsuite` / `stable-deviceid` 是**条件注册**的：monorepo 里源码直供，
+ * `@` / `skinsuite` / `skinsuite/vue` / `skinsuite/vue/panel` / `skinsuite/vite` / `stable-deviceid`
+ * 来自 `config/aliases.ts`，与 `vite.config.ts` 共用同一份定义
+ * （此前是两处手抄，漏改即静默解析失败）。
+ * 同理，`themeAssets` + `vue` 两个插件来自 `config/plugins.ts` 的 `sharedPlugins()`，
+ * 与构建侧同源 —— 单测里 `virtual:theme` 必须由同一插件产出，否则 27 个 store 用例
+ * 的注册表为空、静默落默认值（`themeId` 恒 `default`，不报错只红断言）。
+ * 注意 `skinsuite*` / `stable-deviceid` 是**条件注册**的：monorepo 里源码直供，
  * 单仓 checkout（CI / 开源用户）没有 packages/ 时不注册、解析回落 node_modules
  * 的 npm 版 —— 双形态设计见 `config/aliases.ts` 文件头。
  * `tsconfig.app.json` 的 `paths` 因是静态 JSON 无法 import，仍手写 ——
  * 由 `e2e/verify-alias-single-source.mjs` 守三处一致。
  */
 import { defineConfig } from 'vitest/config';
-import vue from '@vitejs/plugin-vue';
 // 带 .js 后缀：Vite 未来默认 configLoader:'native' 需显式扩展名，否则打警告
 import { aliases } from './config/aliases.js';
+import { sharedPlugins } from './config/plugins.js';
 
-export default defineConfig({
-  plugins: [vue()],
+export default defineConfig(({ mode }) => ({
+  // 主题域必须与构建同源：注册表要 `virtual:theme`、面板要清单路由，
+  // 单测里也得由同一个插件产出（否则 27 个 store 用例全部解析失败）。
+  // `resolveThemeDir` 与 vite.config 同源，避免"构建扫 A 目录、单测扫 B 目录"。
+  plugins: [...sharedPlugins(mode)],
   resolve: {
     alias: aliases
   },
@@ -32,4 +39,4 @@ export default defineConfig({
     // 只认 `__tests__/` 与 `src/**/__tests__/` 下的测试文件
     include: ['__tests__/**/*.{test,spec}.{ts,js}', 'src/**/__tests__/**/*.{test,spec}.{ts,js}']
   }
-});
+}));

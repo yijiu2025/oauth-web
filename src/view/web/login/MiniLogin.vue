@@ -25,7 +25,7 @@ import { useQrLogin } from '@/composables/useQrLogin';
 import { useLoginFlow } from '@/composables/useLoginFlow';
 import BaseMiniLoginView from '@/theme/themes/default/mini/login/index.vue';
 import { loginViews, pickLoginViewId } from '@/theme/views/login';
-import { readDeviceParam } from '@/theme/views/params';
+import { readDeviceParam } from 'skinsuite';
 import type { LoginTranslate, LoginViewContext } from '@/theme/views/login';
 import type { Component, Ref } from 'vue';
 

@@ -57,7 +57,7 @@ import { useThemeStore } from '@/stores/theme';
  */
 import BaseForgotPasswordView from '@/theme/themes/default/mobile/forgot-password/index.vue';
 import { forgotPasswordViews, pickForgotPasswordViewId } from '@/theme/views/forgot-password';
-import { readDeviceParam } from '@/theme/views/params';
+import { readDeviceParam } from 'skinsuite';
 import type {
   ForgotPasswordStage,
   ForgotPasswordTranslate,

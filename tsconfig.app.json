@@ -32,7 +32,10 @@
       "@/*": ["./src/*"],
       "stable-deviceid": ["../packages/shared-device/src/index.ts"],
       "stable-deviceid/*": ["../packages/shared-device/src/*"],
-      "skinsuite": ["../packages/theme-core/src/index.ts"]
+      "skinsuite": ["../packages/theme-core/src/index.ts"],
+      "skinsuite/vue": ["../packages/theme-core/src/vue/index.ts"],
+      "skinsuite/vue/panel": ["../packages/theme-core/src/vue/panel.ts"],
+      "skinsuite/vite": ["../packages/theme-core/src/vite/index.ts"]
     }
   },
   "include": [
@@ -43,6 +46,9 @@
     "src/auto-import.d.ts",
     "src/components.d.ts",
     "../packages/shared-device/src/**/*.ts",
-    "../packages/theme-core/src/**/*.ts"
+    "../packages/theme-core/src/**/*.ts",
+    /* Vue 绑定层（面板 / 父窗口同步）由宿主侧类型闸门负责检查：
+       包自己的 tsc 只跑纯 TS，`.vue` 只能在这里被 vue-tsc 看到。 */
+    "../packages/theme-core/src/**/*.vue"
   ]
 }

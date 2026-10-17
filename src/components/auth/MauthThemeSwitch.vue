@@ -16,7 +16,7 @@
  */
 import { computed } from 'vue';
 import { useThemeStore } from '@/stores/theme';
-import { MODE_LABELS } from '@/theme/mode';
+import { MODE_LABELS } from 'skinsuite';
 
 const props = withDefaults(defineProps<{ forceShow?: boolean }>(), { forceShow: false });
 

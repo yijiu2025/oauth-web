@@ -104,12 +104,13 @@ try {
 const aliasKeys = Object.keys(aliases).sort();
 if (MONOREPO_FORM) {
   check(
-    '导出 aliases 含 3 个键（@ / skinsuite / stable-deviceid）',
-    aliasKeys.length === 3 && aliasKeys.join(',') === '@,skinsuite,stable-deviceid',
+    '导出 aliases 含 6 个键（@ / skinsuite / skinsuite/vite / skinsuite/vue / skinsuite/vue/panel / stable-deviceid）',
+    aliasKeys.length === 6 &&
+      aliasKeys.join(',') === '@,skinsuite,skinsuite/vite,skinsuite/vue,skinsuite/vue/panel,stable-deviceid',
     `实际：${aliasKeys.join(', ') || '(空)'}`
   );
 } else {
-  // standalone：两个本地包按设计不注册，解析回落 node_modules
+  // standalone：本地包键按设计不注册，解析回落 node_modules
   check(
     'standalone 形态 aliases 恰 1 个键（@，本地包回落 node_modules）',
     aliasKeys.length === 1 && aliasKeys[0] === '@',
@@ -200,7 +201,12 @@ for (const k of tsKeys) {
   const inAliases =
     Object.prototype.hasOwnProperty.call(aliases, base) ||
     Object.prototype.hasOwnProperty.call(aliases, k);
-  const exemptStandalone = !MONOREPO_FORM && (base === 'skinsuite' || base === 'stable-deviceid');
+  const exemptStandalone =
+    !MONOREPO_FORM &&
+    (base === 'skinsuite' ||
+      base === 'skinsuite/vue' ||
+      base === 'skinsuite/vue/panel' ||
+      base === 'stable-deviceid');
   check(
     `tsconfig 键 "${k}" 在 aliases.ts 里有对应项`,
     inAliases || exemptStandalone,

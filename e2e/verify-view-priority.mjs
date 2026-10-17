@@ -2,7 +2,7 @@
  * 版式（UI）优先级验收 —— 五档链 + 设备维度键 + 三页同形
  *
  * === 五档（高 → 低，login / register / forgot-password 三页一致）===
- *   1. URL `?view.<设备>`   —— 设备专属（容器用 `readDeviceParam` 取，见 theme/views/params.ts）
+ *   1. URL `?view.<设备>`   —— 设备专属（容器用 `readDeviceParam` 取，见 skinsuite 的 views/params.ts）
  *   2. URL `?view`          —— 通用键（三端共用）
  *   3. 主题包 / 配色的 `views.<page>` 声明（`themeStore.viewFor(<page>)` 取出）
  *   4. `VITE_<PAGE>_VIEW`   —— 部署级默认

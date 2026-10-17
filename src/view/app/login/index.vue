@@ -63,7 +63,7 @@ import { useThemeStore } from '@/stores/theme';
  */
 import BaseLoginView from '@/theme/themes/default/mobile/login/index.vue';
 import { loginViews, pickLoginViewId } from '@/theme/views/login';
-import { readDeviceParam } from '@/theme/views/params';
+import { readDeviceParam } from 'skinsuite';
 import type { LoginDirection, LoginPanel, LoginTranslate, LoginViewContext } from '@/theme/views/login';
 import type { SocialProviderId } from '@/composables/useSocialLogin';
 import type { Component, Ref } from 'vue';

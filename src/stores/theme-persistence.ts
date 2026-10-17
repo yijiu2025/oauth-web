@@ -18,13 +18,11 @@
  */
 import {
   DEFAULT_THEME_ID,
-  DEFAULT_THEME_DEVICE,
   getDefaultThemeId,
-  resolveThemeId,
-  THEME_DEVICES,
-  type ThemeDevice
-} from '@/theme';
-import { normalizeMode, type ThemeMode } from '@/theme/mode';
+  resolveThemeId
+} from 'skinsuite';
+import { normalizeMode, type ThemeMode } from 'skinsuite';
+import { DEFAULT_THEME_DEVICE, THEME_DEVICES, type ThemeDevice } from '@/theme/views/devices';
 
 /** localStorage 键名（沿用旧键，让老用户的手动选择可以平滑迁移） */
 export const STORAGE_MODE = 'theme';
@@ -85,7 +83,7 @@ export function readInitialMode(): ThemeMode {
 export function readInitialTheme(): string {
   return (
     resolveThemeId(safeGet(STORAGE_THEME) ?? safeGet(LEGACY_STORAGE_SKIN)) ??
-    getDefaultThemeId(DEFAULT_THEME_DEVICE) ??
+    getDefaultThemeId({ device: DEFAULT_THEME_DEVICE }) ??
     DEFAULT_THEME_ID
   );
 }
@@ -115,8 +113,7 @@ export type DeviceThemeIntent = Partial<Record<ThemeDevice, string>>;
  *    （同系别首套 → 该范围兜底）—— 这正是「电脑端没有 blue 就自动下沉到 white」的落点。
  *    若在这里按设备拒绝，`?theme.standard=blue` 会连"下沉"的机会都没有。
  *
- * 🔴 **空串 = 未指定**（2026-09-26 修，与版式侧 `theme/views/params.ts` 的
- *    `readDeviceParam` 同形）：`?theme.mobile=` 不能把 `?theme=blue` 顶掉。
+ * 🔴 **空串 = 未指定**（2026-09-26 修，与版式侧 `skinsuite` 的 `readDeviceParam` 同形）：`?theme.mobile=` 不能把 `?theme=blue` 顶掉。
  *    `URLSearchParams.get()` 对 `?theme.mobile=` 返回 `''`（**不是** null），
  *    `'' ?? anyScope` 仍是 `''` —— 旧写法下这一条会让**通用键也一起失效**
  *    （`resolveThemeId('')` 返回 null ⇒ 该设备一条锁都不记），与文档承诺

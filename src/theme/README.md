@@ -1,36 +1,23 @@
 # theme —— 主题层（机制 + 主题包 + 版式契约）
 
-> 🧩 **抽包进行中（2026-09-26 立项）**：这一层正在被抽成工作区包
-> `packages/theme-core`（纯内核：常量 / 契约 / 参数 / 注册表，零运行时依赖）与
-> `packages/theme-vue`（Pinia store + DOM 应用 + glob 适配）。**规则不变**，
-> 变的是"实现在哪个目录"。
->
-> **Stage 1 已完成**——纯叶子层已进包：`constants` / `tokens` / `tone` / `mode` /
-> `types` / `views/params` 的**实现**住在 `packages/theme-core/src/`，本目录下的
-> 同名文件变成**零逻辑的 re-export 壳**，所以下面目录树里的路径与 `@/theme/*`
-> 的导入面一个字不变（`@/theme` 那个 barrel 也照旧转发这些常量）。
-> 后续每期都按「迁一个实现 → 在原地留一只壳」推进，任何一期都能独立回滚。
-> 设计、注入点契约、迁移分期与每期验收判据见
+> 🧩 **抽包已完成（2026-09-26 立项，2026-10-17 全量下沉）**：这一层已抽成工作区包
+> `packages/theme-core`，所有机制（常量 / 契约 / 参数 / 注册表 / 版式机制 / token 运行时 /
+> 构建插件，零运行时依赖知识）都已下沉到 `skinsuite`（纯内核）与 `skinsuite/vue`（绑定层）、
+> `skinsuite/vite`（构建器）。本目录只留「主题包 + 版式契约 + 文档 + 配置」四样，
+> 开发者只需写设备清单与主题包。设计、注入点契约、迁移分期见
 > CoreFlow `https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/theme-package-extraction.md`。
 
 一个目录管三层，**层级即语义**（主题包 → 设备 → 页面 → 配色）：
 
 ```
 src/theme/
-├── index.ts            配色注册表：扫描 主题包 / 设备 / 页面 / 配色（机制）
-│                       + 转发内核包常量（`DEFAULT_THEME_*` / `THEME_DEVICES` …）
-├── types.ts            主题包 / 配色的契约                    —— 壳 → skinsuite
-├── tone.ts             配色自带的明暗系别（白系 / 黑系，参与明暗联动）—— 壳 → skinsuite
-├── mode.ts             明暗三态（浅色 / 深色 / 跟随系统）—— 与配色正交；壳 → skinsuite
-├── remote.ts           后端下发的换配色配置
-├── runtime.ts          token 注入（往根节点写 inline 变量）
-│                       ⚠️ 白名单校验已进内核包，这里只转发 + 做注入
-├── views/              版式机制（架构层）：契约 + 注册表，与主题包无关
-│   ├── registry.ts     版式注册表工厂（「业务容器 + 可换 UI」机制）
-│   ├── params.ts       URL 参数读取：`theme.<设备>` / `view.<设备>`（含通用参数回退）
-│   │                                                        —— 壳 → skinsuite
-│   ├── pages.ts        页面版式总览（调试面板用）
-│   ├── login.ts        login 页的契约 + 注册表
+├── README.md           本文件
+├── theme.config.ts     主题域清单（调试开关 + 路由投影，`virtual:theme` 扫进内核）
+├── views/              版式信息（**契约 + 声明**；机制全部下沉到 `skinsuite`）
+│   ├── devices.ts      设备清单声明（**唯一声明处**：id / label / routePath / match /
+│   │                   containers glob）。机制由 `createDeviceRegistry` 装配，不在本文件
+│   ├── pages.ts        页面版式总览壳（`import.meta.glob` + `createPageIndex` 一行装配）
+│   ├── login.ts        login 页的契约 + 注册表（`defineThemePage` 声明）
 │   ├── register.ts     register 页的契约 + 注册表
 │   └── forgot-password.ts  forgot-password 页的契约 + 注册表
 └── themes/             **主题包**：一套完整设计，各端都住这里
@@ -57,6 +44,66 @@ src/theme/
     └── compact/        另一套设计的包：只做「注册页紧凑版式」示例，只建了 mobile
         └── mobile/register/{index.vue, colors/{black,blue,cyan,white}/}
 ```
+
+> 机制文件（`index.ts` 注册表装配、`types` / `tone` / `mode`、`remote`、`runtime` token
+> 注入、`views/registry` / `views/picker` / `views/page` / `views/params` 等）**已全部下沉
+> 到 `packages/theme-core`**（`skinsuite` 纯内核 + `skinsuite/vue` 绑定层）。本目录只留
+> 「主题包 + 版式信息（契约/声明）+ 文档 + 配置」四样，开发者只需写设备清单与主题包。
+
+## 架构总览（三层 + 一个装配点）
+
+```
+┌ 构建期 —— skinsuite/vite 的 themeAssets() 插件 ─────────────────────────────┐
+│  扫 VITE_THEME_DIR/themes/ → 虚拟模块 virtual:theme                            │
+│  （packages 包定义 / colors 配色 / styles 附加样式 / manifest 清单）            │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+┌ 内核 skinsuite（机制唯一实现，零宿主依赖）───────────────────────────────────┐
+│  纯逻辑 skinsuite       Vue 绑定 skinsuite/vue       构建器 skinsuite/vite      │
+│  constants·types        view-registry·view-picker    themeAssets 插件           │
+│  tone·tokens            view-page·page-index         theme.d.ts 虚拟声明        │
+│  device·device-registry device-containers                                       │
+│  registry·manifest      token-runtime·setupTheme                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+┌ 宿主 oauth21（只写契约 + 装配，机制全复用）──────────────────────────────────┐
+│  src/theme/（四样）        装配点                  视图层（业务）                │
+│  themes/ 主题包            theme-manifest 装注册表  view/ 容器+分发器          │
+│  views/ 设备清单+契约      stores/theme 主题中枢    components/ ThemeRoot      │
+│  theme.config.ts           bootstrap 启动接线       composables/ 调试面板       │
+│  README.md                                          router/ 设备基线            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**注入式下沉范式**：内核管「什么时候、怎么接（机制）」，宿主管「来源 / 目标 / 清单（事实）」。
+设备白名单、默认设备、路径投影、告警回调都是**参数注入**，内核不 import 路由 / store / 虚拟模块。
+
+## 运行时数据流（一次访问的完整链路）
+
+```
+① 设备判定   pickDeviceId      route.query + route.path + viewport → 设备 id
+        ↓
+② 页面投影 + 版式选择           resolveThemePage(路径) → page；pickView(URL > 包声明 > env > 包名)
+        ↓
+③ 配色解析   themeRecordFor    ?theme.<设备> ?? themeId，按 包×设备×页面 查四段键
+        ↓
+④ token 注入 + 附加样式         applyThemeLayers → html 变量；loadThemeStyle → theme.scss；.dark 类
+        ↓
+⑤ 容器组装 ctx → 版式只读渲染   容器传 ctx(数据+actions) → 版式只渲染、只调 ctx.actions
+```
+
+副通道：外部下发（后端/父应用）`applyThemeConfig` → `externalTokens`，优先级高于主题包 token。
+
+## 四正交维度
+
+| 维度 | 是什么 | 谁决定 | 在哪 |
+| --- | --- | --- | --- |
+| **设备** device | 页面身份（mobile/standard/mini/tablet） | 路由元信息 + 视口分发 | `views/devices.ts` 清单 |
+| **页面** page | 配色/版式的查找范围之一 | 路径投影 | `theme.config.ts` routes |
+| **主题包** pkg | 一套完整设计（view ≡ pkg） | 配色解析出的 | `themes/<包>/` |
+| **配色** color | 只换颜色/圆角/背景，同 DOM | 用户意图链 | `themes/.../colors/<配色>/` |
+
+
 
 🔴 **一个主题包 = 一种版式**（2026-09-26 定案）：
 
@@ -87,7 +134,7 @@ themes/<包>/<设备>/<页面>/colors/<配色>/      ← 该页的配色
 - **配色 id 的唯一性作用域是「包 × 设备 × 页面」**：该范围内不能重名；**跨层可以同名**
   （`black` 在每个页面、每个设备下各一份是正常且必要的）。
 - **版式跟随「主题包 × 设备」**：换一套版式 = 换一个包；手机端与电脑端各看各的。
-  机制与红线见下文「版式」一节与 `views/registry.ts` 的文件头。
+  机制与红线见下文「版式」一节与 `skinsuite/vue 的 view-registry.ts` 的文件头。
 
 ## 手机端、电脑端分别配置（设备维度 URL 参数）
 
@@ -115,7 +162,7 @@ themes/<包>/<设备>/<页面>/colors/<配色>/      ← 该页的配色
 - **"没有就自动下沉"**：`?theme=blue&view=compact` 在三端同时生效，某端没有
   `compact` 包或没有 `blue` 配色时，按上表逐级回落到该端**已有**的那一套，
   不报错、不白屏。回落口径见下节。
-- 读取入口只有一个：`views/params.ts` 的 `readDeviceParam()`（版式）与
+- 读取入口只有一个：`skinsuite` 的 `readDeviceParam()`（版式）与
   `stores/theme.ts` 的 `readUrlIntent()`（配色）。
 
 ## 目录名的口径（真源：`index.ts` 的 `buildRegistry()`）
@@ -248,7 +295,8 @@ tokens: Record<string, string>;   // 直接就是 --mauth-* 的值
 
 ## 值的安全边界
 
-`tokens` 会被白名单校验（`runtime.ts`）：token 名必须是 `--mauth-` 前缀；
+`tokens` 会被白名单校验（`skinsuite` 的 `tokens.ts`，注入在 `skinsuite/vue` 的
+`token-runtime.ts`）：token 名必须是 `--mauth-` 前缀；
 取值只接受 `#hex` / `rgb()` / `hsl()` / 长度 / `var(--mauth-*)` / 少量关键字，
 外加 `--mauth-font-family` 的字体栈写法。
 **不接受 `url(...)`** —— 所以背景图、webfont 一律走 `theme.scss`。
@@ -312,7 +360,7 @@ html[data-mauth-theme='<id>'] {
 
 1. URL 参数 `?theme.<当前设备>=<配色 id>`（`?skin.<设备>` 同义）
 2. URL 参数 `?theme=<配色 id>`（`?skin=` 同义；所有设备共用同一个 id）
-3. 后端下发 `{ "theme": "<配色 id>" }`（见 `remote.ts`）
+3. 后端下发 `{ "theme": "<配色 id>" }`（见 `composables/remote-theme.ts`）
 4. localStorage 里用户上次的选择
 5. 该**包 × 设备 × 页面**下的兜底配色 —— **`DEFAULT_THEME_COLOR` = `white`**（2026-09-26 定）；
    只有该范围里没有 `white` 时才退回「按 id 字母序取最前」那套
@@ -323,7 +371,7 @@ html[data-mauth-theme='<id>'] {
 首套，避免"点了深色却跳成浅色"）。
 
 > **默认版式 = `default` 包，默认配色 = `white`**（用户 2026-09-26 定）。
-> 兜底值是**显式常量** `DEFAULT_THEME_COLOR`（`theme/index.ts`），不再靠"字母序第一个"
+> 兜底值是**显式常量** `DEFAULT_THEME_COLOR`（`skinsuite` 的 `constants.ts`），不再靠"字母序第一个"
 > —— 旧口径下 `black < blue < cyan < rainbow < white`，默认实际落在**黑系**，
 > 还要靠首屏系别对齐纠正；而且新增一个比 `black` 更靠前的 id（如 `amber`）
 > 会**静默**改掉默认外观。
@@ -360,11 +408,11 @@ export default {
 
 优先级：`?view.<设备>` > `?view=` > `views` > `VITE_<PAGE>_VIEW` > 当前包（自带版式）。
 写错 / 未登记的版式名一律**回退当前包当前设备的版式**，不会因为写错而白屏
-（合法性由 `views/<page>.ts` 判定）。版式的分工与红线见 `views/registry.ts` 的文件头。
+（合法性由 `views/<page>.ts` 判定）。版式的分工与红线见 `skinsuite/vue 的 view-registry.ts` 的文件头。
 
 ## 版式（可换 UI）—— 业务容器 + 版式
 
-页面拆成两半，机制见 `views/registry.ts` 文件头：
+页面拆成两半，机制见 `skinsuite/vue 的 view-registry.ts` 文件头：
 
 ```
 view/app/<page>/index.vue                业务容器：状态 / 校验 / 请求 / 路由 / 浮层 / 倒计时（手机端）
@@ -395,7 +443,8 @@ theme/themes/<包>/<设备>/<page>/index.vue      非内置包版式（`import.m
 - 容器再判一次会出现"URL 说是移动端路由、视口却已变宽"这类自相矛盾的状态。
 
 「当前这条路由属于哪端」由路由回答（`meta.device`），并在应用启动时同步给
-store（`main.ts` → `setupThemeDeviceSync(router)`）。store 用这个值决定
+store（`bootstrap.ts` → `initThemeDomain`，机制在 `skinsuite/vue` 的 `setupTheme`）。
+store 用这个值决定
 **把哪一套配色的 token 注入 `html`**（`html` 是整份文档唯一的，只能注入一套）。
 
 ⚠️ 这里有一个**已修掉的坑**：设备同步**不能**写在 `router.afterEach` 里 ——
@@ -412,7 +461,7 @@ store（`main.ts` → `setupThemeDeviceSync(router)`）。store 用这个值决�
 - **换版式 = 换包**：`?view=compact` 把 `compact` 当**目标包名**解析；
   跨包引用只在"该包 × 该设备内已登记"时成立，否则回退当前包的版式。
 - 版式 id 来自 URL / 主题包 / 环境变量，都属**外部输入**：只做「当前包 × 当前设备内已登记」
-  白名单匹配，未登记一律回退该范围自带版式（见 `views/registry.ts` 的 `resolve`）。
+  白名单匹配，未登记一律回退该范围自带版式（见 `skinsuite/vue 的 view-registry.ts` 的 `resolve`）。
 
 ### 选择优先级（高 → 低）
 
@@ -446,7 +495,7 @@ store（`main.ts` → `setupThemeDeviceSync(router)`）。store 用这个值决�
 | `?view=<当前包名>` 或 `?view=base` | 同上（`load()` 返回 `null`） | **零请求** |
 | `?view=<其它包名>`（且该包该设备有实现） | `import.meta.glob` 惰性 | 一个 chunk 请求；路由守卫会提前预热 |
 
-`views/registry.ts` 的 `load()` 返回 `null` 就是"**用你静态引入的那份**"这个语义。
+`skinsuite/vue 的 view-registry.ts` 的 `load()` 返回 `null` 就是"**用你静态引入的那份**"这个语义。
 三个设备**各自静态引入自己设备的那份**（`view/app/<page>/` → `default/mobile`、
 `Standard*` → `default/standard`、`Mini*` → `default/mini`），所以"零请求"对三端都成立 ——
 这一点由 `.tmp-probe/verify-theme-dirs.mjs` 的 **8b 节**守着（断言每个容器静态引入的路径与

@@ -59,8 +59,8 @@ const PKGS = join(THEME, 'themes');
 
 /** 目录名白名单（与 theme/index.ts 的 THEME_ID_RE 逐字一致） */
 const ID_RE = /^[a-z0-9-]+$/;
-/** 设备清单文件（设备维度取值集合的**唯一来源**，见 oauth21/src/theme/devices.ts） */
-const DEVICES_FILE = join(THEME, 'devices.ts');
+/** 设备清单文件（设备维度取值集合的**唯一来源**，见 oauth21/src/theme/views/devices.ts） */
+const DEVICES_FILE = join(VIEWS, 'devices.ts');
 /**
  * 设备白名单 —— 从宿主设备清单 `theme/devices.ts` 派生，**不再硬编码**
  *
@@ -204,14 +204,14 @@ check(
   'theme/themes/views/ 不存在（配色目录是 colors，且不在 themes 下）',
   !isDir(join(PKGS, 'views'))
 );
-check('theme/index.ts 存在（注册表在 theme 根，不在 themes 里）', existsSync(join(THEME, 'index.ts')));
-check('theme/themes/index.ts 不存在', !existsSync(join(PKGS, 'index.ts')), '注册表已提到 theme 根');
-check('theme/views/registry.ts 存在（版式工厂）', existsSync(join(VIEWS, 'registry.ts')));
-check('theme/views/pages.ts 存在（页面版式总览）', existsSync(join(VIEWS, 'pages.ts')));
+check('src/theme-manifest.ts 存在（注册表装配点，机制在内核 skinsuite）', existsSync(join(ROOT, 'theme-manifest.ts')));
+check('theme/themes/index.ts 不存在', !existsSync(join(PKGS, 'index.ts')), '注册表装配已提到 src 根');
+check('theme/views/registry.ts 已下沉内核（机制在 skinsuite/vue）', !existsSync(join(VIEWS, 'registry.ts')));
+check('theme/views/pages.ts 存在（页面版式总览壳）', existsSync(join(VIEWS, 'pages.ts')));
 check(
-  'theme/views/params.ts 存在（设备维度 URL 参数的唯一读取入口）',
-  existsSync(join(VIEWS, 'params.ts')),
-  '`theme.<设备>` / `view.<设备>` 的取值链只应有一份实现'
+  'theme/views/params.ts 已下沉内核（机制在 skinsuite，宿主无壳）',
+  !existsSync(join(VIEWS, 'params.ts')) && existsSync(join(CORE, 'views', 'params.ts')),
+  '`theme.<设备>` / `view.<设备>` 的取值链只应有一份实现，宿主不再留 re-export 壳'
 );
 check(
   'theme 根不再有 view-<page>.ts 平铺文件',
@@ -599,16 +599,17 @@ for (const page of PAGES) {
   check(
     `${page} 容器用 readDeviceParam 读设备维度参数（不从 route.query 直接取 view）`,
     read(join(ROOT, 'view', 'app', page, 'index.vue')).includes('readDeviceParam'),
-    '`view.<设备>` / `view` 的取值链只应有一份实现（theme/views/params.ts）'
+    '`view.<设备>` / `view` 的取值链只应有一份实现（skinsuite 的 views/params.ts）'
   );
 }
 {
   // 版式**选择器**（取值链）——三页共用一份，所以这些都只断言一次
-  const pickerSrc = implText(['views/picker.ts']);
+  // 2026-10-17 机制下沉内核 skinsuite/vue（view-picker.ts）
+  const pickerSrc = implText(['vue/view-picker.ts']);
   check(
     '选择器工厂存在且导出 createViewPicker',
     /export\s+function\s+createViewPicker\(/.test(pickerSrc),
-    '三页的取值链唯一实现（views/picker.ts）'
+    '三页的取值链唯一实现（内核 skinsuite/vue 的 view-picker.ts）'
   );
   check(
     '选择器的输入含 device（第三段查找范围）',
@@ -616,9 +617,9 @@ for (const page of PAGES) {
     '设备是查找范围的第二段，不传就没法按端取版式'
   );
   check(
-    '选择器有设备白名单归一（复用 params 的 asThemeDevice）',
-    /asThemeDevice\(/.test(pickerSrc),
-    '设备名是外部输入，必须落白名单；口径只此一处'
+    '选择器有设备白名单归一（参数注入 asKnownDevice）',
+    /asKnownDevice\(/.test(pickerSrc),
+    '设备名是外部输入，必须落白名单；内核不认识设备词汇表，故参数注入'
   );
   check(
     '选择器把 source.theme 交给 registry.resolve（声明档，不自己判合法性）',
@@ -665,7 +666,7 @@ for (const page of PAGES) {
   );
 }
 {
-  const factory = implText(['views/registry.ts']);
+  const factory = implText(['vue/view-registry.ts']);
   check(
     '工厂只有一套键正则（无 variantKeyRe 残留）',
     factory.includes('baseKeyRe') && !factory.includes('variantKeyRe'),
@@ -678,9 +679,9 @@ for (const page of PAGES) {
   );
   check('工厂按「包/设备」两段建表', factory.includes('${pkg}/${device}'), '不按两段分表就没法只查当前包当前设备');
   check(
-    '工厂有 normalizeDevice 白名单',
-    /function\s+normalizeDevice/.test(factory),
-    '设备名来自外部，必须归一'
+    '工厂有设备白名单归一（参数注入 asKnownDevice）',
+    /asKnownDevice\(/.test(factory),
+    '设备名来自外部，必须归一；内核不认识设备词汇表，故参数注入'
   );
   check(
     '工厂只保留 bases 一张表（无 variants 残留）',
@@ -703,18 +704,19 @@ for (const page of PAGES) {
 
 const themeIndexSrc = implText(['index.ts', 'registry.ts', 'constants.ts']);
 const builtinPkg = /DEFAULT_THEME_PACKAGE\s*=\s*'([a-z0-9-]+)'/.exec(themeIndexSrc)?.[1];
-check('theme/index.ts 导出了 DEFAULT_THEME_PACKAGE', Boolean(builtinPkg), `值 = ${builtinPkg}`);
+check('DEFAULT_THEME_PACKAGE 常量存在（内核 skinsuite）', Boolean(builtinPkg), `值 = ${builtinPkg}`);
 check(
-  'theme/devices.ts 是设备取值集合的唯一来源（不再写死在常量里）',
+  'theme/views/devices.ts 是设备取值集合的唯一来源（不再写死在常量里）',
   existsSync(DEVICES_FILE) && DEVICES.length > 0,
   `本关卡从 ${DEVICES_FILE} 读到设备：${DEVICES.join(' / ')}`
 );
+const devicesSrc = existsSync(DEVICES_FILE) ? read(DEVICES_FILE) : '';
 check(
-  'theme/index.ts 把设备维度转发出去（THEME_DEVICES / ThemeDevice / DEFAULT_THEME_DEVICE）',
-  /THEME_DEVICES/.test(themeIndexSrc) &&
-    /ThemeDevice/.test(themeIndexSrc) &&
-    /DEFAULT_THEME_DEVICE/.test(themeIndexSrc),
-  '设备维度的公共出口（值在 devices.ts，这里只转发，导入面不变）'
+  'theme/views/devices.ts 导出设备维度（THEME_DEVICES / ThemeDevice / DEFAULT_THEME_DEVICE）',
+  /THEME_DEVICES/.test(devicesSrc) &&
+    /ThemeDevice/.test(devicesSrc) &&
+    /DEFAULT_THEME_DEVICE/.test(devicesSrc),
+  '设备维度的唯一声明处（清单 + 词汇表 + 兜底设备都在 views/devices.ts）'
 );
 
 // ---- 默认版式 / 默认配色（2026-09-26 用户定：default + white）----
@@ -883,37 +885,49 @@ console.log(`\n=== 9. store / 路由的设备接线 ===`);
   );
 }
 {
-  const router = read(join(ROOT, 'router', 'index.ts'));
-  // 🔴 装配在 bootstrap.ts（入口门牌化：main.ts 只引样式 + 转交，规范见 entry-conventions.md）
+  // 🔴 2026-10-17 起设备同步的**机制**下沉进主题库 `skinsuite/vue` 的 `setupTheme`，
+  //    宿主的「接线」（设备来源 / 写入目标 / 清单路由）内联回 `bootstrap.ts`（装配层）。
+  //    所以断言拆两块：机制读内核，接线读 bootstrap。
+  const setup = implText(['vue/setupTheme.ts']);
   const bootstrap = read(join(ROOT, 'bootstrap.ts'));
 
   check(
-    '导出了 setupThemeDeviceSync（设备同步的唯一入口）',
-    /export\s+function\s+setupThemeDeviceSync/.test(router),
-    '把设备同步从 afterEach 搬出来后，必须有一个明确的入口供 bootstrap.ts 调用'
+    '内核导出了 setupTheme（主题域初始化的唯一机制入口）',
+    /export\s+function\s+setupTheme\s*\(/.test(setup),
+    '设备同步的机制必须收在库里，不能让每个宿主重演「watch 而非 afterEach」这套踩坑结论'
   );
   check(
-    '设备由 RouteMeta.device 判定（不是视口）',
-    /currentRoute\.value\.meta\.device\s*===\s*'mobile'\s*\?\s*'mobile'\s*:\s*'standard'/.test(router),
-    '用视口判会出现"分发器渲染移动端组件、路由说电脑端"的分裂'
-  );
-  check(
-    '设备同步用 watch(router.currentRoute) 而不是 afterEach',
-    /watch\(\s*\(\)\s*=>\s*\(?router\.currentRoute\.value\.meta\.device/.test(router),
+    '设备同步用 watch(来源函数返回值) 而不是 afterEach',
+    /watch\(\s*options\.deviceSource/.test(setup) || /watch\(\s*[\w.]+deviceSource/.test(setup),
     '⚠️ 写在 afterEach 里会让**首次**导航静默失效：app.use(router) 触发首导航时 ' +
       'Pinia 的 activeInstance 尚未建立，useThemeStore() 抛错被吞 → 电脑端永远按手机端渲染'
   );
   check(
     '设备同步 watch 带 immediate（覆盖首次导航）',
-    /\{\s*immediate:\s*true\s*\}/.test(router.slice(router.indexOf('setupThemeDeviceSync'))),
+    /\{\s*immediate:\s*true\s*\}/.test(setup),
     '没有 immediate 就漏掉首屏那一次'
   );
   check(
-    'bootstrap.ts 在 app.use(pinia) 之后调用 setupThemeDeviceSync',
+    'bootstrap.ts 直接调 setupTheme（接线内联到装配层）',
+    /setupTheme\s*\(\s*\{/.test(bootstrap),
+    '设备来源 / 写入目标 / 清单路由三个宿主事实在装配层内联，新项目只需调一次'
+  );
+  check(
+    '设备由 RouteMeta.device 判定（不是视口）',
+    /currentRoute\.value\.meta\.device\s*===\s*'mobile'\s*\?\s*'mobile'\s*:\s*'standard'/.test(bootstrap),
+    '用视口判会出现"分发器渲染移动端组件、路由说电脑端"的分裂'
+  );
+  check(
+    '接线把设备写回主题 store 的 setActiveDevice',
+    /setActiveDevice\s*\(/.test(bootstrap) && /themeManifest\.routes/.test(bootstrap),
+    '写入目标 = 主题 store；清单路由 = 虚拟模块解析出的 manifest'
+  );
+  check(
+    'bootstrap.ts 在 app.use(pinia) 之后调用 setupTheme',
     (() => {
       const piniaAt = bootstrap.indexOf('app.use(pinia)');
-      const syncAt = bootstrap.indexOf('setupThemeDeviceSync(');
-      return piniaAt !== -1 && syncAt !== -1 && syncAt > piniaAt;
+      const setupAt = bootstrap.indexOf('setupTheme(');
+      return piniaAt !== -1 && setupAt !== -1 && setupAt > piniaAt;
     })(),
     '函数内部会 useThemeStore()，必须在 Pinia activeInstance 建立之后调用'
   );
@@ -927,30 +941,31 @@ console.log(`\n=== 9. store / 路由的设备接线 ===`);
 console.log(`\n=== 10. 注册表实现与文档口径一致 ===`);
 {
   const src = themeIndexSrc;
-  const globs = [
-    ['包定义：themes 一层 + index.ts', './themes/*/index.ts'],
-    ['配色：包 / 设备 / 页面 / colors / 配色', './themes/*/*/*/colors/*/index.ts'],
-    ['配色样式（同形态，theme.scss）', './themes/*/*/*/colors/*/theme.scss']
-  ];
-  for (const [label, pattern] of globs) {
-    check(`glob 仍为「${label}」`, src.includes(`'${pattern}'`), '改了就要同步本文档与 README');
-  }
+  const registrySrc = implText(['registry.ts']);
+
+  // 🔴 2026-10-17：资产不再来自 `import.meta.glob` —— 它的模式必须是**字面量**，
+  //    于是「主题目录在哪」被写死在源码里、改不了。现在由主题库 `skinsuite/vite`
+  //    的 `themeAssets()` 插件按 `.env` 的 `VITE_THEME_DIR` 在构建期扫描，
+  //    经虚拟模块 `virtual:theme` 注入。
+  //    所以本节断言的是**机制**（资产从哪来），不再是 glob 模式串；
+  //    "目录结构真的被扫到"由 `e2e/verify-glob-device.mjs` 拿插件的真实扫描产物来验。
+  //    virtual:theme 的 import 在**宿主装配点** `src/theme-manifest.ts`（内核零依赖，不碰虚拟模块）。
+  const hostIndex = read(join(ROOT, 'theme-manifest.ts'));
+  const virtualImport = /import\s*\{([^}]*)\}\s*from\s*'virtual:theme'/.exec(hostIndex)?.[1] ?? '';
   check(
-    '🔴 不再有「6 段配色」glob（配色 glob 只有一套）',
-    !src.includes("'./themes/*/*/*/*/colors/*/index.ts'") &&
-      !src.includes("'./themes/*/*/*/*/colors/*/theme.scss'") &&
-      !src.includes("'./themes/*/*/*/*/colors/*/"),
-    '一个主题包 = 一种版式：路径里没有「版式」这一层，6 段 glob 会扫到 0 个文件'
+    '注册表从虚拟模块 virtual:theme 取资产',
+    virtualImport.length > 0,
+    '虚拟模块由 skinsuite/vite 的 themeAssets() 生成，目录来自 VITE_THEME_DIR'
   );
   check(
-    '不再有「设备级配色」glob（配色在页面下，不在设备下）',
-    !src.includes("'./themes/*/*/colors/*/index.ts'"),
-    '配色住在 <页面>/colors/ 下，设备下直接挂 colors 已是过时位置'
+    '三类资产（包定义 / 配色 / 配色样式）都从虚拟模块取',
+    ['packages', 'colors', 'styles'].every(n => new RegExp(`\\b${n}\\b`).test(virtualImport)),
+    `实际导入：${virtualImport.trim() || '(空)'}`
   );
   check(
-    '不再有「包根样式」glob（样式只属于配色）',
-    !src.includes("'./themes/*/theme.scss'"),
-    '包根样式会让"包"与"配色"的样式来源含糊不清'
+    '🔴 注册表与接线壳里都不再有 import.meta.glob（有它就等于目录又写回源码）',
+    !registrySrc.includes('import.meta.glob(') && !hostIndex.includes('import.meta.glob('),
+    'glob 的模式必须是字面量 —— 用它 VITE_THEME_DIR 就形同虚设（改了 env 不生效且不报错）'
   );
   check(
     '目录名覆盖配色 meta.id',
@@ -986,8 +1001,8 @@ console.log(`\n=== 10. 注册表实现与文档口径一致 ===`);
   );
   check(
     '同作用域内配色重名会告警而不是静默覆盖',
-    /console\.warn/.test(src) && /内重复/.test(src),
-    '唯一性作用域是「同包同设备同页」'
+    /onWarn\(/.test(src) && /内重复/.test(src) && /console\.warn/.test(hostIndex),
+    '唯一性作用域是「同包同设备同页」；机制用 onWarn 注入（内核零依赖），宿主传 console.warn'
   );
   check(
     'findRecord 按「包」匹配（view 段已并入 pkg，无 BASE_VIEW_ID 反语义分支）',
@@ -1149,11 +1164,21 @@ console.log('\n=== 13. theme-core 包契约（依赖方向 + 公开面 + 壳无�
     (function walk(dir) {
       for (const n of readdirSync(dir)) {
         const p = join(dir, n);
-        if (isDir(p)) walk(p);
-        else if (/\.ts$/.test(n)) coreFiles.push(p);
+        // `src/vue/` 是**独立的 Vue 绑定入口**（`skinsuite/vue`），职责本来就是碰 vue
+        // 与 window —— "零依赖纯内核"这条约束只对除它以外的 src 生效。
+        // （包自己的 tsconfig 也把 `src/vue/**` 排除在外，理由同构：`.vue` 只能由宿主的
+        // vue-tsc 检查，不该被内核的 tsc 纳入。）
+        if (isDir(p)) {
+          if (n !== 'vue') walk(p);
+        } else if (/\.ts$/.test(n)) coreFiles.push(p);
       }
     })(CORE);
     check('内核包有源码文件', coreFiles.length > 0, `${coreFiles.length} 个 .ts`);
+    check(
+      '框架耦合集中在 src/vue（本轮扫描刻意跳过的那一层）',
+      isDir(join(CORE, 'vue')),
+      '目录结构变了的话，"跳过 src/vue" 这条就失去了对象，必须回来重新确认约束边界'
+    );
 
     const banned = [
       ['import.meta（构建器耦合）', /\bimport\.meta\b/],
@@ -1207,8 +1232,23 @@ console.log('\n=== 13. theme-core 包契约（依赖方向 + 公开面 + 壳无�
    * 壳：`@/theme/*` 的导入面靠它们保持不变，所以壳本身**不许有实现**。
    * 判定方式：先剔注释，再把**整条** `export {…} from '…';` 语句删掉
    * （⚠️ 按行判会误伤多行花括号导出 —— 续行不以 `export` 开头），剩下的必须是空。
+   *
+   * 🔴 2026-10-17 下沉：`tone.ts` / `mode.ts` / `types.ts` 已**彻底删除**（不是留壳）
+   *    —— 它们的导出全并进 `theme/index.ts` 的内核 re-export（`from 'skinsuite'`），
+   *    导入面 `@/theme` 不变，所以不再要求同名壳文件存在。`views/params.ts` 也一并删除
+   *    —— `readDeviceParam` 纯函数（不碰 vue-router，只收 `Record<string, unknown>`）
+   *    已在内核，宿主直接 `from 'skinsuite'`，不再留 re-export 壳。
    */
-  const SHELLS = ['tone.ts', 'mode.ts', 'types.ts', join('views', 'params.ts')];
+  const SHELLS = [];
+  const REMOVED_SHELLS = ['tone.ts', 'mode.ts', 'types.ts', join('views', 'params.ts')];
+  for (const rel of REMOVED_SHELLS) {
+    const label = rel.replace(/\\/g, '/');
+    check(
+      `壳 ${label} 已删除（导出并入 theme/index.ts 的内核 re-export）`,
+      !existsSync(join(THEME, rel)),
+      '抽包后这些纯类型/纯函数的导出走 `@/theme` 的内核转发即可，留壳反而造出两份真相'
+    );
+  }
   for (const rel of SHELLS) {
     const p = join(THEME, rel);
     const label = rel.replace(/\\/g, '/');

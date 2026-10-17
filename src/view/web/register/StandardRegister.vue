@@ -44,9 +44,9 @@ import { rsaEncrypt, getCachedKid } from '@/utils/crypto';
 import { useThemeStore } from '@/stores/theme';
 import BaseRegisterView from '@/theme/themes/default/standard/register/index.vue';
 import { pickRegisterViewId, registerViews } from '@/theme/views/register';
-import { readDeviceParam } from '@/theme/views/params';
+import { readDeviceParam } from 'skinsuite';
 import type { RegisterDirection, RegisterTranslate, RegisterViewContext } from '@/theme/views/register';
-import type { ThemeDevice } from '@/theme';
+import type { ThemeDevice } from '@/theme/views/devices';
 import type { Component, Ref } from 'vue';
 
 /** 步骤总数：web 端两步（账号+验证码 → 密码+协议） */

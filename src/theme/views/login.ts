@@ -253,25 +253,23 @@ export interface LoginViewProps {
  * @see ./picker.ts —— 取值链与回退口径的唯一实现
  */
 import type { Component } from 'vue';
-import { defineThemePage } from './page';
+import { defineThemePage } from 'skinsuite/vue';
+import { DEFAULT_THEME_DEVICE, asThemeDevice } from './devices';
 
 /**
- * 本页的版式机制 —— 机制本身在 `./page.ts`（页面工厂），本文件只声明三件**本页独有**的事：
- *   ① `page`    —— 页面名（= 主题包内的目录名 = 本文件名 = 路由末段）
- *   ② 标题      —— 默认标题 + 设备专属覆盖
- *   ③ `loaders` —— 版式 glob（`import.meta.glob` 的模式必须是字面量，只能写在这里）
- * 取值链（`?view=` > 声明 > 环境变量 > 当前包名）的唯一实现在 `./picker.ts`。
+ * 本页的版式机制 —— 机制本身在 `skinsuite/vue` 的 `defineThemePage`（页面工厂），
+ * 本文件只声明**本页独有**的事：页面名、标题、版式 glob、设备归一化。
  *
- * ⚠️ 用 **`/src/...` 根绝对路径**：相对路径在当前 Vite 版本下**扫不到任何文件且不报错**，
- *    非内置包的版式会永远加载不出来（表现为"变体加载不出来、版式列表恒为空"）。
- * ⚠️ 新增包或版式目录后要**重启 dev server**（glob 在启动时静态扫描，热更新发现不了新目录）。
+ * ⚠️ 用 **`/src/...` 根绝对路径**：相对路径在当前 Vite 版本下**扫不到任何文件且不报错**。
+ * ⚠️ 新增包或版式目录后要**重启 dev server**（glob 在启动时静态扫描）。
  */
 export const loginPage = defineThemePage({
   page: 'login',
   title: '安全登录',
   titles: { mobile: '移动端登录', mini: '快捷登录' },
   envView: import.meta.env.VITE_LOGIN_VIEW,
-  loaders: import.meta.glob<{ default: Component }>('/src/theme/themes/*/*/login/index.vue')
+  loaders: import.meta.glob<{ default: Component }>('/src/theme/themes/*/*/login/index.vue'),
+  device: { defaultDevice: DEFAULT_THEME_DEVICE, asKnownDevice: asThemeDevice }
 });
 
 /** 本页版式注册表（容器与调试面板按这个名字取） */

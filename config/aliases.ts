@@ -62,10 +62,23 @@ export const OAUTH21_ROOT = path.resolve(HERE, '..');
 export const MONOREPO_ROOT = path.resolve(OAUTH21_ROOT, '..');
 
 /**
- * 两个本地包的 monorepo 源码入口（源码直供目标）。
+ * 本地包的 monorepo 源码入口（源码直供目标）。
  * 键顺序即 aliases 注册顺序（`@` 恒在最前）。
+ *
+ * 🔴 **子路径必须排在父路径之前**：Vite 的 `resolve.alias` 对字符串 `find`
+ * 用的是**前缀匹配**（`importee === find || importee.startsWith(find + '/')`），
+ * 不是精确匹配。若 `skinsuite` 在前，`skinsuite/vue` 会被改写成
+ * `…/src/index.ts/vue`，报 `系统找不到指定的路径`（本仓 2026-10-17 实测）。
  */
 const LOCAL_PKG_SOURCES: Record<string, string> = {
+  // Vue 绑定层的**独立面板入口**：宿主用 `defineAsyncComponent` 加载它，
+  // 单独一条子路径才能让打包器切出独立 chunk（否则面板会并回主包）。
+  'skinsuite/vue/panel': path.resolve(MONOREPO_ROOT, 'packages/theme-core/src/vue/panel.ts'),
+  // Vue 绑定层的**同步入口**（composable / 类型）：与纯内核分开，
+  // 这样"只要机制不要 Vue"的消费者不会被迫装 UI 层。
+  'skinsuite/vue': path.resolve(MONOREPO_ROOT, 'packages/theme-core/src/vue/index.ts'),
+  // 构建期适配器（Vite 扫描插件 + 目录解析）：宿主在 vite/vitest config 里挂它。
+  'skinsuite/vite': path.resolve(MONOREPO_ROOT, 'packages/theme-core/src/vite/index.ts'),
   'skinsuite': path.resolve(MONOREPO_ROOT, 'packages/theme-core/src/index.ts'),
   'stable-deviceid': path.resolve(MONOREPO_ROOT, 'packages/shared-device/src/index.ts')
 };
@@ -73,11 +86,9 @@ const LOCAL_PKG_SOURCES: Record<string, string> = {
 /**
  * 别名表：键 = import 说明符，值 = 绝对路径。
  *
- * 注：Vite 的 `resolve.alias` 做的是**精确键匹配**（不做前缀通配），
- * 所以 `skinsuite` 只解析裸说明符 `skinsuite` 本身，不会吞掉 `skinsuite/xxx` 子路径。
- * 两个本地包目前也只从入口 import（无子路径用法），故不需要通配键。
+ * ⚠️ 前缀匹配的后果（见上）：注册顺序有意义，**更具体的键必须排在前面**。
  *
- * `@` 恒注册（src/ 是本仓自有目录，两种形态都在）；两个本地包仅当
+ * `@` 恒注册（src/ 是本仓自有目录，两种形态都在）；本地包仅当
  * monorepo 源码存在时注册（见文件头「双形态」）。
  */
 export const aliases: Record<string, string> = {
@@ -102,7 +113,10 @@ export const tsconfigPaths: Record<string, string[]> = {
   '@/*': ['./src/*'],
   'stable-deviceid': ['../packages/shared-device/src/index.ts'],
   'stable-deviceid/*': ['../packages/shared-device/src/*'],
-  skinsuite: ['../packages/theme-core/src/index.ts']
+  skinsuite: ['../packages/theme-core/src/index.ts'],
+  'skinsuite/vue': ['../packages/theme-core/src/vue/index.ts'],
+  'skinsuite/vue/panel': ['../packages/theme-core/src/vue/panel.ts'],
+  'skinsuite/vite': ['../packages/theme-core/src/vite/index.ts']
 };
 
 export default aliases;

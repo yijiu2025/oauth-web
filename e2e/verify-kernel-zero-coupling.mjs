@@ -20,10 +20,28 @@
  * 所以这里把"零框架耦合"从"现状"升格为"被守卫的不变量"。
  *
  * === 判据（由接口/清单派生，不手抄成员名）===
- *   1. 两包 package.json 的 `dependencies` 与 `peerDependencies` 必须为空/不存在
- *   2. 两包 `src/**` 的 import 说明符必须**全部是相对路径**（`./` 或 `../`）——
- *      这条比"禁 vue"更强：任何外部包（vue / react / lodash…）都不许进内核
- *   3. 顺带断言 `sideEffects: false` 仍在（纯函数内核的前提，影响 tree-shaking）
+ *   1. 两包 package.json 的 `dependencies` 必须为空/不存在
+ *   2. **允许且只允许**把 `vue` / `vite` 声明为 peer，且必须
+ *      `peerDependenciesMeta.<pkg>.optional = true`，并且对应的绑定层必须是
+ *      **独立子路径入口**（`exports['./vue']` / `exports['./vite']`）
+ *      —— 理由见下「可选分层入口的例外」。
+ *   3. 两包 `src/**` 的 import 说明符必须**全部是相对路径**（`./` 或 `../`）——
+ *      这条比"禁 vue"更强：任何外部包（vue / react / lodash…）都不许进内核。
+ *      唯一例外是 `src/vue/`（Vue 绑定层）与 `src/vite/`（Vite 构建期适配器），
+ *      它们的职责就是分别碰 vue / vite。
+ *   4. 顺带断言 `sideEffects: false` 仍在（纯函数内核的前提，影响 tree-shaking）
+ *
+ * === 可选分层入口的例外（2026-10-17）===
+ * `skinsuite` 现在有三个入口：`.`（零依赖纯内核）、`./vue`（面板 / 父窗口同步）、
+ * `./vite`（Vite 扫描插件 / 目录解析）。拆开的动机恰恰是反过来保护第 2 条不变量：
+ * **只要纯机制的消费者不该被迫装 Vue，只要纯运行时（不碰 Vite 构建）的消费者
+ * 不该被迫装 Vite**。
+ * 于是判据从"不许出现 vue"变成"框架依赖不许越出各自的子路径入口"：
+ *   · `peerDependenciesMeta.<pkg>.optional = true` ⇒ 不装框架也能 `npm i skinsuite`
+ *   · 独立子路径导出 ⇒ 只 import `skinsuite` 的代码在打包时**不会**触到框架
+ *   · `src/vue/`、`src/vite/` 之外仍必须是纯相对路径 ⇒ 内核本体没有被悄悄污染
+ * 双 Vue 实例的老风险仍然被守住：peer（而不是 dependency）+ 源码直供 ⇒ 宿主装的那份
+ * vue 就是唯一那份。`vite` 同理（它本是宿主的构建器，peer 指向它不会另造一份）。
  *
  * 退出码：0 通过 / 1 断言失败
  *
@@ -61,9 +79,9 @@ function check(label, ok, detail = '') {
   }
 }
 
-/** 目标包：目录名 → 期望的 npm 包名 */
+/** 目标包：目录名 → 期望的 npm 包名；`vueLayer`/`viteLayer` 标记带可选分层入口的包 */
 const TARGETS = [
-  { dir: 'packages/theme-core', pkg: 'skinsuite' },
+  { dir: 'packages/theme-core', pkg: 'skinsuite', vueLayer: 'vue', viteLayer: 'vite' },
   { dir: 'packages/shared-device', pkg: 'stable-deviceid' }
 ];
 
@@ -122,10 +140,19 @@ for (const t of TARGETS) {
     deps.length === 0,
     deps.length ? `实际：${deps.join(', ')}` : ''
   );
+  // peer 只允许「可选的 vue / vite」：必选 peer 会让不装框架的消费者 `npm i` 失败，
+  // 而 dependency 会造出第二份框架（源码直供下 npm 完全不报警）。
+  const peerMeta = j.peerDependenciesMeta || {};
+  const ALLOWED_PEERS = ['vue', 'vite'];
   check(
-    `${t.pkg} 无 peerDependencies（不要求宿主提供 vue）`,
-    peers.length === 0,
-    peers.length ? `实际：${peers.join(', ')}` : ''
+    `${t.pkg} 的 peer 依赖最多只有可选 vue/vite（不强制宿主装框架）`,
+    peers.every(p => ALLOWED_PEERS.includes(p)) && peers.every(p => peerMeta[p]?.optional === true),
+    peers.length ? `实际：${peers.map(p => `${p}(optional=${peerMeta[p]?.optional})`).join(', ')}` : ''
+  );
+  check(
+    `${t.pkg} 的可选分层入口是独立子路径导出（用内核不必拖框架）`,
+    peers.length === 0 || peers.every(p => Object.keys(j.exports || {}).includes(`./${p}`)),
+    `exports：${Object.keys(j.exports || {}).join(', ') || '(空)'}`
   );
   check(
     `${t.pkg} 声明 sideEffects: false（纯内核，可 tree-shake）`,
@@ -172,27 +199,65 @@ for (const t of TARGETS) {
     );
     continue;
   }
-  const files = collectSources(srcDir);
+  const posix = f => f.replace(/\\/g, '/');
+  const allFiles = collectSources(srcDir);
+  // 可选分层入口（`src/vue/` / `src/vite/`）的职责就是分别碰 vue / vite，
+  // 不参与"零外部 import"判定。
+  // ⚠️ 这个排除必须配一条"排除对象真的存在"的断言（见下），否则目录一改名，
+  //    排除就变成静默放行 —— 那才是这类白名单最危险的失效方式。
+  const layerDirs = [t.vueLayer, t.viteLayer].filter(Boolean);
+  const files = layerDirs.length
+    ? allFiles.filter(f => !layerDirs.some(l => posix(f).includes(`/src/${l}/`)))
+    : allFiles;
   check(
     `${MONOREPO_FORM ? t.dir : `node_modules/${t.pkg}`}/src 有源码文件`,
     files.length > 0,
-    `找到 ${files.length} 个`
+    `找到 ${files.length} 个（已排除分层入口 ${allFiles.length - files.length} 个）`
   );
 
   const offenders = [];
   for (const f of files) {
     for (const spec of extractSpecifiers(readFileSync(f, 'utf8'))) {
-      // 允许：相对路径。禁止：裸包名（含 vue / @scope/x）
+      // 允许：相对路径。禁止：裸包名（含 vue / vite / @scope/x）
       if (!spec.startsWith('.')) {
         offenders.push(`${f.replace(MONOREPO, '').replace(ROOT, '').replace(/\\/g, '/')} → ${spec}`);
       }
     }
   }
   check(
-    `${t.pkg} 源码只 import 相对路径（零外部包，含禁 vue）`,
+    `${t.pkg} 源码只 import 相对路径（零外部包，含禁 vue/vite）`,
     offenders.length === 0,
     offenders.length ? `发现 ${offenders.length} 处：\n      ${offenders.join('\n      ')}` : ''
   );
+
+  if (t.vueLayer) {
+    const vueFiles = allFiles.filter(f => posix(f).includes(`/src/${t.vueLayer}/`));
+    check(
+      `${t.pkg} 的 Vue 绑定层确实在 src/${t.vueLayer}/（上一步的排除有对象）`,
+      vueFiles.length > 0,
+      `找到 ${vueFiles.length} 个`
+    );
+    const barrel = join(srcDir, 'index.ts');
+    check(
+      `${t.pkg} 根入口不引 Vue 层（否则 import "skinsuite" 就会把 vue 拖进来）`,
+      existsSync(barrel) && !/from\s+['"]\.\/vue\//.test(readFileSync(barrel, 'utf8')),
+      '根入口一旦转发 Vue 层，`./vue` 子路径入口的隔离就白做了'
+    );
+  }
+  if (t.viteLayer) {
+    const viteFiles = allFiles.filter(f => posix(f).includes(`/src/${t.viteLayer}/`));
+    check(
+      `${t.pkg} 的 Vite 适配器确实在 src/${t.viteLayer}/（上一步的排除有对象）`,
+      viteFiles.length > 0,
+      `找到 ${viteFiles.length} 个`
+    );
+    const barrel = join(srcDir, 'index.ts');
+    check(
+      `${t.pkg} 根入口不引 Vite 层（否则 import "skinsuite" 就会把 vite 拖进来）`,
+      existsSync(barrel) && !/from\s+['"]\.\/vite\//.test(readFileSync(barrel, 'utf8')),
+      '根入口一旦转发 Vite 层，`./vite` 子路径入口的隔离就白做了'
+    );
+  }
 }
 
 if (MONOREPO_FORM) {

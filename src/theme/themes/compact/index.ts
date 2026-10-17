@@ -18,7 +18,7 @@
  *
  * @author yijiu2025
  */
-import type { MauthThemePackage } from '@/theme/types';
+import type { MauthThemePackage } from 'skinsuite';
 
 export default {
   meta: {

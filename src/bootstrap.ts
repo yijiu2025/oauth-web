@@ -2,7 +2,7 @@
  * oauth-web 启动编排器。
  *
  * 按序初始化：viewport 自救 → 设备 ID 同步 → createApp → 全局错误处理 → pinia → router
- * → i18n → 主题设备同步 → H5 签名 Token 预发 → 等待路由就绪 → 挂载。
+ * → i18n → 主题域初始化 → H5 签名 Token 预发 → 等待路由就绪 → 挂载。
  *
  * 🔴 为什么入口要拆成 `main.ts + bootstrap.ts`（与 retroweb / posecraft / firewall / admin 同构）：
  *    `main.ts` 只当"门牌"（文件头 + 样式 + `import './bootstrap'`），**启动顺序**全部收在
@@ -11,10 +11,11 @@
  *
  * ── 本文件的边界：只做「装配」，不做「实现」──
  *   它知道有十个步骤、知道先后顺序，但**不知道任何一个部件内部怎么工作**：
- *   · 不引入任何 store（`useXxxStore` 不出现在本文件——主题设备同步由 router 模块内部闭环）；
  *   · 不碰任何 HTTP 细节（第 8 步只发一个 fire-and-forget 预取，失败路径见其注释）；
  *   · 不处理业务分支。
  *   判据很简单：**删掉本文件换一种装配方式，业务一行不该变。**
+ *   例外：主题域初始化需要一个 `useThemeStore()` 实例来注入 `setDevice`（见第 2 步），
+ *   这是「装配胶水」而非「业务实现」——主题机制本身已收进 `skinsuite/vue` 的 `setupTheme`。
  *
  * @author yijiu2025
  * @since 2026-10-17
@@ -22,7 +23,10 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import App from './App.vue';
-import router, { setupThemeDeviceSync } from './router';
+import router from './router';
+import { useThemeStore } from '@/stores/theme';
+import { initThemeDomain } from '@/theme-manifest';
+import type { ThemeDevice } from '@/theme/views/devices';
 import i18n from './i18n';
 import request from './utils/request';
 import { initDeviceSync } from 'stable-deviceid';
@@ -59,14 +63,23 @@ app.use(pinia);
 app.use(router);
 app.use(i18n);
 
-// 把「当前路由属于哪种设备」同步给主题 store（决定注入哪一套配色的 token、
-// 版式在 `<包>/mobile/` / `<包>/standard/` / `<包>/mini/` 下查找）。
+// 主题域初始化：把「当前路由属于哪种设备」同步给主题 store（决定注入哪一套配色的
+// token、版式在 `<包>/mobile/` / `<包>/standard/` / `<包>/mini/` 下查找）。
 //
-// ⚠️ 必须在 `app.use(pinia)` **之后**调用：本函数内部会 `useThemeStore()`，
-//    而 Pinia 的 activeInstance 由 `use()` 建立。早先把这件事写在
-//    `router.afterEach` 里，首次导航时 Pinia 尚未就绪、异常被 try/catch 吞掉，
-//    导致电脑端页面静默按手机端配色渲染（详见 `router/index.ts` 的实现注释）。
-setupThemeDeviceSync(router);
+// 它做的只有一件事：**实例化主题 store**（设备基线 + 存量 watch 立即执行）。
+// 明暗类、`data-mauth-theme`、CSS 变量都在 store 的 `watch(immediate)` 里 ——
+// 所以必须在 `app.mount()` 之前调用，否则首帧会先渲染基线色再跳变。
+//
+// ⚠️ 必须在 `app.use(pinia)` **之后**调用：`setActiveDevice` 内部会 `useThemeStore()`，
+//    而 Pinia 的 activeInstance 由 `use()` 建立。
+//
+// 🔴 机制在 `skinsuite`（注册表安装 + 设备同步都收进了 `initThemeDomain`），
+//    这里只注入两个宿主事实：设备来源 = 路由 meta、写入目标 = 主题 store。
+initThemeDomain({
+  deviceSource: () =>
+    router.currentRoute.value.meta.device === 'mobile' ? 'mobile' : 'standard',
+  setDevice: device => useThemeStore().setActiveDevice(device as ThemeDevice)
+});
 
 // ---------------------------------------------------------------------------
 // 3. 预发 H5 签名 Token（拿 _m_h5_tk cookie，后续请求拦截器才能算签名）

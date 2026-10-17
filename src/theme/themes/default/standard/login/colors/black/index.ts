@@ -33,7 +33,7 @@
  * @author yijiu2025
  * @since 2026-09-23
  */
-import type { MauthThemeColor } from '@/theme/types';
+import type { MauthThemeColor } from 'skinsuite';
 
 export default {
   meta: {

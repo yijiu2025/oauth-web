@@ -23,21 +23,20 @@ declare global {
   const defineComponent: typeof import('vue').defineComponent
   const defineStore: typeof import('pinia').defineStore
   const effectScope: typeof import('vue').effectScope
+  const fetchRemoteThemeConfig: typeof import('./composables/remote-theme').fetchRemoteThemeConfig
   const getActivePinia: typeof import('pinia').getActivePinia
   const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope
   const getCurrentWatcher: typeof import('vue').getCurrentWatcher
   const h: typeof import('vue').h
   const inject: typeof import('vue').inject
-  const isConsentResponse: typeof import('./composables/useLoginFlow').isConsentResponse
-  const isEmailVerifyResponse: typeof import('./composables/useLoginFlow').isEmailVerifyResponse
-  const isLoginSuccessResponse: typeof import('./composables/useLoginFlow').isLoginSuccessResponse
-  const isMaxSessionsResponse: typeof import('./composables/useLoginFlow').isMaxSessionsResponse
   const isProxy: typeof import('vue').isProxy
   const isReactive: typeof import('vue').isReactive
   const isReadonly: typeof import('vue').isReadonly
   const isRef: typeof import('vue').isRef
+  const isRemoteThemeEnabled: typeof import('./composables/remote-theme').isRemoteThemeEnabled
   const isShallow: typeof import('vue').isShallow
+  const makeThemeDebugPanelHost: typeof import('./composables/useThemeDebugPanel').makeThemeDebugPanelHost
   const mapActions: typeof import('pinia').mapActions
   const mapGetters: typeof import('pinia').mapGetters
   const mapState: typeof import('pinia').mapState
@@ -103,7 +102,6 @@ declare global {
   const useLoginFlow: typeof import('./composables/useLoginFlow').useLoginFlow
   const useMessage: typeof import('./composables/useMessage').useMessage
   const useModel: typeof import('vue').useModel
-  const useParentThemeSync: typeof import('./composables/useParentThemeSync').useParentThemeSync
   const usePasswordStrength: typeof import('./composables/usePasswordStrength').usePasswordStrength
   const useQrLogin: typeof import('./composables/useQrLogin').useQrLogin
   const useRecaptcha: typeof import('./composables/useHCaptcha').useRecaptcha
@@ -112,6 +110,10 @@ declare global {
   const useSlots: typeof import('vue').useSlots
   const useSocialLogin: typeof import('./composables/useSocialLogin').useSocialLogin
   const useTemplateRef: typeof import('vue').useTemplateRef
+  const useThemeDebugPanel: typeof import('./composables/useThemeDebugPanel').useThemeDebugPanel
+  const useThemeIntent: typeof import('./stores/theme-intent').useThemeIntent
+  const useThemeRuntime: typeof import('./stores/theme-runtime').useThemeRuntime
+  const useThemeScope: typeof import('./stores/theme-scope').useThemeScope
   const useThemeStore: typeof import('./stores/theme').useThemeStore
   const useTurnstile: typeof import('./composables/useTurnstile').useTurnstile
   const watch: typeof import('vue').watch
@@ -124,6 +126,9 @@ declare global {
   // @ts-ignore
   export type { Component, Slot, Slots, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, ShallowRef, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from 'vue'
   import('vue')
+  // @ts-ignore
+  export type { RemoteThemeConfig } from './composables/remote-theme'
+  import('./composables/remote-theme')
   // @ts-ignore
   export type { AgreementVersionSnapshot, UseAgreementVersionReturn } from './composables/useAgreementVersion'
   import('./composables/useAgreementVersion')
@@ -152,8 +157,17 @@ declare global {
   export type { SocialProviderId } from './composables/useSocialLogin'
   import('./composables/useSocialLogin')
   // @ts-ignore
+  export type { ThemeIntent } from './stores/theme-intent'
+  import('./stores/theme-intent')
+  // @ts-ignore
   export type { DeviceThemeIntent } from './stores/theme-persistence'
   import('./stores/theme-persistence')
+  // @ts-ignore
+  export type { ThemeRuntime } from './stores/theme-runtime'
+  import('./stores/theme-runtime')
+  // @ts-ignore
+  export type { ThemeScope } from './stores/theme-scope'
+  import('./stores/theme-scope')
 }
 
 // for vue template auto import
@@ -176,6 +190,7 @@ declare module 'vue' {
     readonly defineComponent: UnwrapRef<typeof import('vue')['defineComponent']>
     readonly defineStore: UnwrapRef<typeof import('pinia')['defineStore']>
     readonly effectScope: UnwrapRef<typeof import('vue')['effectScope']>
+    readonly fetchRemoteThemeConfig: UnwrapRef<typeof import('./composables/remote-theme')['fetchRemoteThemeConfig']>
     readonly getActivePinia: UnwrapRef<typeof import('pinia')['getActivePinia']>
     readonly getCurrentInstance: UnwrapRef<typeof import('vue')['getCurrentInstance']>
     readonly getCurrentScope: UnwrapRef<typeof import('vue')['getCurrentScope']>
@@ -186,7 +201,9 @@ declare module 'vue' {
     readonly isReactive: UnwrapRef<typeof import('vue')['isReactive']>
     readonly isReadonly: UnwrapRef<typeof import('vue')['isReadonly']>
     readonly isRef: UnwrapRef<typeof import('vue')['isRef']>
+    readonly isRemoteThemeEnabled: UnwrapRef<typeof import('./composables/remote-theme')['isRemoteThemeEnabled']>
     readonly isShallow: UnwrapRef<typeof import('vue')['isShallow']>
+    readonly makeThemeDebugPanelHost: UnwrapRef<typeof import('./composables/useThemeDebugPanel')['makeThemeDebugPanelHost']>
     readonly mapActions: UnwrapRef<typeof import('pinia')['mapActions']>
     readonly mapGetters: UnwrapRef<typeof import('pinia')['mapGetters']>
     readonly mapState: UnwrapRef<typeof import('pinia')['mapState']>
@@ -252,7 +269,6 @@ declare module 'vue' {
     readonly useLoginFlow: UnwrapRef<typeof import('./composables/useLoginFlow')['useLoginFlow']>
     readonly useMessage: UnwrapRef<typeof import('./composables/useMessage')['useMessage']>
     readonly useModel: UnwrapRef<typeof import('vue')['useModel']>
-    readonly useParentThemeSync: UnwrapRef<typeof import('./composables/useParentThemeSync')['useParentThemeSync']>
     readonly usePasswordStrength: UnwrapRef<typeof import('./composables/usePasswordStrength')['usePasswordStrength']>
     readonly useQrLogin: UnwrapRef<typeof import('./composables/useQrLogin')['useQrLogin']>
     readonly useRecaptcha: UnwrapRef<typeof import('./composables/useHCaptcha')['useRecaptcha']>
@@ -261,6 +277,10 @@ declare module 'vue' {
     readonly useSlots: UnwrapRef<typeof import('vue')['useSlots']>
     readonly useSocialLogin: UnwrapRef<typeof import('./composables/useSocialLogin')['useSocialLogin']>
     readonly useTemplateRef: UnwrapRef<typeof import('vue')['useTemplateRef']>
+    readonly useThemeDebugPanel: UnwrapRef<typeof import('./composables/useThemeDebugPanel')['useThemeDebugPanel']>
+    readonly useThemeIntent: UnwrapRef<typeof import('./stores/theme-intent')['useThemeIntent']>
+    readonly useThemeRuntime: UnwrapRef<typeof import('./stores/theme-runtime')['useThemeRuntime']>
+    readonly useThemeScope: UnwrapRef<typeof import('./stores/theme-scope')['useThemeScope']>
     readonly useThemeStore: UnwrapRef<typeof import('./stores/theme')['useThemeStore']>
     readonly useTurnstile: UnwrapRef<typeof import('./composables/useTurnstile')['useTurnstile']>
     readonly watch: UnwrapRef<typeof import('vue')['watch']>

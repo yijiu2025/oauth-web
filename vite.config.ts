@@ -1,15 +1,18 @@
 import { defineConfig } from 'vite';
-import vue from '@vitejs/plugin-vue';
 import path from 'path';
 import AutoImport from 'unplugin-auto-import/vite';
 import Components from 'unplugin-vue-components/vite';
 import { createSvgIconsPlugin } from 'vite-plugin-svg-icons';
 import { aliases, OAUTH21_ROOT } from './config/aliases.js';
+import { sharedPlugins } from './config/plugins.js';
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
-    vue(),
+    // 主题域扫描插件 + Vue SFC 编译：与 vitest.config 同源，见 config/plugins.ts。
+    // 「把 VITE_THEME_DIR 指向的目录扫成虚拟模块 virtual:theme」这件事由
+    // skinsuite/vite 的 themeAssets 完成（目录是配置项而非源码常量），vue() 负责 SFC。
+    ...sharedPlugins(mode),
     AutoImport({
       // 注意：不放 '@vueuse/core' —— 本仓零使用，且其 useCountdown 与本地
       // src/composables/useCountdown.ts 重名，会触发 Duplicated imports 警告
@@ -164,4 +167,4 @@ export default defineConfig({
       }
     }
   }
-});
+}));

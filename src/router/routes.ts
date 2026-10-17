@@ -1,8 +1,8 @@
 import type { RouteLocationNormalized, RouteRecordRaw } from 'vue-router';
 import { listPageViews } from '@/theme/views/pages';
 import { useThemeStore } from '@/stores/theme';
-import { readDeviceParam } from '@/theme/views/params';
-import type { ThemeDevice } from '@/theme';
+import { readDeviceParam } from 'skinsuite';
+import type { ThemeDevice } from '@/theme/views/devices';
 
 /**
  * 组装一个 `beforeEnter`：顺手预取该页**移动端版式**的 chunk

@@ -45,13 +45,13 @@ import { rsaEncrypt, getCachedKid } from '@/utils/crypto';
 import { useThemeStore } from '@/stores/theme';
 import BaseForgotPasswordView from '@/theme/themes/default/standard/forgot-password/index.vue';
 import { forgotPasswordViews, pickForgotPasswordViewId } from '@/theme/views/forgot-password';
-import { readDeviceParam } from '@/theme/views/params';
+import { readDeviceParam } from 'skinsuite';
 import type {
   ForgotPasswordStage,
   ForgotPasswordTranslate,
   ForgotPasswordViewContext
 } from '@/theme/views/forgot-password';
-import type { ThemeDevice } from '@/theme';
+import type { ThemeDevice } from '@/theme/views/devices';
 import type { Component, Ref } from 'vue';
 
 const { t, locale } = useI18n();

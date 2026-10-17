@@ -39,9 +39,9 @@ import { useQrLogin } from '@/composables/useQrLogin';
 import { useLoginFlow } from '@/composables/useLoginFlow';
 import BaseLoginView from '@/theme/themes/default/standard/login/index.vue';
 import { loginViews, pickLoginViewId } from '@/theme/views/login';
-import { readDeviceParam } from '@/theme/views/params';
+import { readDeviceParam } from 'skinsuite';
 import type { LoginTranslate, LoginViewContext } from '@/theme/views/login';
-import type { ThemeDevice } from '@/theme';
+import type { ThemeDevice } from '@/theme/views/devices';
 import type { Component, Ref } from 'vue';
 
 const authStore = useAuthStore();

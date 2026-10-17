@@ -18,8 +18,9 @@ import { computed, defineAsyncComponent, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useDeviceDetect } from '@/composables/useDeviceDetect';
 import { useThemeStore } from '@/stores/theme';
-import { DEFAULT_THEME_PACKAGE, type ThemeDevice } from '@/theme';
-import { pickDeviceId, deviceContext, THEME_DEVICES, resolveContainerOf } from '@/theme/devices';
+import { DEFAULT_THEME_PACKAGE } from 'skinsuite';
+import type { ThemeDevice } from '@/theme/views/devices';
+import { pickDeviceId, deviceContext, THEME_DEVICES, resolveContainerOf } from '@/theme/views/devices';
 
 const route = useRoute();
 

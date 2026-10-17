@@ -28,7 +28,7 @@ import { rsaEncrypt, getCachedKid } from '@/utils/crypto';
 import { useThemeStore } from '@/stores/theme';
 import BaseMiniRegisterView from '@/theme/themes/default/mini/register/index.vue';
 import { pickRegisterViewId, registerViews } from '@/theme/views/register';
-import { readDeviceParam } from '@/theme/views/params';
+import { readDeviceParam } from 'skinsuite';
 import type { RegisterDirection, RegisterTranslate, RegisterViewContext } from '@/theme/views/register';
 import type { Component, Ref } from 'vue';
 

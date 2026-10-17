@@ -13,7 +13,7 @@
  *   D. 点色卡：黑 → dark，白 → light，彩色 → 只换色不动明暗
  *   E. 切版式只改 query、path 不动；且切完颜色清单随之变化
  *   F. 小视口下默认折叠
- *   G. 页面推断：`/mini-login` 也要认得出是 `login`（`mini-` 前缀剥离）
+ *   G. 页面推断：`/mini-login` 也要认得出是 `login`（现在是清单 `routes` 的显式投影）
  *
  * === 2026-09-27 修：本关卡曾是"长红的关卡" ===
  * 它当时断言 `data-view-id` 里有 `base`，而 2026-09-26 起**一个主题包 = 一种版式**
@@ -244,7 +244,7 @@ await p4.waitForTimeout(5000);
 const miniViews = await viewsNow(p4);
 const miniColors = await colorsNow(p4);
 check(
-  'G1 `/mini-login` 也推断出页面为 login（mini- 前缀被剥掉）',
+  'G1 `/mini-login` 也推断出页面为 login（清单 routes 的显式投影）',
   miniViews.length > 0 && miniColors.length > 0,
   `版式=[${miniViews}] 颜色=[${miniColors}]`
 );

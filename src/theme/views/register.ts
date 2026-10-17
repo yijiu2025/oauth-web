@@ -168,14 +168,12 @@ export interface RegisterViewProps {
  * @see ./picker.ts —— 取值链与回退口径的唯一实现
  */
 import type { Component } from 'vue';
-import { defineThemePage } from './page';
+import { defineThemePage } from 'skinsuite/vue';
+import { DEFAULT_THEME_DEVICE, asThemeDevice } from './devices';
 
 /**
- * 本页的版式机制 —— 机制本身在 `./page.ts`（页面工厂），本文件只声明三件**本页独有**的事：
- *   ① `page`    —— 页面名（= 主题包内的目录名 = 本文件名 = 路由末段）
- *   ② 标题      —— 默认标题 + 设备专属覆盖
- *   ③ `loaders` —— 版式 glob（模式必须是字面量，只能写在页面文件里）
- * 取值链的唯一实现在 `./picker.ts`。
+ * 本页的版式机制 —— 机制本身在 `skinsuite/vue` 的 `defineThemePage`（页面工厂），
+ * 本文件只声明**本页独有**的事：页面名、标题、版式 glob、设备归一化。
  *
  * ⚠️ 用 **`/src/...` 根绝对路径**（相对路径会静默扫不到文件）；
  *    新增包或版式目录后要**重启 dev server**。
@@ -185,7 +183,8 @@ export const registerPage = defineThemePage({
   title: '账户注册',
   titles: { mobile: '移动端注册' },
   envView: import.meta.env.VITE_REGISTER_VIEW,
-  loaders: import.meta.glob<{ default: Component }>('/src/theme/themes/*/*/register/index.vue')
+  loaders: import.meta.glob<{ default: Component }>('/src/theme/themes/*/*/register/index.vue'),
+  device: { defaultDevice: DEFAULT_THEME_DEVICE, asKnownDevice: asThemeDevice }
 });
 
 /** 本页版式注册表（容器与调试面板按这个名字取） */
