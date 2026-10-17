@@ -80,13 +80,77 @@ console.log(`    （参考：源码里共 ${srcConsoleCount} 处 console.*）`);
 
 // ---------------------------------------------------------------- 3) 真构建 + 扫产物
 console.log('\n== 3) 真构建并扫描产物 ==');
-// 🔴 2026-10-15 改：outDir 带 pid 后缀，每次运行都是"全新目录"。
-//    此前用固定名 `dist-console-guard`：构建后的清理若失败一次（如本机
-//    safe-delete shim 的 trash 中止），残留目录会让下一轮的"构建前清旧"
-//    抛异常，而被 catch 当成"生产构建失败"—— 判定被清理问题污染。
-//    唯一目录名同时绕开沙箱"不允许清空已存在目录"的限制。
-const outDirName = `dist-console-guard-${process.pid}`;
+// 🔴 2026-10-17 改回固定目录 + 三层防堆积（历史两次反复的教训，勿再简化）：
+//   · 2026-10-15 之前用固定名 `dist-console-guard`：清理失败一次，残留目录让
+//     下一轮"建到已存在目录"抛错，被 catch 当成「生产构建失败」——判定被清理
+//     问题污染。
+//   · 2026-10-15 改为 pid 后缀（每轮全新目录）：判定干净了，但**进程被强制
+//     终止时清理来不及跑**（Windows `TerminateProcess` 拦不住任何钩子），
+//     实测在仓库根堆了 11 个 `dist-console-guard-<pid>`，且从不自愈。
+//   ⇒ 现方案：固定目录复用 + 清旧失败降级 + 启动 gc，两个毛病都不占。
+//     `.gitignore` 的 `dist-*` 已覆盖该名字，不会入库。
+const FIXED_OUT = 'dist-console-guard';
+
+/** 尽力删除目录；返回是否已不存在（不抛异常，调用方据此决策）。 */
+function removeDirBestEffort(dir, label) {
+  if (!existsSync(dir)) return true;
+  try {
+    rmSync(dir, { recursive: true, force: true });
+  } catch {
+    /* 落到下面的 existsSync 复检 */
+  }
+  const gone = !existsSync(dir);
+  if (!gone) console.log(`    ⚠️ 无法删除 ${label}（文件占用或历史残留），将跳过`);
+  return gone;
+}
+
+// ① 启动 gc：回收历史 pid 残留。正常情况下不该有；有就说明上一轮被强杀过。
+//    这一步让"曾经堆积"能自愈，而不是只能人工清理。
+let gcCount = 0;
+for (const name of readdirSync(ROOT)) {
+  if (/^dist-console-guard-\d+$/.test(name) && removeDirBestEffort(join(ROOT, name), name)) gcCount += 1;
+}
+if (gcCount > 0) console.log(`    已回收 ${gcCount} 个历史残留 outDir`);
+
+// ② 优先复用固定目录（清不掉就降级到带 pid 的全新目录，
+//    从而"清理问题"永远不会被误判成"生产构建失败"）
+const canReuseFixed = removeDirBestEffort(join(ROOT, FIXED_OUT), FIXED_OUT);
+const outDirName = canReuseFixed ? FIXED_OUT : `${FIXED_OUT}-${process.pid}`;
+if (!canReuseFixed) console.log(`    固定目录不可复用，本轮降级到 ${outDirName}`);
 const outDir = join(ROOT, outDirName);
+
+/** 同步 sleep（顶层脚本里不能用 await 语义的定时器，且 exit 钩子内必须同步）。 */
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/** ③ 跑完自清：判定采集完毕后调用，清理失败不影响结果。
+ *  实测（2026-10-17）：Windows 上 vite/rolldown 的子进程句柄会延迟释放，
+ *  删完立刻复检可能重新出现该目录 ⇒ 短重试，最多 4 轮。 */
+function cleanupOutDir() {
+  for (let i = 0; i < 4; i += 1) {
+    if (!existsSync(outDir)) return;
+    try {
+      rmSync(outDir, { recursive: true, force: true });
+    } catch {
+      /* 落到下面的复检 */
+    }
+    if (!existsSync(outDir)) return;
+    sleepSync(120);
+  }
+}
+
+// 兜底钩子：正常退出 / Ctrl-C / SIGTERM 都清一次。
+// ⚠️ Windows 的强制终止（TerminateProcess，任务管理器或 Stop-Process -Force）
+//    拦不住任何钩子 —— 那种情况由下一次运行的启动 gc 回收（见上）。
+process.on('exit', cleanupOutDir);
+for (const sig of ['SIGINT', 'SIGTERM']) {
+  process.on(sig, () => {
+    cleanupOutDir();
+    process.exit(1);
+  });
+}
+
 try {
   console.log(`    构建中（--outDir ${outDirName}）…`);
   execFileSync(process.execPath, [join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js'), 'build', '--outDir', outDirName], {
@@ -119,12 +183,11 @@ check(
 );
 
 // 清理临时产物（本关卡自产自销，不入库；gitignore 已覆盖 dist-*）
+cleanupOutDir();
 if (existsSync(outDir)) {
-  try {
-    rmSync(outDir, { recursive: true, force: true });
-  } catch {
-    /* 清理失败不影响判定 */
-  }
+  console.log(`    ⚠️ 临时产物未能删除：${outDirName}（判定不受影响，下一次运行会 gc）`);
+} else {
+  console.log(`    已清理临时产物 ${outDirName}`);
 }
 
 // ---------------------------------------------------------------- 汇总
