@@ -48,6 +48,34 @@ npm run dev            # http://localhost:5174
 
 需要 dev server 的关卡组刻意不进 CI（起服务易 flake），本地用 `node e2e/verify-all.mjs` 全量跑。
 
+#### 本地多实例验收：每个实例必须独占 `cacheDir`
+
+全量 `verify-all.mjs` 需要 5174 / 5175 / 5177 / 5197 四个 dev 实例同时在线，而它们**不能共享 `node_modules/.vite/deps`**：env 会参与配置哈希，各实例的 `browserHash` 因此不同，会互相判定对方的依赖已过期，返回 `504 Outdated Optimize Dep` → 异步组件加载失败 → 页面白屏。
+
+症状极具误导性：e2e 里成片的**纯 DOM 断言**变红（等 `.mauth-page` / `[data-mauth-view]` 超时），看起来完全像业务代码坏了。**排查顺序固定：先看浏览器控制台有没有 504，再怀疑自己的改动。**
+
+给每个实例配独立缓存目录（`.tmp-probe/` 已 gitignore，探针配置不入库）：
+
+```js
+// .tmp-probe/vite.probe.config.mjs
+import base from '../vite.config.ts';
+export default { ...base, cacheDir: process.env.PROBE_CACHE_DIR || 'node_modules/.vite' };
+```
+
+```bash
+PROBE_CACHE_DIR=node_modules/.vite-p5174 npx vite --config .tmp-probe/vite.probe.config.mjs --port 5174 --strictPort
+PROBE_CACHE_DIR=node_modules/.vite-p5175 VITE_PASSWORD_RESET_MODE=link npx vite --config .tmp-probe/vite.probe.config.mjs --port 5175 --strictPort
+PROBE_CACHE_DIR=node_modules/.vite-p5177 VITE_REGISTER_VIEW=compact npx vite --config .tmp-probe/vite.probe.config.mjs --port 5177 --strictPort
+PROBE_CACHE_DIR=node_modules/.vite-p5197 npx vite --config .tmp-probe/vite.probe.config.mjs --port 5197 --strictPort
+```
+
+实测差距：同一份代码，共享缓存 **19/22**，隔离后 **22/22**。`main` 在该环境下同样只有 19/22 —— 所以这类失败基本与代码无关。
+
+两个配套判据：
+
+- `node_modules/.vite/` 里若**只有 `deps_temp_*` 而没有 `deps/`**，说明预打包从未成功提交（Windows 上多进程抢原子重命名），同样白屏。清掉这些残留目录后由单个实例重建即可。
+- **`curl` 取源码模块返回 200，不代表浏览器能加载**。504 发生在 `node_modules/.vite/deps/*` 上，只看源码模块状态会得出「服务正常」的错误结论。
+
 **CI**：push 到 `main`、开 PR 或手动触发时，GitHub Actions 跑「类型检查（vue-tsc -b）→ ESLint → Vitest → 生产构建 → 附加构建（dist-nopwa）→ 静态关卡」（`.github/workflows/ci.yml`）。
 
 ### 环境变量
@@ -68,6 +96,10 @@ npm run dev            # http://localhost:5174
 8. **eslint 全局是按目录配的**：`e2e/`（node + browser）、`scripts/`（node）、`src`（浏览器）三组 `languageOptions.globals` 各管各的。新增同类脚本目录要先补对应的 languageOptions 块，否则满屏 no-undef。
 9. **本机 `vite build` 有 shim**：后台构建时若清理 dist 超过 50 个文件会被拦（前台执行可正常过；CI runner 无此限制）。本地验证构建请优先前台跑，别被假红误导。
 10. **不要提交 `dist/`、`.tmp-probe/` 等产物**：构建产物与探针目录都在 `.gitignore` 里；提交前 `git status` 自查。
+11. **Tailwind 是 v4 原生形态，不存在 `tailwind.config.js`**：语义色板 / 圆角 / 字体栈全部写在 `src/assets/styles/main.scss` 的 `@theme` 里，`@config` 兼容层 2026-10-17 已退役。**不要为了改配色重新引入 JS 配置**——那会把项目退回「v4 引擎 + v3 配置」的混合态。三条硬约束：
+    - **token 名不可改**：`packages/theme-core` 的皮肤 / 版式替换体系按名引用 `--color-*`、`--radius-*`，改名直接打破主题替换。可以改「值」，不能改「名」。
+    - **`dark` 变体固定为 `@custom-variant dark (&:is(.dark *))`**：不要「顺手优化」成官方文档示例的 `:where(.dark, .dark *)`。后者会新增 `.dark` 自匹配并把特异性从 (0,2,0) 降到 (0,1,0)，而本仓大量存在「组件类 + `dark:` 覆写」并存的写法，属真实行为变化。
+    - **类名扫描范围用 `@source` 声明**（含 `src/**/*.html`）。删掉 `@source` 后 v4 的自动探测不保证覆盖模板里的动态类名。
 
 ## 三、提交与发版
 
