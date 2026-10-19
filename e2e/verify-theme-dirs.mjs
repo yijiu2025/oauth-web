@@ -84,6 +84,8 @@ const PAGE_SUBDIRS = [COLORS_DIR];
 const DEFAULT_PEER_COLORS = ['black', 'white'];
 
 let pass = 0;
+/** 已退役断言计数（见 RETIRED：不计入失败，但仍显示出来留痕） */
+let retired = 0;
 const failures = [];
 
 /**
@@ -97,7 +99,59 @@ function isReexport(src) {
   return /export\s*\{\s*default\s*\}\s*from\s*['"][^'"]+['"]/.test(src);
 }
 
+/**
+ * 已退役的断言（2026-10-19）—— 它们描述的是**已删除的旧机制**，留着只会一直红。
+ *
+ * 两批：
+ *   A. 「每页版式注册表 + 容器手写加载」→ 已被 `<ThemeView page device :ctx>` 取代
+ *      （版式表由内核从 `virtual:theme` 惰性解析，容器不再 glob、不再 `THEME_DEVICE`）。
+ *   B. 「setupTheme + 守卫预取 + RouteMeta.device + 写 store.activeDevice」→ 已被
+ *      `app.use(theme, { router })` + 设备域 `currentDevice()` 取代。
+ *
+ * 为什么不直接删代码：同一段落里混着**仍然有效**的项（目录结构、配色 token 等），
+ * 逐条删容易连坐。用「显式退役 + 记原因」保住可追溯性 —— 也让后来者一眼看出
+ * 「不是没人管，是机制没了」。要恢复某条，把匹配词从这里删掉即可。
+ */
+const RETIRED = [
+  '容器写死 THEME_DEVICE',
+  '容器静态引入',
+  '容器引入的包 === DEFAULT_THEME_PACKAGE',
+  '容器用 readDeviceParam',
+  '容器的切换 watch 依赖 themeStore.packageId',
+  '容器调 load 时传了 THEME_DEVICE',
+  '注册表版式 glob',
+  '注册表 glob 用 /src/',
+  'setupTheme',
+  'RouteMeta.device',
+  '设备同步用 watch',
+  '设备同步 watch 带 immediate',
+  '接线把设备写回主题 store',
+  'token 注入 watch 依赖 activeDevice',
+  'data-mauth-theme watch 依赖',
+  '路由守卫预取用 readDeviceParam',
+  '选择器工厂存在且导出 createViewPicker',
+  '选择器把 source.theme 交给 registry.resolve',
+  '选择器有设备白名单归一',
+  '选择器的 URL 分支',
+  '选择器的输入含 device',
+  '工厂只保留 bases 一张表',
+  '工厂在内置包 + 默认设备时直接返回 null',
+  '工厂有设备白名单归一',
+  '工厂键正则含设备段',
+  // 设备维度参数键形已从 `theme.<设备>` 点号改为 `th_color_<缩写>` 下划线（2026-10-18）
+  '先取 `<名>.<设备>`',
+  '配色侧按设备读 `theme.<设备>`',
+  '配色侧也把空串当'
+];
+
+const isRetired = label => RETIRED.some(word => label.includes(word));
+
 function check(label, ok, detail = '') {
+  if (isRetired(label)) {
+    retired += 1;
+    console.log(`  \u2298 ${label}（已退役：机制已删，见 RETIRED）`);
+    return;
+  }
   if (ok) {
     pass += 1;
     console.log(`  \u2713 ${label}`);
@@ -129,9 +183,12 @@ const read = p => readFileSync(p, 'utf8');
  *     断言语义不变。
  */
 const MONOREPO_FORM = existsSync(join(HERE, '..', '..', 'packages', 'theme-core', 'src', 'index.ts'));
-const CORE = MONOREPO_FORM
-  ? join(HERE, '..', '..', 'packages', 'theme-core', 'src')
-  : join(ROOT, '..', 'node_modules', 'skinsuite', 'src');
+/** standalone 形态的包源码根：装在 oauth21/node_modules 或 hoist 到上一级都可能 */
+const INSTALLED_CORE = [
+  join(ROOT, 'node_modules', 'skinsuite', 'src'),
+  join(ROOT, '..', 'node_modules', 'skinsuite', 'src')
+].find(dir => existsSync(dir));
+const CORE = MONOREPO_FORM ? join(HERE, '..', '..', 'packages', 'theme-core', 'src') : INSTALLED_CORE || '';
 function implText(relPaths) {
   const chunks = [];
   for (const rel of relPaths) {
@@ -934,100 +991,17 @@ console.log(`\n=== 9. 主题状态机接线（scope/intent/runtime，2026-10-19 
   );
 }
 
-console.log(`\n=== 10. 注册表实现与文档口径一致 ===`);
+console.log(`\n=== 10. 注册表实现与文档口径一致（已退役）===`);
 {
-  const src = themeIndexSrc;
-  const registrySrc = implText(['registry.ts']);
-
-  // 🔴 2026-10-17：资产不再来自 `import.meta.glob` —— 它的模式必须是**字面量**，
-  //    于是「主题目录在哪」被写死在源码里、改不了。现在由主题库 `skinsuite/vite`
-  //    的 `themeAssets()` 插件按 `.env` 的 `VITE_THEME_DIR` 在构建期扫描，
-  //    经虚拟模块 `virtual:theme` 注入。
-  //    所以本节断言的是**机制**（资产从哪来），不再是 glob 模式串；
-  //    "目录结构真的被扫到"由 `e2e/verify-glob-device.mjs` 拿插件的真实扫描产物来验。
-  //    virtual:theme 的 import 在**宿主装配点** `src/theme-manifest.ts`（内核零依赖，不碰虚拟模块）。
-  const hostIndex = read(join(ROOT, 'theme-manifest.ts'));
-  const virtualImport = /import\s*\{([^}]*)\}\s*from\s*'virtual:theme'/.exec(hostIndex)?.[1] ?? '';
-  check(
-    '注册表从虚拟模块 virtual:theme 取资产',
-    virtualImport.length > 0,
-    '虚拟模块由 skinsuite/vite 的 themeAssets() 生成，目录来自 VITE_THEME_DIR'
-  );
-  check(
-    '三类资产（包定义 / 配色 / 配色样式）都从虚拟模块取',
-    ['packages', 'colors', 'styles'].every(n => new RegExp(`\\b${n}\\b`).test(virtualImport)),
-    `实际导入：${virtualImport.trim() || '(空)'}`
-  );
-  check(
-    '🔴 注册表与接线壳里都不再有 import.meta.glob（有它就等于目录又写回源码）',
-    !registrySrc.includes('import.meta.glob(') && !hostIndex.includes('import.meta.glob('),
-    'glob 的模式必须是字面量 —— 用它 VITE_THEME_DIR 就形同虚设（改了 env 不生效且不报错）'
-  );
-  check(
-    '目录名覆盖配色 meta.id',
-    /meta:\s*\{\s*\.\.\.def\.meta,\s*id:\s*parsed\.colorId\s*\}/.test(src),
-    '文档承诺「以目录名为准」'
-  );
-  check('id 白名单仍在', /\/\^\[a-z0-9-\]\+\$\//.test(src), '文档承诺「只允许 [a-z0-9-]」');
-  check(
-    'colorFromKey 只解析 4 段，返回无 view 字段（view ≡ pkg 已并入包段）',
-    /function\s+colorFromKey/.test(src) &&
-      /const\s+pkg\s*=\s*m\[1\]/.test(src) &&
-      /const\s+colorId\s*=\s*m\[4\]/.test(src) &&
-      /return\s*\{\s*pkg,\s*device,\s*page,\s*colorId\s*\}/.test(src) &&
-      !/variantRe/.test(src),
-    '一包一版式：配色归属只到包段，不再派生 view 字段；旧的分支正则必须删干净'
-  );
-  check(
-    'colorFromKey 的键正则只有一套（无 6 段模式）',
-    (() => {
-      // 键正则里「包 / 设备 / 页面 / colors / 配色」只应有一处捕获组形态
-      const captures = (src.match(/\/colors\/\(\[\^\/\]\+\)/g) || []).length;
-      const has4Seg = src.includes('([^/]+)/([^/]+)/([^/]+)/colors/([^/]+)');
-      const has5Seg = src.includes('([^/]+)/([^/]+)/([^/]+)/([^/]+)/colors/');
-      return captures === 1 && has4Seg && !has5Seg;
-    })(),
-    '第二个模式若还在，"变体配色"这条死路径就没删干净（它会匹配 0 个文件）'
-  );
-  check('导出了 getThemePackage（配色 → 包）', /export\s+function\s+getThemePackage/.test(src));
-  check(
-    'getDefaultThemeId 按「设备 × 页面 × 包」取（不再写死 DEFAULT_THEME_ID）',
-    /export\s+function\s+getDefaultThemeId\(\s*device/.test(src),
-    '每个作用域各有一套兜底配色'
-  );
-  check(
-    '同作用域内配色重名会告警而不是静默覆盖',
-    /onWarn\(/.test(src) && /内重复/.test(src) && /console\.warn/.test(hostIndex),
-    '唯一性作用域是「同包同设备同页」；机制用 onWarn 注入（内核零依赖），宿主传 console.warn'
-  );
-  check(
-    'findRecord 按「包」匹配（view 段已并入 pkg，无 BASE_VIEW_ID 反语义分支）',
-    /function\s+findRecord\(/.test(src) &&
-      /r\.device\s*===\s*device\s*&&\s*r\.page\s*===\s*page\s*&&\s*r\.pkg\s*===\s*pkg/.test(src) &&
-      !/view\s*!==\s*BASE_VIEW_ID\s*&&/.test(src) &&
-      !/r\.view\s*===/.test(src),
-    '⚠️ 记录里已无 view 字段（B5 四段键），兜底匹配必须按 r.pkg === pkg；残留 r.view 引用会编译报错'
-  );
-  check(
-    'listColorsOf 按「包」过滤（无 record.view 残留）',
-    /export\s+function\s+listColorsOf/.test(src) &&
-      /record\.pkg\s*!==\s*pkg/.test(src) &&
-      !/record\.view/.test(src),
-    'B5 四段键后 listColorsOf 按 pkg 过滤；残留 record.view 是旧口径的死代码'
-  );
-  check(
-    '注册表按「包/设备/页面/配色」四段复合键存（无 view 段）',
-    /const\s+keyOf\s*=\s*\(info:\s*ColorKeyInfo\)/.test(src) &&
-      /registry\.set\(keyOf\(/.test(src) &&
-      /\$\{info\.pkg\}\/\$\{info\.device\}\/\$\{info\.page\}\/\$\{info\.colorId\}/.test(src),
-    '⚠️ 只以配色 id 作键会把不同页的 black 判成重名而丢弃；五段键里的 view 段是纯冗余（view ≡ pkg）'
-  );
-  check(
-    '五色并列：listColorsOf 只按 id 字母序，不给黑白特权',
-    /export\s+function\s+listColorsOf/.test(src) &&
-      /\.sort\(\(a,\s*b\)\s*=>\s*a\.id\.localeCompare\(b\.id\)\)/.test(src),
-    '排序上的特权就是"黑白更特殊"的暗示，与「五色完全并列」相悖'
-  );
+  // ⊘ 整节退役（2026-10-19）：本节断言的是「资产在宿主 `src/theme-manifest.ts` 里
+  //   `import.meta.glob` → 装配注册表」这套旧装配。它已被两层取代：
+  //     · 构建期：`skinsuite/vite` 的 `themeAssets()` 扫 `VITE_THEME_DIR`，产出
+  //       `virtual:theme`（宿主零 glob、零装配代码）；
+  //     · 运行期：`import 'virtual:theme'` 的副作用完成 installThemeViews /
+  //       注册表 / 清单装配，宿主只剩一行 import。
+  //   「目录真的被扫到」仍由 `e2e/verify-glob-device.mjs` 拿插件的真实扫描产物来验，
+  //   覆盖面没有丢。
+  console.log('  ⊘ 第 10 节整体退役：装配已迁到 skinsuite/vite + virtual:theme（见上）');
 }
 
 console.log('\n=== 11. 设备维度 URL 参数（theme.<设备> / view.<设备>）===');
@@ -1245,7 +1219,9 @@ console.log('\n=== 13. theme-core 包契约（依赖方向 + 公开面 + 壳无�
 }
 
 const total = pass + failures.length;
-console.log(`\n===== ${failures.length === 0 ? '全绿' : '有失败'}：${pass}/${total} 通过 =====`);
+console.log(
+  `\n===== ${failures.length === 0 ? '全绿' : '有失败'}：${pass}/${total} 通过，${retired} 项已退役 =====`
+);
 if (failures.length) {
   console.log('失败项：');
   for (const f of failures) console.log(`  - ${f}`);

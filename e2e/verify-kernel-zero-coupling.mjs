@@ -267,39 +267,48 @@ if (MONOREPO_FORM) {
     const text = readFileSync(aliasesFile, 'utf8');
     for (const { dir, pkg } of TARGETS) {
       const expect = dir.replace('packages/', '');
+      // 2026-10-19 起 alias 由声明表 `LOCAL_PKG_ENTRIES`（spec / dir / rel）驱动，
+      // 不再是一行一个 `path.resolve(...)`。判据跟着改：解析声明表里该 spec 的三元组。
+      const entryRe = new RegExp(
+        `\\{\\s*spec:\\s*'${pkg.replace('/', '\\/')}',\\s*dir:\\s*'${expect}',\\s*rel:\\s*'src/index\\.ts'\\s*\\}`
+      );
       check(
         `aliases.ts 里 ${pkg} 仍指向 packages/${expect}/src/index.ts`,
-        new RegExp(`${pkg}['"]\\s*:\\s*path\\.resolve\\([^)]*'${expect}/src/index\\.ts'`).test(text) ||
-          new RegExp(`${pkg}['"]\\s*:\\s*path\\.resolve\\([^)]*${expect}[\\\\/]src[\\\\/]index\\.ts`).test(text),
-        '找不到对应 alias（源码直供链断了？）'
+        entryRe.test(text),
+        '找不到对应入口声明（源码直供链断了？）'
       );
     }
   } else {
     check('config/aliases.ts 存在', false, aliasesFile);
   }
 } else {
-  // standalone 形态：alias 键按设计不注册（删键回落 node_modules），"源码直供链"
-  // 不存在。等价保护 = 1)/2) 节已在 npm 发布面上验证零耦合；这里只钉住
-  // aliases.ts 的**条件注册逻辑**健在 —— 回 monorepo 时代码直供自动恢复，
-  // 不会因为本次改动把源码直供能力弄丢。
-  console.log('\n== 3) standalone：aliases.ts 条件注册逻辑健在（回 monorepo 自动恢复源码直供） ==');
+  // standalone 形态（2026-10-19 起）：不再「删键回落 npm 版」—— 那会让 `skinsuite`
+  // 与 `skinsuite/vue` 落到两份运行时（dist / src），机制出现两个模块实例。
+  // 现在两种形态统一「源码直供」：独立仓指向 `node_modules/skinsuite/src`。
+  // 所以要钉的是**条件注册逻辑**健在，且 skinsuite 一族确实被指到包内源码。
+  console.log('\n== 3) standalone：源码直供链（monorepo 指 packages/，独立仓指 node_modules 源码） ==');
   const aliasesFile = join(ROOT, 'config', 'aliases.ts');
   if (existsSync(aliasesFile)) {
     const text = readFileSync(aliasesFile, 'utf8');
     check(
-      'aliases.ts 保留 LOCAL_PKG_SOURCES 源码目标表',
-      text.includes('LOCAL_PKG_SOURCES'),
-      '找不到 LOCAL_PKG_SOURCES'
+      'aliases.ts 保留 LOCAL_PKG_ENTRIES 源码目标表',
+      text.includes('LOCAL_PKG_ENTRIES'),
+      '找不到 LOCAL_PKG_ENTRIES'
     );
     check(
-      'aliases.ts 保留 existsSync 条件注册（源码在才注册）',
-      /if\s*\(existsSync\(src\)\)/.test(text),
+      'aliases.ts 保留 existsSync 条件注册（源码在才注册，绝不指向不存在的路径）',
+      /if\s*\(existsSync\(monorepo\)\)/.test(text),
       '找不到条件注册门'
     );
     check(
-      'aliases.ts 保留注册动作（aliases[spec] = src）',
-      /aliases\[spec\]\s*=\s*src/.test(text),
+      'aliases.ts 保留注册动作（aliases[spec] = monorepo / installed）',
+      /aliases\[spec\]\s*=\s*(monorepo|installed)/.test(text),
       '找不到注册赋值'
+    );
+    check(
+      'aliases.ts 保留独立仓回退（installedSource 探 node_modules 源码）',
+      /function\s+installedSource/.test(text),
+      '找不到 installedSource 回退'
     );
   } else {
     check('config/aliases.ts 存在', false, aliasesFile);

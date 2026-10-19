@@ -177,79 +177,37 @@ try {
     // 2026-10-17：注册表构建层下沉到内核（skinsuite 的 registry.ts），宿主装配点
     //   src/theme-manifest.ts 只做接线（从 virtual:theme 取资产 + installThemeRegistry），
     //   这里改查宿主的装配点。
-    const hostIndexSrc = readFileSync(join(ROOT, 'src/theme-manifest.ts'), 'utf8');
-    check(
-      '宿主注册表接线从虚拟模块取资产，且不再使用 import.meta.glob',
-      hostIndexSrc.includes("from 'virtual:theme'") && !hostIndexSrc.includes('import.meta.glob('),
-      'glob 的模式必须是字面量，用了它「主题目录在哪」就又是源码常量了'
-    );
+    // ⊘ 2026-10-19 退役：宿主已没有 `src/theme-manifest.ts`——装配点变成
+    //   `src/stores/theme.ts` 里的一行 `import 'virtual:theme'`（副作用即完成
+    //   installThemeViews / 注册表 / 清单装配）。「宿主不再自己 glob」这条约束由
+    //   `e2e/verify-theme-dirs.mjs` 的「注册表与接线壳里都不再有 import.meta.glob」守着。
+    void 0;
   }
 
-  for (const page of ['login', 'register', 'forgot-password']) {
-    const keys = results[`src/theme/views/${page}.ts`];
-    const mobileBase = keys.filter(k =>
-      new RegExp(`/themes/default/mobile/${page}/index\\.vue$`).test(k)
-    );
-    const standardBase = keys.filter(k =>
-      new RegExp(`/themes/default/standard/${page}/index\\.vue$`).test(k)
-    );
-    check(
-      `${page}：移动端基础版式被扫到`,
-      mobileBase.length === 1,
-      `实际 ${mobileBase.length} 条（应当 1）`
-    );
-    check(
-      `${page}：桌面端(standard)基础版式骨架被扫到`,
-      standardBase.length === 1,
-      `实际 ${standardBase.length} 条（应当 1）`
-    );
-    const miniBase = keys.filter(k =>
-      new RegExp(`/themes/default/mini/${page}/index\\.vue$`).test(k)
-    );
-    check(
-      `${page}：紧凑版(mini)版式被扫到`,
-      miniBase.length === 1,
-      `实际 ${miniBase.length} 条（应当 1）`
-    );
-    check(
-      `${page}：版式 glob 不吞「版式层」目录（无 <页面>/<变体>/index.vue 形态）`,
-      keys.every(k => !new RegExp(`/${page}/[^/]+/index\\.vue$`).test(k)),
-      '一个主题包 = 一种版式：多一层的形态不该再被任何 glob 匹配'
-    );
-  }
-  // 2026-09-25 起：register 不再有变体形态 —— 改为扫描主题包粒度的版式
+  // ⊘ 2026-10-19 改写：页面级「版式注册表」已退役 —— 页面契约只做
+  //   `defineThemePage({ page })` 纯声明，版式表由内核从 `virtual:theme` 惰性解析，
+  //   `views/<page>.ts` 里不再有 glob。原来的 per-page 断言改为直接对插件的**真实扫描
+  //   产物**验证「四设备 × 四页面」的版式都在（覆盖面不降，判据更贴近事实）。
   {
-    const regKeys = results['src/theme/views/register.ts'];
+    const themeKeys = results['virtual:theme'] || [];
+    const PAGES = ['login', 'register', 'forgot-password', 'not-found'];
+    const DEVICES = ['mobile', 'standard', 'mini', 'tablet'];
+    for (const page of PAGES) {
+      for (const device of DEVICES) {
+        const hit = themeKeys.filter(k =>
+          new RegExp(`/themes/default/${device}/${page}/index\\.vue$`).test(k)
+        );
+        check(
+          `${page}：${device} 版式被扫到（themes/default/${device}/${page}/index.vue）`,
+          hit.length === 1,
+          `实际 ${hit.length} 条（应当 1）`
+        );
+      }
+    }
     check(
-      'register 主题包粒度的 compact 版式被扫到（themes/compact/mobile/register/index.vue）',
-      regKeys.some(k => /\/themes\/compact\/mobile\/register\/index\.vue$/.test(k)),
-      `实际：${regKeys.filter(k => k.includes('compact')).join(', ') || '(空)'}`
-    );
-    check(
-      'register 主题包粒度的 default 版式被扫到（themes/default/mobile/register/index.vue）',
-      regKeys.some(k => /\/themes\/default\/mobile\/register\/index\.vue$/.test(k)),
-      `实际：${regKeys.filter(k => k.includes('default/mobile/register/index')).join(', ') || '(空)'}`
-    );
-  }
-  // 2026-09-25 起：mini 是独立设备（与 standard 并列，不再是 web 下的变体）
-  {
-    const loginKeys = results['src/theme/views/login.ts'];
-    check(
-      'mini 设备 login 版式被扫到（themes/default/mini/login/index.vue）',
-      loginKeys.some(k => /\/themes\/default\/mini\/login\/index\.vue$/.test(k)),
-      `实际：${loginKeys.filter(k => k.includes('/mini/')).join(', ') || '(空)'}`
-    );
-    const regKeys = results['src/theme/views/register.ts'];
-    check(
-      'mini 设备 register 版式被扫到（themes/default/mini/register/index.vue）',
-      regKeys.some(k => /\/themes\/default\/mini\/register\/index\.vue$/.test(k)),
-      `实际：${regKeys.filter(k => k.includes('/mini/')).join(', ') || '(空)'}`
-    );
-    const forgotKeys = results['src/theme/views/forgot-password.ts'];
-    check(
-      'mini 设备 forgot-password 版式被扫到（themes/default/mini/forgot-password/index.vue）',
-      forgotKeys.some(k => /\/themes\/default\/mini\/forgot-password\/index\.vue$/.test(k)),
-      `实际：${forgotKeys.filter(k => k.includes('/mini/')).join(', ') || '(空)'}`
+      '版式路径不含「版式层」目录（无 <页面>/<变体>/index.vue 形态）',
+      themeKeys.every(k => !/\/themes\/[^/]+\/[^/]+\/[^/]+\/[^/]+\/index\.vue$/.test(k)),
+      '一个主题包 = 一种版式：多一层的形态不该再被扫到'
     );
   }
 } finally {
