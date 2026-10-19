@@ -1,0 +1,138 @@
+/**
+ * 登录页文案（namespace = `login`）
+ *
+ * === 文件组织规则（见 docs/standards/frontend-standards.md §10）===
+ * · 一个领域 = 一个文件，文件名即 namespace（key 前缀）；
+ * · 双语（zh_cn / en）收在同一文件：`zh` 是 key 的**权威来源**，`en` 用
+ *   `Record<keyof typeof zh, string>` 强制 key 对齐 —— 漏译 / 多译 / 键名不一致都会编译报错；
+ * · 插值用命名参数 `{app}` / `{countdown}`，双语占位符必须一致。
+ *
+ * @author yijiu2025
+ * @since 2026-10-19（从 i18n/index.ts 拆分）
+ */
+
+const zh = {
+  welcome: '欢迎回来',
+  consent_title: '授权确认',
+  qr_title: '扫码登录',
+  consent_desc: '{app} 申请获取您的账号信息',
+  qr_desc: '使用移动端 App 扫一扫',
+  fill_credentials: '请填写您的登录凭据',
+  brand_desc: '安全、快速、统一的身份认证中心。 为您的企业应用提供坚实的防护屏障。',
+  third_party: '该应用',
+  requesting_auth: '正在申请登录授权',
+  requesting_permissions: '申请获取以下权限：',
+  perm_profile: '获取您的公开个人信息 (昵称、头像等)',
+  perm_email: '获取您的电子邮箱地址 ({email})',
+  confidential: '保密',
+  deny: '拒绝',
+  approve: '同意授权',
+  consent_denied: '用户拒绝了授权申请',
+  consent_failed: '确认授权失败',
+  email_login: '邮箱登录',
+  password_login: '密码登录',
+  email_placeholder: '邮箱地址',
+  username_placeholder: '账号 / 邮箱',
+  code_placeholder: '验证码',
+  password_placeholder: '密码',
+  get_code: '获取验证码',
+  logging_in: '正在登录',
+  submit: '立即登录',
+  login_failed: '登录失败',
+  input_email_first: '请先输入有效的邮箱',
+  keep_login: '保持登录',
+  forgot_password: '忘记密码?',
+  register_now: '立即注册',
+  qr_scan_hint: '打开 {app} 扫一扫',
+  qr_click_refresh: '二维码已过期，点击刷新',
+  qr_generate_failed: '二维码生成失败',
+  qr_expired: '二维码已过期',
+  // 移动端登录页专项
+  mobile_sub: '统一身份认证',
+  code_countdown: '{countdown}s',
+  resend_code: '重新发送验证码',
+  verify_and_login: '验证并登录',
+  email_verify_title: '环境变更验证',
+  email_verify_hint: '检测到{reason}，为保护账号安全，请验证邮箱',
+  email_verify_code: '邮箱验证码',
+  code_sent_to: '验证码已发送至',
+  no_account: '还没有账号？',
+  agree_required: '请先阅读并勾选同意相关协议',
+  show_password: '显示密码',
+  hide_password: '隐藏密码',
+  back: '返回',
+  // 第三方登录（providers 未配置时整行不渲染）
+  social_divider: '其他登录方式',
+  social_last: '上次登录',
+  social_wechat: '微信',
+  social_alipay: '支付宝',
+  social_qq: 'QQ',
+  social_weibo: '微博',
+  social_github: 'GitHub',
+  social_apple: 'Apple',
+  social_unconfigured: '该登录方式尚未配置授权地址'
+};
+
+const en: Record<keyof typeof zh, string> = {
+  welcome: 'Welcome Back',
+  consent_title: 'Authorization',
+  qr_title: 'Scan to Login',
+  consent_desc: '{app} requests access to your account',
+  qr_desc: 'Scan with mobile app',
+  fill_credentials: 'Please enter your credentials',
+  brand_desc: 'Secure, fast, unified identity center. Robust protection for your enterprise applications.',
+  third_party: 'This app',
+  requesting_auth: 'Requesting login authorization',
+  requesting_permissions: 'Requesting permissions:',
+  perm_profile: 'Access your public profile (name, avatar, etc.)',
+  perm_email: 'Access your email address ({email})',
+  confidential: 'Confidential',
+  deny: 'Deny',
+  approve: 'Approve',
+  consent_denied: 'User denied the authorization request',
+  consent_failed: 'Authorization confirmation failed',
+  email_login: 'Email',
+  password_login: 'Password',
+  email_placeholder: 'Email address',
+  username_placeholder: 'Username / Email',
+  code_placeholder: 'Code',
+  password_placeholder: 'Password',
+  get_code: 'Get Code',
+  logging_in: 'Logging in',
+  submit: 'Sign In',
+  login_failed: 'Login failed',
+  input_email_first: 'Please enter a valid email first',
+  keep_login: 'Keep me logged in',
+  forgot_password: 'Forgot password?',
+  register_now: 'Sign up',
+  qr_scan_hint: 'Open {app} to scan',
+  qr_click_refresh: 'QR code expired, click to refresh',
+  qr_generate_failed: 'Failed to generate QR code',
+  qr_expired: 'QR code expired',
+  // Mobile login page
+  mobile_sub: 'Unified Identity',
+  code_countdown: '{countdown}s',
+  resend_code: 'Resend code',
+  verify_and_login: 'Verify & Log in',
+  email_verify_title: 'Environment Change Verification',
+  email_verify_hint: 'Detected {reason}. To protect your account, please verify your email',
+  email_verify_code: 'Email code',
+  code_sent_to: 'Code sent to',
+  no_account: "Don't have an account?",
+  agree_required: 'Please read and accept the agreements first',
+  show_password: 'Show password',
+  hide_password: 'Hide password',
+  back: 'Back',
+  // Third-party sign-in (the whole row stays hidden until providers are configured)
+  social_divider: 'Or continue with',
+  social_last: 'Last used',
+  social_wechat: 'WeChat',
+  social_alipay: 'Alipay',
+  social_qq: 'QQ',
+  social_weibo: 'Weibo',
+  social_github: 'GitHub',
+  social_apple: 'Apple',
+  social_unconfigured: 'This sign-in method has no authorization endpoint configured yet'
+};
+
+export default { zh_cn: zh, en };
