@@ -28,7 +28,7 @@
  *
  * @author yijiu2025
  */
-import { computed, markRaw, onMounted, reactive, ref, shallowRef, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useForm } from 'vee-validate';
@@ -42,17 +42,13 @@ import { useCountdown } from '@/composables/useCountdown';
 import { useCaptchaFlow } from '@/composables/useCaptchaFlow';
 import { usePasswordStrength } from '@/composables/usePasswordStrength';
 import { rsaEncrypt, getCachedKid } from '@/utils/crypto';
-import { useThemeStore } from '@/stores/theme';
-import BaseForgotPasswordView from '@/theme/themes/default/standard/forgot-password/index.vue';
-import { forgotPasswordViews, pickForgotPasswordViewId } from '@/theme/views/forgot-password';
-import { readDeviceParam } from 'skinsuite';
+import { ThemeView } from 'skinsuite/vue';
 import type {
   ForgotPasswordStage,
   ForgotPasswordTranslate,
   ForgotPasswordViewContext
 } from '@/theme/views/forgot-password';
-import type { ThemeDevice } from '@/theme/views/devices';
-import type { Component, Ref } from 'vue';
+import type { Ref } from 'vue';
 
 const { t, locale } = useI18n();
 const route = useRoute();
@@ -265,45 +261,14 @@ const goBack = () => {
 };
 
 /* ============================================================================
-   版式（UI）加载 + 契约组装
+   契约组装（版式渲染已收进 <ThemeView>，本容器只组装 ctx）
    ========================================================================== */
-
-const themeStore = useThemeStore();
 
 /**
  * 本容器的**设备身份**：默认 standard（文件位置即身份，`view/web/` 下都是电脑端，标准形态）。
  * 其它设备（如 tablet）复用本容器的业务时通过 `device` prop 覆盖 —— 避免复制业务。
  */
-const props = withDefaults(defineProps<{ device?: ThemeDevice }>(), { device: 'standard' });
-const THEME_DEVICE = computed(() => props.device);
-
-/**
- * 用哪套版式：`?view=` > 主题包声明 > VITE_FORGOT_PASSWORD_VIEW > 当前包名。
- */
-const viewId = computed(() =>
-  pickForgotPasswordViewId({
-    url: readDeviceParam(route.query, 'view', THEME_DEVICE.value),
-    theme: themeStore.viewFor('forgot-password'),
-    pkg: themeStore.packageId,
-    device: THEME_DEVICE.value
-  })
-);
-
-watch(viewId, id => themeStore.setActivePageView('forgot-password', id), { immediate: true });
-
-const activeView = shallowRef<Component>(BaseForgotPasswordView);
-let viewEpoch = 0;
-watch(
-  [viewId, () => themeStore.packageId],
-  ([id, pkg]) => {
-    const epoch = ++viewEpoch;
-    void forgotPasswordViews.load(id, pkg, THEME_DEVICE.value).then(loaded => {
-      if (epoch !== viewEpoch) return;
-      activeView.value = loaded ? markRaw(loaded) : BaseForgotPasswordView;
-    });
-  },
-  { immediate: true }
-);
+const props = withDefaults(defineProps<{ device?: string }>(), { device: 'standard' });
 
 /** 契约里字段绑定的内部构造形态 */
 interface FieldSource {
@@ -402,8 +367,7 @@ const ctx = assertForgotPasswordContract(
 </script>
 
 <template>
-  <!-- 业务容器只做两件事：把 ctx 交给当前版式；渲染与版式无关的业务浮层 -->
-  <component :is="activeView" :ctx="ctx" />
+  <ThemeView page="forgot-password" :device="props.device" :ctx="ctx" />
 
   <!-- 图形验证码：code 模式通过后由 verify-captcha 顺带发邮箱码；link 模式通过后才发重置链接 -->
   <GraphicCaptcha

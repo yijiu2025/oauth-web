@@ -8,7 +8,7 @@
  *
  * @author yijiu2025
  */
-import { computed, markRaw, onMounted, reactive, ref, shallowRef, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useForm } from 'vee-validate';
@@ -22,16 +22,13 @@ import { useCountdown } from '@/composables/useCountdown';
 import { useCaptchaFlow } from '@/composables/useCaptchaFlow';
 import { usePasswordStrength } from '@/composables/usePasswordStrength';
 import { rsaEncrypt, getCachedKid } from '@/utils/crypto';
-import { useThemeStore } from '@/stores/theme';
-import BaseMiniForgotPasswordView from '@/theme/themes/default/mini/forgot-password/index.vue';
-import { forgotPasswordViews, pickForgotPasswordViewId } from '@/theme/views/forgot-password';
-import { readDeviceParam } from 'skinsuite';
+import { ThemeView } from 'skinsuite/vue';
 import type {
   ForgotPasswordStage,
   ForgotPasswordTranslate,
   ForgotPasswordViewContext
 } from '@/theme/views/forgot-password';
-import type { Component, Ref } from 'vue';
+import type { Ref } from 'vue';
 
 const { t, locale } = useI18n();
 const route = useRoute();
@@ -233,38 +230,8 @@ const goBack = () => {
 };
 
 /* ============================================================================
-   版式（UI）加载 + 契约组装
+   契约组装（版式渲染已收进 <ThemeView>，本容器只组装 ctx）
    ========================================================================== */
-
-const themeStore = useThemeStore();
-
-/** 本容器的设备身份：mini */
-const THEME_DEVICE = 'mini' as const;
-
-const viewId = computed(() =>
-  pickForgotPasswordViewId({
-    url: readDeviceParam(route.query, 'view', THEME_DEVICE),
-    theme: themeStore.viewFor('forgot-password'),
-    pkg: themeStore.packageId,
-    device: THEME_DEVICE
-  })
-);
-
-watch(viewId, id => themeStore.setActivePageView('forgot-password', id), { immediate: true });
-
-const activeView = shallowRef<Component>(BaseMiniForgotPasswordView);
-let viewEpoch = 0;
-watch(
-  [viewId, () => themeStore.packageId],
-  ([id, pkg]) => {
-    const epoch = ++viewEpoch;
-    void forgotPasswordViews.load(id, pkg, THEME_DEVICE).then(loaded => {
-      if (epoch !== viewEpoch) return;
-      activeView.value = loaded ? markRaw(loaded) : BaseMiniForgotPasswordView;
-    });
-  },
-  { immediate: true }
-);
 
 /** 契约里字段绑定的内部构造形态 */
 interface FieldSource {
@@ -359,8 +326,7 @@ const ctx = assertForgotPasswordContract(
 </script>
 
 <template>
-  <!-- 业务容器只做两件事：把 ctx 交给当前版式；渲染与版式无关的业务浮层 -->
-  <component :is="activeView" :ctx="ctx" />
+  <ThemeView page="forgot-password" device="mini" :ctx="ctx" />
 
   <!-- 图形验证码 -->
   <GraphicCaptcha

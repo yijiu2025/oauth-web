@@ -124,6 +124,7 @@ describe('theme store 行为守卫', () => {
 
     it('用 blue 时切黑再切回明 → 恢复 blue（槽记住切走前那套）', async () => {
       const store = await freshStore();
+      store.setActiveDevice(MOBILE); // blue 只在 mobile 登记（standard 端只有黑白）
       store.setTheme('blue');
       expect(store.themeId).toBe('blue');
       store.setMode('dark');
@@ -145,40 +146,40 @@ describe('theme store 行为守卫', () => {
   });
 
   describe('URL 意图（按设备锁定）', () => {
-    it('?theme=blue 被默认设备（mobile）采用', async () => {
-      const store = await freshStore('?theme=blue');
+    it('?th_color=blue 通用键锁定所有设备（含兜底设备 standard）', async () => {
+      const store = await freshStore('?th_color=blue');
       expect(store.themeId).toBe('blue');
     });
 
-    it('?theme.mobile=blue 锁定 mobile 那一条（按设备解析出该端配色）', async () => {
-      const store = await freshStore('?theme.mobile=blue');
+    it('?th_color_mobile=blue 锁定 mobile 那一条（按设备解析出该端配色）', async () => {
+      const store = await freshStore('?th_color_mobile=blue');
       store.setActiveDevice(MOBILE);
       await flush();
       expect(store.themeRecordFor(undefined, MOBILE, 'login').meta.id).toBe('blue');
     });
 
-    it('?skin.<设备> 是 theme 的兼容别名', async () => {
+    it('?skin 别名已删（不再作为 theme 的兼容别名）', async () => {
       const store = await freshStore('?skin.mobile=cyan');
       store.setActiveDevice(MOBILE);
       await flush();
-      expect(store.themeRecordFor(undefined, MOBILE, 'login').meta.id).toBe('cyan');
+      expect(store.themeRecordFor(undefined, MOBILE, 'login').meta.id).not.toBe('cyan');
     });
 
-    it('空串 = 未指定：?theme.mobile= 不吞掉通用键 ?theme=blue', async () => {
+    it('空串 = 未指定：?th_color_mobile= 不吞掉通用键 ?th_color=blue', async () => {
       // 这是 2026-09-26 修过的真实缺陷：'' ?? anyScope 仍是 ''，会让通用键一起失效
-      const store = await freshStore('?theme.mobile=&theme=blue');
+      const store = await freshStore('?th_color_mobile=&th_color=blue');
       store.setActiveDevice(MOBILE);
       await flush();
       expect(store.themeRecordFor(undefined, MOBILE, 'login').meta.id).toBe('blue');
     });
 
-    it('?mode=dark 直接定下明暗意图', async () => {
+    it('?mode=dark 已删（明暗不再从 URL 来）', async () => {
       const store = await freshStore('?mode=dark');
-      expect(store.mode).toBe('dark');
+      expect(store.mode).toBe('system');
     });
 
     it('用户显式 setTheme 会清掉当前设备的 URL 覆盖（显式操作压过链接）', async () => {
-      const store = await freshStore('?theme.mobile=blue');
+      const store = await freshStore('?th_color_mobile=blue');
       store.setActiveDevice(MOBILE);
       await flush();
       expect(store.themeRecordFor(undefined, MOBILE, 'login').meta.id).toBe('blue');
@@ -222,10 +223,11 @@ describe('theme store 行为守卫', () => {
     });
 
     it('URL 锁定配色时，后端下发不覆盖该设备', async () => {
-      const store = await freshStore('?theme.mobile=blue');
+      const store = await freshStore('?th_color_mobile=blue');
       store.setActiveDevice(MOBILE);
       store.applyThemeConfig({ theme: 'cyan' });
-      expect(store.themeId).toBe('blue');
+      // mobile 被 URL 锁 → 该端生效配色仍是 blue，不被后端下发的 cyan 覆盖
+      expect(store.themeRecordFor(undefined, MOBILE, 'login').meta.id).toBe('blue');
     });
 
     it('外部 tokens 可撤销（传 null 回到主题包 tokens）', async () => {

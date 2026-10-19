@@ -1,15 +1,10 @@
 /**
- * 检查用户是否已认证
- * 目前使用简单的 cookie 检查，未来可以替换为 Pinia store
+ * 认证状态检查
+ *
+ * 当前用 sid cookie 的简单检查（后端 Session 体系在 sid 上），
+ * 未来若改成 Pinia store，只需替换本函数实现，调用方不变。
  */
 export function isAuthenticated(): boolean {
-  // 检查 sid cookie 是否存在
-  return document.cookie.includes('sid=');
-}
-
-/**
- * 检查用户是否已记住登录（使用 sid_r cookie）
- */
-export function isRemembered(): boolean {
-  return document.cookie.includes('sid_r=');
+  // 精确匹配名为 `sid` 的 cookie（而不是 `includes('sid=')`——那会误判 `osid=`/`mysid=` 这类名）
+  return document.cookie.split(';').some(c => c.trim().startsWith('sid='));
 }

@@ -21,7 +21,7 @@
  *
  * @author yijiu2025
  */
-import { computed, markRaw, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/stores/auth';
@@ -37,12 +37,9 @@ import { useCountdown } from '@/composables/useCountdown';
 import { useCaptchaFlow } from '@/composables/useCaptchaFlow';
 import { useQrLogin } from '@/composables/useQrLogin';
 import { useLoginFlow } from '@/composables/useLoginFlow';
-import BaseLoginView from '@/theme/themes/default/standard/login/index.vue';
-import { loginViews, pickLoginViewId } from '@/theme/views/login';
-import { readDeviceParam } from 'skinsuite';
+import { ThemeView } from 'skinsuite/vue';
 import type { LoginTranslate, LoginViewContext } from '@/theme/views/login';
-import type { ThemeDevice } from '@/theme/views/devices';
-import type { Component, Ref } from 'vue';
+import type { Ref } from 'vue';
 
 const authStore = useAuthStore();
 const themeStore = useThemeStore();
@@ -185,38 +182,7 @@ onUnmounted(() => {
 /** 本容器的设备身份：默认 standard（文件位置即身份，`view/web/` 下都是电脑端）。
  *  其它设备（如 tablet）复用本容器的业务时，通过 `device` prop 覆盖 —— 避免
  *  「加一种设备就要复制一整份业务容器」的重复（业务只有一份，见 multi-theme.md 职责红线）。 */
-const props = withDefaults(defineProps<{ device?: ThemeDevice }>(), { device: 'standard' });
-const THEME_DEVICE = computed(() => props.device);
-
-const viewId = computed(() =>
-  pickLoginViewId({
-    url: readDeviceParam(route.query, 'view', THEME_DEVICE.value),
-    theme: themeStore.viewFor('login'),
-    pkg: themeStore.packageId,
-    device: THEME_DEVICE.value
-  })
-);
-
-watch(viewId, id => themeStore.setActivePageView('login', id), { immediate: true });
-
-/**
- * 当前渲染的版式组件（同 `app/login/index.vue` 的机制）
- * 默认是内置包的基础版式（静态引入）；变体/其它包惰性加载。
- * `viewEpoch` 丢弃过期结果，`markRaw` 避免无谓 reactive 代理。
- */
-const activeView = shallowRef<Component>(BaseLoginView);
-let viewEpoch = 0;
-watch(
-  [viewId, () => themeStore.packageId],
-  ([id, pkg]) => {
-    const epoch = ++viewEpoch;
-    void loginViews.load(id, pkg, THEME_DEVICE.value).then(loaded => {
-      if (epoch !== viewEpoch) return;
-      activeView.value = loaded ? markRaw(loaded) : BaseLoginView;
-    });
-  },
-  { immediate: true }
-);
+const props = withDefaults(defineProps<{ device?: string }>(), { device: 'standard' });
 
 /** 契约里字段绑定的内部构造形态 */
 interface FieldSource {
@@ -359,8 +325,7 @@ const ctx = assertLoginContract(
 </script>
 
 <template>
-  <!-- 业务容器只做两件事：把 ctx 交给当前版式；渲染与版式无关的业务浮层 -->
-  <component :is="activeView" :ctx="ctx" />
+  <ThemeView page="login" :device="props.device" :ctx="ctx" />
 
   <!-- 图形验证码弹窗与全局 Toast -->
   <GraphicCaptcha

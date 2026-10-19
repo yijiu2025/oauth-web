@@ -41,7 +41,7 @@ import { z } from 'zod';
 import { toTypedSchema } from '@vee-validate/zod';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import { computed, markRaw, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import GraphicCaptcha from '@/components/common/GraphicCaptcha.vue';
 import AgreementModals from '@/components/common/AgreementModals.vue';
 import MessageToast from '@/components/common/MessageToast.vue';
@@ -52,20 +52,9 @@ import { useButtonLock } from '@/composables/useButtonLock';
 import { rsaEncrypt, getCachedKid } from '@/utils/crypto';
 import { useCaptcha } from '@/composables/useCaptcha';
 import { useKeyboardAvoid } from '@/composables/useKeyboardAvoid';
-import { useThemeStore } from '@/stores/theme';
-/**
- * 静态引入**内置包**的基础版式 —— 首屏零请求的那条路径
- *
- * 路径里的 `default` 必须写死：静态 import 在编译期就要定下来，而"当前是哪个包"
- * 是运行时才知道的（URL / 后端下发 / localStorage）。运行时的那份判定在
- * `registerViews.builtinPackage`，两者必须是同一个包 —— 改了 `theme/index.ts` 的
- * `DEFAULT_THEME_PACKAGE` 就要同步改这里，守卫会盯住这一点。
- */
-import BaseRegisterView from '@/theme/themes/default/mobile/register/index.vue';
-import { pickRegisterViewId, registerViews } from '@/theme/views/register';
-import { readDeviceParam } from 'skinsuite';
+import { ThemeView } from 'skinsuite/vue';
 import type { RegisterDirection, RegisterTranslate, RegisterViewContext } from '@/theme/views/register';
-import type { Component, Ref } from 'vue';
+import type { Ref } from 'vue';
 
 /** 步骤总数。契约里的 `totalSteps` 与进度百分比都算它，别在两处各写一个 3 */
 const TOTAL_STEPS = 3;
@@ -278,80 +267,8 @@ const handleRegister = handleSubmit(async data => {
 });
 
 /* ============================================================================
-   版式（UI）加载 + 契约组装
+   契约组装（版式渲染已收进 <ThemeView>，本容器只组装 ctx）
    ========================================================================== */
-
-const themeStore = useThemeStore();
-
-/**
- * 本容器的**设备身份**：文件位置即身份（`view/app/` 下都是移动端）。
- *
- * 取常量而不是运行时判定，是为了让"这个页面属于哪种设备"只有一个答案 ——
- * 再跑一次视口判定就会出现"URL 说是移动端路由、视口却已变宽"这类自相矛盾的状态。
- * 视口判定的口径仍然只在 `utils/device.ts` 有一份（路由分发用它）。
- */
-const THEME_DEVICE = 'mobile' as const;
-
-/**
- * 用哪套版式：`?view=` > 主题包声明（theme/themes/<包>/index.ts 的 views.register）
- * > VITE_REGISTER_VIEW > 当前包名（一个主题包 = 一种版式）。解析细节与安全边界见 registry.ts。
- *
- * 做成 computed 而不是 setup 里取一次，是因为主题是**运行时**才定的：
- * 后端下发的换配色配置在 App.vue 的 onMounted 之后才到（可能晚于本页 setup），
- * 取一次就会漏掉"主题包声明了版式"这种情况。
- *
- * `pkg` 决定**在哪个包里找**：版式跟随主题包，同一个 `?view=compact` 在不同包里
- * 指向不同实现，所以包变了就要重新解析（依赖 `packageId` 让 computed 自动重算）。
- */
-const viewId = computed(() =>
-  pickRegisterViewId({
-    url: readDeviceParam(route.query, 'view', THEME_DEVICE),
-    theme: themeStore.viewFor('register'),
-    pkg: themeStore.packageId,
-    device: THEME_DEVICE
-  })
-);
-
-/**
- * 告诉 store「当前是哪一页、哪套版式」
- *
- * 🔴 配色挂在**版式**下（`themes/<包>/<设备>/<页面>/[<版式>/]colors/<颜色>/`），
- *    所以"该注入哪套颜色的 token"必须知道这两个值 —— 不知道就会落到
- *    `DEFAULT_THEME_PAGE` + `base`，表现为「页面里选的颜色不生效」。
- *
- * watch 而不是 setup 里取一次：版式可能在运行时变（`?view=` 或主题包声明），
- * 变了就要让 store 重算 token。`immediate` 保证首帧之前就把值交出去。
- */
-watch(viewId, id => themeStore.setActivePageView('register', id), { immediate: true });
-
-/**
- * 当前渲染的版式组件
- *
- * 默认是**内置包的基础版式**：它由本文件静态引入，首帧直接正确（不会先白屏再闪一下）。
- * 变体、以及非内置包的版式都是动态 chunk，加载完成后接管；路由守卫已提前预热
- * （preloadRegisterView），因此绝大多数情况下这一步在同一 tick 内完成 —— 用户看不到切换。
- * `markRaw`：组件对象不该被 reactive 代理（无谓的深层代理开销）。
- *
- * `viewEpoch` 用于丢弃过期结果：版式 A→B→A 连续变化时，先发出的 A 可能后返回，
- * 不加序号会用过期组件覆盖当前（与主题附加样式同一类坑）。
- *
- * ⚠️ 必须**同时**盯住主题包：版式只在当前包内查找，换了包但解析出的 id 字符串没变
- *    （两边都是 `base`）时，渲染的组件其实换了一整套 —— 只盯 id 会漏掉这一整类切换。
- */
-const activeView = shallowRef<Component>(BaseRegisterView);
-let viewEpoch = 0;
-watch(
-  [viewId, () => themeStore.packageId],
-  ([id, pkg]) => {
-    const epoch = ++viewEpoch;
-    void registerViews.load(id, pkg, THEME_DEVICE).then(loaded => {
-      if (epoch !== viewEpoch) return;
-      // null = 用静态引入的内置包基础版式（首屏零请求那条路径）
-      activeView.value = loaded ? markRaw(loaded) : BaseRegisterView;
-    });
-  },
-  { immediate: true }
-);
 
 /** 契约里字段绑定的**内部构造形态**：值与错误都是 ref，交给 reactive 自动解包成契约里的标量 */
 interface FieldSource {
@@ -480,8 +397,8 @@ const ctx = assertRegisterContract(
 </script>
 
 <template>
-  <!-- 业务容器只做两件事：把 ctx 交给当前版式；渲染与版式无关的业务浮层 -->
-  <component :is="activeView" :ctx="ctx" />
+  <!-- 业务容器只做一件事：把 ctx 交给当前版式（版式加载/回退由 <ThemeView> 负责） -->
+  <ThemeView page="register" device="mobile" :ctx="ctx" />
 
   <!-- 业务浮层：三者都是 `position: fixed`（Toast 还 Teleport 到 body），
        渲染位置不影响呈现，故统一由容器渲染。 -->

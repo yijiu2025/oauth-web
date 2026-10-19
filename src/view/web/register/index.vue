@@ -1,64 +1,30 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, watch } from 'vue';
+/**
+ * 注册页分发器（/register 与 /m/register 共用）
+ *
+ * 按「当前设备形态」挑渲染哪个容器（mobile / mini / standard）。设备形态**单一来源** =
+ * 设备域 `currentDevice()`，分发器不再自己 `pickDeviceId`、也不碰主题。
+ *
+ * 另外把父应用跳注册页携带的 OAuth 上下文（appName / client_id / redirect_uri / scope /
+ * state / invite / lang）通过 `provide('registerContext')` 透传给子容器。
+ */
+import { computed, defineAsyncComponent, onMounted, provide, reactive } from 'vue';
 import { useRoute } from 'vue-router';
-import { useDeviceDetect } from '@/composables/useDeviceDetect';
-import { useThemeStore } from '@/stores/theme';
-import { DEFAULT_THEME_PACKAGE } from 'skinsuite';
-import type { ThemeDevice } from '@/theme/views/devices';
-import { pickDeviceId, deviceContext, THEME_DEVICES, resolveContainerOf } from '@/theme/views/devices';
+import { currentDevice, deviceIds, resolveContainerOf } from 'skinsuite/vue';
 
 const route = useRoute();
 
-// 自动识别设备形态：窄视口 / 真机 UA → 手机端注册页
-// URL 显式 ?isMobile=true 优先级最高，这里只在未显式指定时生效
-const { isMobileDevice } = useDeviceDetect();
-
-// 异步按需加载不同形态的注册组件（与 login 分发器架构一致）
-// 🔴 数据化（2026-09-27）：设备 id → 该页容器 从设备清单派生，不再写死三选一。
+// 异步按需加载不同形态的注册组件（设备 id → 容器，从设备清单派生）
 const deviceComponents = new Map(
-  THEME_DEVICES.map(id => [id, defineAsyncComponent(resolveContainerOf(id, 'register'))])
+  deviceIds().map(id => [id, defineAsyncComponent(resolveContainerOf(id, 'register'))])
 );
 
-// 动态路由/参数分发逻辑
-// 🔴 形态判定**单一来源**：activeForm 既决定渲染哪个组件，也决定主题的设备作用域
-//    —— 两件事必须同源，否则会出现"渲染的是手机端、主题却是电脑端那套"。
-// 判定收敛到设备清单（theme/devices.ts 的 pickDeviceId）：三分发器不各写 if-链。
-const activeForm = computed(() =>
-  pickDeviceId(deviceContext(route.query, route.path, isMobileDevice.value))
-);
-
+// 🔴 设备形态单一来源 = 设备域 currentDevice()
 const activeComponent = computed(() =>
-  deviceComponents.get(activeForm.value) ?? deviceComponents.get('standard')!
+  deviceComponents.get(currentDevice().value) ?? deviceComponents.get('standard')!
 );
 
-/**
- * 🔴 主题作用域跟随**实际渲染的形态**，而不是路由（2026-09-25 用户定夺）
- *
- * `/register` 是电脑端路由，但窄视口下本分发器渲染的是手机端容器 —— token 注入、
- * 调试面板的颜色清单都必须按 mobile 作用域走，否则手机端页面吃到电脑端那套配色、
- * 面板切手机端主题"无效"。mini 来源恒为 web：iframe 列宽造成的"窄"不是手机。
- */
-const themeStore = useThemeStore();
-// activeForm 直接是 ThemeDevice（pickDeviceId 返回值），无需二次映射
-const renderedDevice = computed<ThemeDevice>(() => activeForm.value);
-watch(
-  renderedDevice,
-  device => {
-    themeStore.setActiveDevice(device);
-    // 桌面形态没有容器声明 page/view（那是 view/app/<page>/ 容器的职责），
-    // 归位到当前包（standard/mini 端走默认包 = DEFAULT_THEME_PACKAGE）—— 新版式下 view ≡ pkg，
-    // 用包名作 view 段能让 findRecord 命中默认包对应配色；手机形态由随后挂载的容器覆盖。
-    if (device !== 'mobile') themeStore.setActivePageView('register', DEFAULT_THEME_PACKAGE);
-  },
-  { immediate: true }
-);
-
-// 透传 OAuth 注册上下文给子组件
-// iframe 父应用跳注册页时通常带：appName/client_id/redirect_uri/scope/state，
-// 注册后跳回 redirect_uri（同源白名单校验，防开放重定向）。
-// 子组件用 inject('registerContext') 获取。
-// 其他（deviceId/theme/timestamp 等）由各自的全局机制处理，不透传。
-import { provide, reactive } from 'vue';
+// 透传 OAuth 注册上下文给子组件（子组件用 inject('registerContext') 获取）
 const q = route.query;
 const registerContext = reactive({
   // 应用展示
@@ -80,14 +46,12 @@ const registerContext = reactive({
 provide('registerContext', registerContext);
 
 /**
- * v2.20.1：dispatcher 挂载后立即 import() 三个形态的注册组件 —— activeForm
- * 在运行时才能确定（视口/UA/iframe 来源），dispatcher 自身 prefetch 之后，
- * 它内部 defineAsyncComponent 还要再走一次 chunk 下载。这是「注册页切换
- * 42ms 空白窗口」的根因（dispatcher 自身已 cached，但子组件还要下载）。
- * 三个形态全部预热：chunk 总量 < 30KB，并行下载几乎瞬时；用户切换任意形态都不闪。
+ * 挂载后立即预热各形态组件 —— activeForm 在运行时才能确定（视口/UA/iframe 来源），
+ * dispatcher 自身 prefetch 之后，它内部 defineAsyncComponent 还要再走一次 chunk 下载。
+ * 全部预热避免「切换闪屏」。
  */
 onMounted(() => {
-  for (const id of THEME_DEVICES) {
+  for (const id of deviceIds()) {
     void resolveContainerOf(id, 'register')().catch(() => {});
   }
 });

@@ -1,91 +1,31 @@
 /**
- * 主题状态管理
+ * 主题状态管理（**宿主壳**：Pinia store 定义 + 状态机下沉）
  *
- * === 三个维度 + 一个作用域 ===
- *   mode（明暗意图）—— 用户可控：'system' | 'light' | 'dark'
- *   theme（配色）—— 一个**配色 id**，对应
- *                   `theme/themes/<包>/<设备>/<页面>/colors/<配色>/`;
- *                   每套配色自带 `tone`（白系/黑系）与完整底色。
- *   view（版式） —— 版式 id（`?view=` / 包声明 / 环境变量），在"包 × 设备"内查找。
- *                   🔴 版式 id ≡ 主题包名（一个主题包 = 一种版式，2026-09-26）。
- *   **设备**（'mobile' | 'standard' | 'mini'）—— 不是偏好，而是**页面身份**。
+ * === 状态机已下沉（2026-10-19）===
+ * 「明暗 ≡ 配色系别」状态机的三块 composable（scope / intent / runtime）+ 持久化层
+ * 已全部下沉进 `skinsuite/vue` 的 `createThemeState`。本文件只剩：
+ *   · 一行 `defineStore('theme', () => createThemeState())` 把状态机包成 store；
+ *   · `import 'virtual:theme'` 副作用装配（版式加载表 + 注册表 + 清单 + views/*.ts 声明）。
  *
- * === 来源与优先级（高 → 低）===
- *   用户显式操作（点色卡 / 切明暗）
- *     > theme：URL `?theme.<设备>` / `?theme=` / `?skin=`  >  后端下发 / 父应用  >  localStorage
- *     > mode ：URL `?mode=`  >  后端下发 / 父应用  >  localStorage  >  跟随系统
+ * === 三个维度 + 一个作用域（语义不变）===
+ *   mode（明暗意图）'system' | 'light' | 'dark'
+ *   theme（配色 id）对应 `themes/<包>/<设备>/<页面>/colors/<配色>/`，自带 tone 与完整底色
+ *   view（版式 id）≡ 主题包名
+ *   设备 —— 不是偏好，而是页面身份
  *
- * === 架构（2026-10-17 拆成三个 composable）===
- *   scope  (theme-scope.ts)  设备/页面/版式作用域 + 配色解析入口
- *   intent (theme-intent.ts) 明暗意图 + 会话记忆槽 + 色系联动
- *   runtime(theme-runtime.ts)token 注入 + 附加样式 + 外部配置
- * 本文件 = 编排层：按依赖顺序创建 scope → intent → runtime，对外直通 28 项 API。
+ * === 为什么 pinia 不跟着下沉 ===
+ * 状态机全程只用 ref/computed/watch，零 pinia API —— 下沉它不需要 pinia。pinia 只是把
+ * composable 注册成 store 实例的一层壳，留在宿主，避免给库加一个 peer 依赖。
  *
  * @author yijiu2025
+ * @since 2026-10-19（状态机下沉 skinsuite/vue，本文件退化为壳）
  */
 import { defineStore } from 'pinia';
-import { useThemeScope } from './theme-scope';
-import { useThemeIntent } from './theme-intent';
-import { useThemeRuntime } from './theme-runtime';
-// 🔴 副作用 import：确保主题注册表（内核模块级单例）已安装
-import '@/theme-manifest';
+import { createThemeState } from 'skinsuite/vue';
+// 🔴 副作用 import：import 虚拟模块即自动完成三件装配 —— 装版式加载表（installThemeViews）、
+//    装配色注册表、解析清单单例，并以副作用 import 拉齐 `views/*.ts`（设备声明 devices.ts +
+//    页面契约 login/register/forgot-password 的 defineThemeDevice / defineThemePage 注册）。
+//    宿主不再手动 import 任何 `@/theme/views/*`（bootstrap 也不），机制全由内核构建插件拉齐。
+import 'virtual:theme';
 
-export const useThemeStore = defineStore('theme', () => {
-  // ① 作用域（共享基础：activeDevice / activePage / activeView / themeRecordFor / isDark 等）
-  const scope = useThemeScope();
-
-  // ② 意图（明暗三态 + 记忆槽 + 色系联动 + 用户操作入口）
-  const intent = useThemeIntent(scope);
-
-  // ③ 运行时（token 注入 + 附加样式 + 明暗类 + 外部配置）；必须最后创建（内部 watch immediate 依赖前两步）
-  const runtime = useThemeRuntime(scope, intent);
-
-  // -------------------------------------------------------------------------
-  // 调试探针（仅 dev + ?debug=theme）
-  // -------------------------------------------------------------------------
-  if (import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(location.search).get('debug') === 'theme') {
-    (window as unknown as Record<string, unknown>).__MAUTH_STORE__ = {
-      get themeId() { return scope.themeId.value; },
-      get deviceTheme() { return { ...scope.deviceTheme.value }; },
-      get mode() { return intent.mode.value; },
-      get packageId() { return scope.packageId.value; },
-      get activeDevice() { return scope.activeDevice.value; },
-      get activePage() { return scope.activePage.value; },
-      get activeView() { return scope.activeView.value; },
-      get activeThemeId() { return scope.themeRecordFor().meta.id; },
-      get activeTone() { return scope.themeRecordFor().tone; }
-    };
-  }
-
-  return {
-    // ---- 来自 scope ----
-    mode: intent.mode,
-    isDark: scope.isDark,
-    themeId: scope.themeId,
-    packageId: scope.packageId,
-    device: scope.device,
-    activeDevice: scope.activeDevice,
-    activePage: scope.activePage,
-    activeView: scope.activeView,
-    activeTone: scope.activeTone,
-    themes: scope.themes,
-    systemDark: intent.systemDark,
-    themeTokens: runtime.themeTokens,
-    externalTokens: runtime.externalTokens,
-    lightColor: intent.lightColor,
-    darkColor: intent.darkColor,
-    themeRecordFor: scope.themeRecordFor,
-    setActiveDevice: scope.setActiveDevice,
-    setActivePageView: scope.setActivePageView,
-    // ---- 来自 intent ----
-    setMode: intent.setMode,
-    cycleMode: intent.cycleMode,
-    toggleTheme: intent.toggleTheme,
-    setTheme: intent.setTheme,
-    viewFor: scope.viewFor,
-    // ---- 来自 runtime ----
-    applyThemeConfig: runtime.applyThemeConfig,
-    applyTheme: intent.applyTheme,
-    dispose: intent.dispose
-  };
-});
+export const useThemeStore = defineStore('theme', () => createThemeState());

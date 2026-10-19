@@ -24,16 +24,18 @@
  *   配色（包内 `colors/<配色>/`）= 只换颜色/圆角/背景图，**同一套 DOM**（靠 CSS 变量）
  *   版式（本文件定义的就是它的契约）= 换 DOM 结构与交互组织方式
  *
- * === 主题包粒度的版式（2026-09-26 三页统一）===
- *   **一个主题包 = 一种版式**（架构约定，login / register / forgot-password 三页同形）：
- *     • 路径形态**唯一**：`themes/<包>/<设备>/<页面>/index.vue`（无变体子目录）
- *     • 切换版式 = 切换主题包：URL 里 `view` 的值就是**目标包名**（`?view=compact`）
- *     • `pickRegisterViewId` 把 URL 值交给注册表的 `resolve`；解析不出就**回退为当前包名**
- *     • 默认主题包里 register 就是默认版式；compact 主题包里 register 是紧凑版式
+ *   **一个主题包 = 一种版式**（login / register / forgot-password 三页同形）：
+ *     • 路径形态唯一：`themes/<包>/<设备>/<页面>/index.vue`（无变体子目录）
+ *     • 切版式 = 切主题包：URL `?th=<包名>`，版式 id ≡ 包名，解析不出回退为当前包名
  *
  * @author yijiu2025
  * @since 2026-09-23
  */
+import { defineThemePage } from 'skinsuite/vue';
+
+/* ---------------------------------------------------------------------------
+ * 契约类型（纯类型，按「依赖先后」排：基础联合 → 翻译函数 → 字段绑定 → 行为 → 上下文 → props）
+ * ------------------------------------------------------------------------- */
 
 /** 分步步骤号（与容器里的 step 一一对应） */
 export type RegisterStep = 1 | 2 | 3;
@@ -144,58 +146,12 @@ export interface RegisterViewProps {
   ctx: RegisterViewContext;
 }
 
-/**
- * 注册页版式注册表 —— 谁来决定"用哪套 UI"
+/* ---------------------------------------------------------------------------
+ * 版式机制：`defineThemePage({ page })` 一次声明，即注册进页面域（<ThemeView> 的
+ * `pageOf` 依赖）。版式组件清单由内核从 `virtual:theme` 装好的单例**惰性解析**，
+ * 本文件不再 import `virtual:theme`、也不自己 `import.meta.glob`。
  *
- * === 选择优先级（高 → 低；三页同形，链的唯一实现在 `./picker.ts`）===
- *   1. URL `?view=<id>`        —— 本次访问的显式意图（命中版式 → 用它；命中其它包 → 切包）
- *                                 （设备维度键 `view.<设备>` 已在容器侧解析完，见 `./params.ts`）
- *   2. 主题包声明               —— 配色记录里的 `views.register`（`themeStore.viewFor` 取出）
- *   3. `VITE_REGISTER_VIEW`    —— 部署级默认（整站换 UI，不动代码）
- *   4. 当前包名                 —— 一个主题包 = 一种版式（不再是 `BASE_VIEW_ID='base'`）
- *
- * === 注册表的实际行为 ===
- *   • 一个主题包 = 一种 register 版式（无变体子目录）—— 见本文件顶部"主题包粒度的版式"
- *   • glob 扫的是「themes 下所有包所有设备里的 register/index.vue」（路径写法见下方代码块）
- *   • `createViewRegistry` 把每个匹配识别为该包该设备的唯一版式（id ≡ 包名）
- *   • `picker` 找不到时**回退为包名**，让 `?view=compact` 切到 compact 包
- *
- * ⚠️ 非内置包的版式是**惰性加载**的（`import.meta.glob` → 独立 chunk）；内置包的版式由容器
- *    静态引入（首屏零请求）。新增包或版式目录后要**重启 dev server**
- *    （glob 在启动时静态扫描，热更新发现不了新目录）。
- *
- * @author yijiu2025
- * @see ./picker.ts —— 取值链与回退口径的唯一实现
- */
-import type { Component } from 'vue';
-import { defineThemePage } from 'skinsuite/vue';
-import { DEFAULT_THEME_DEVICE, asThemeDevice } from './devices';
-
-/**
- * 本页的版式机制 —— 机制本身在 `skinsuite/vue` 的 `defineThemePage`（页面工厂），
- * 本文件只声明**本页独有**的事：页面名、标题、版式 glob、设备归一化。
- *
- * ⚠️ 用 **`/src/...` 根绝对路径**（相对路径会静默扫不到文件）；
- *    新增包或版式目录后要**重启 dev server**。
- */
-export const registerPage = defineThemePage({
-  page: 'register',
-  title: '账户注册',
-  titles: { mobile: '移动端注册' },
-  envView: import.meta.env.VITE_REGISTER_VIEW,
-  loaders: import.meta.glob<{ default: Component }>('/src/theme/themes/*/*/register/index.vue'),
-  device: { defaultDevice: DEFAULT_THEME_DEVICE, asKnownDevice: asThemeDevice }
-});
-
-/** 本页版式注册表（容器与调试面板按这个名字取） */
-export const registerViews = registerPage.views;
-
-/** 按优先级挑出版式 id —— 永远返回可用 id，最差是当前**包名** */
-export const pickRegisterViewId = registerPage.pick;
-
-/**
- * 提前把版式 chunk 拉下来（路由守卫里调用，**不 await**）
- *
- * ⚠️ `source` 必须**原样**传（含声明档 `theme`）：漏掉它会让预取算出一个与容器**不同**的 id。
- */
-export const preloadRegisterView = registerPage.preload;
+ * 选择优先级（高 → 低；实现收在 `skinsuite/vue` 的 `createViewPicker`）：
+ *   `?th[_<设备缩写>]`  >  主题包声明 `views.register`  >  当前包名（view ≡ pkg）
+ * ------------------------------------------------------------------------- */
+defineThemePage({ page: 'register' });

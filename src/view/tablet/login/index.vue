@@ -9,7 +9,7 @@
  *
  * 所以这里不复制 StandardLogin 的 ~370 行业务，而是：
  *   ① 转发 StandardLogin（业务 + 契约组装只有一份，见 multi-theme.md 职责红线）
- *   ② 用 `device="tablet"` prop 覆盖它的设备身份（StandardLogin 里 THEME_DEVICE 默认
+ *   ② 用 `device="tablet"` prop 覆盖它的设备身份（StandardLogin 的 `device` 默认
  *      standard，本容器显式传 tablet，让它读 `?view.tablet`、按 tablet 作用域加载版式）
  *
  * 这正是「加一种设备」的真实落地形态：清单加一条 + 写这个 4 行容器 + 写主题目录，

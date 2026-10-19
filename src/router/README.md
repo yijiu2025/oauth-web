@@ -1,91 +1,47 @@
-# 路由系统优化说明
+# 路由系统
 
-## 架构改进
+## 文件结构
 
-### 1. 类型安全
-- 扩展了 `RouteMeta` 接口，提供完整的类型支持
-- 所有路由元数据都有 TypeScript 类型检查
-
-### 2. 路由拆分
-将路由配置拆分为多个模块：
-- `authRoutes` - 认证相关路由（登录、注册、忘记密码）
-- `mobileRoutes` - 移动端路由
-- `authFlowRoutes` - 授权流程路由
-- `errorRoutes` - 错误页面路由
-
-### 3. 安全增强
-- **开放重定向防护**：`sanitizeRedirect` 函数只允许站内相对路径
-- **认证守卫**：`setupAuthGuard` 处理需要认证的路由
-- **404 监控**：自动上报未找到的路径，便于发现安全问题
-
-## 使用方法
-
-### 添加新路由
-```typescript
-// 在 routes.ts 中添加
-export const newRoutes: RouteRecordRaw[] = [
-  {
-    path: 'new-page',
-    name: 'NewPage',
-    component: () => import('@/view/new-page/index.vue'),
-    meta: { 
-      title: '新页面',
-      requiresAuth: true,
-      keepAlive: 'NewPage'
-    }
-  }
-];
+```
+src/router/
+  index.ts        装配：createRouter + 路由树 + 守卫 + document.title 写入
+  routes.ts       路由表：各路由组的**固定声明**（「路由 → 页面」是前端事实）
+  guard.ts        认证守卫：requiresAuth 路由的登录拦截 + 开放重定向防护
+  auth-checker.ts 认证状态检查（sid cookie）
 ```
 
-### 认证状态检查
-```typescript
-import { isAuthenticated } from './router/auth-checker';
+## 路由分组
 
-// 在组件中使用
-if (isAuthenticated()) {
-  // 已登录逻辑
-}
-```
+`routes.ts` 导出四组路由，`index.ts` 统一挂到 `BlankLayout` 下：
 
-### 路由守卫配置
-```typescript
-// 在路由配置中设置认证要求
-{
-  path: 'dashboard',
-  name: 'Dashboard',
-  component: () => import('@/view/dashboard/index.vue'),
-  meta: {
-    title: '仪表板',
-    requiresAuth: true,
-    guestOnly: false
-  }
-}
-```
-
-## 路由元数据说明
-
-| 字段 | 类型 | 说明 |
+| 导出 | 语义 | 包含 |
 |------|------|------|
-| `title` | string | 页面标题（必填） |
-| `requiresAuth` | boolean | 是否需要登录认证 |
-| `guestOnly` | boolean | 是否仅限已登录用户访问 |
-| `keepAlive` | string | 组件缓存名称（配合 `<keep-alive>`） |
-| `device` | 'mobile' | 'desktop' | 'all' | 设备端标识 |
+| `authRoutes` | 认证页 | `/<page>`（login / register / forgot-password）+ `reset-password` 重定向 + `mini-login` |
+| `mobileRoutes` | 移动端页 | `/m/<page>`（与桌面共用分发器，标题取移动端文案） |
+| `authFlowRoutes` | OAuth 授权流 | `authorize` / `consent`（需登录） |
+| `errorRoutes` | 错误页 | 404 兜底 |
 
-## 安全特性
+## 加一个页面 = 改三处
 
-### 1. 开放重定向防护
-所有重定向都会通过 `sanitizeRedirect` 函数检查：
-- 只允许 `/` 开头的相对路径
-- 阻止协议相对路径（`//evil.com`）
-- 阻止绝对路径
+1. `routes.ts` 的 `PAGE_DEFS` 加一条（`path` / `name` / `title` / `mobileTitle`）；
+2. `theme/views/<page>.ts` 写契约（`defineThemePage({ page })`）；
+3. `view/web/<page>/index.vue` 写分发器（窄/宽屏自适应）。
 
-### 2. 认证检查
-- 当前使用 cookie 检查（`sid`）
-- 预留了 Pinia store 集成点
-- 支持 requiresAuth 和 guestOnly 两种认证模式
+`/<page>` 与 `/m/<page>` 共用同一套分发器，URL 不被视口改写。
 
-### 3. 404 监控
-- 自动记录未找到的路径
-- 包含来源页面信息
-- 便于发现爬虫扫描和死链
+## 认证守卫
+
+守卫只认一个字段：`meta.requiresAuth === true` 表示「未登录跳登录页」，其余路由一律放行。
+
+```ts
+// routes.ts 中标记需要登录的路由
+{ path: 'authorize', component: ..., meta: { title: '应用授权', requiresAuth: true } }
+```
+
+未登录时按设备形态跳登录页（手机进 `/m/login`），并把原 `fullPath` 作为 `redirect`
+透传（登录后回跳），同时透传原 query（`client_id` / `redirect_uri` 等，登录页依赖它们）。
+
+## 安全
+
+- **开放重定向防护**：所有回跳经 `sanitizeRedirect`（`@/utils/redirect` 的白名单）校验，只放行站内路径。
+- **404 监控**：`errorRoutes` 的 `beforeEnter` 上报未匹配路径，便于发现死链 / 扫描探测。

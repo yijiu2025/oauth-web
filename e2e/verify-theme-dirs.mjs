@@ -204,10 +204,10 @@ check(
   'theme/themes/views/ 不存在（配色目录是 colors，且不在 themes 下）',
   !isDir(join(PKGS, 'views'))
 );
-check('src/theme-manifest.ts 存在（注册表装配点，机制在内核 skinsuite）', existsSync(join(ROOT, 'theme-manifest.ts')));
+check('src/theme-manifest.ts 不存在（装配已下沉 vite 插件 import 即自动装配）', !existsSync(join(ROOT, 'theme-manifest.ts')));
 check('theme/themes/index.ts 不存在', !existsSync(join(PKGS, 'index.ts')), '注册表装配已提到 src 根');
 check('theme/views/registry.ts 已下沉内核（机制在 skinsuite/vue）', !existsSync(join(VIEWS, 'registry.ts')));
-check('theme/views/pages.ts 存在（页面版式总览壳）', existsSync(join(VIEWS, 'pages.ts')));
+check('theme/views/pages.ts 不存在（页面清单归 router 固定声明，不再由主题清单生成）', !existsSync(join(VIEWS, 'pages.ts')));
 check(
   'theme/views/params.ts 已下沉内核（机制在 skinsuite，宿主无壳）',
   !existsSync(join(VIEWS, 'params.ts')) && existsSync(join(CORE, 'views', 'params.ts')),
@@ -587,9 +587,9 @@ for (const page of PAGES) {
     '工厂靠 page 名从 glob 键里切出「包 / 设备」两段'
   );
   check(
-    `${page} 页面文件声明 envView（部署级默认，工厂拿不到 import.meta.env）`,
-    /envView:\s*import\.meta\.env\./.test(src),
-    '取值链只有一份实现（views/picker.ts）；各页只声明自己的页面名与环境变量'
+    `${page} 页面文件**不再**声明 envView（部署级默认机制已取消）`,
+    !/envView/.test(src),
+    '部署级默认版式（VITE_<PAGE>_VIEW）已取消：换 UI 只靠换主题包或 URL 显式指定'
   );
   check(
     `${page} 选择器**不再**自己实现 asText / asPackage / asDevice`,
@@ -632,37 +632,22 @@ for (const page of PAGES) {
     'URL 显式给了值就不再回退；非法值落**当前包**（不是别的版式，更不是已废弃的 base）'
   );
   check(
-    '选择器的 preload 把 source 原样交给 pick（声明档不会被漏掉）',
-    /const\s+id\s*=\s*pick\(source\)/.test(pickerSrc),
-    '漏掉 theme 会让预取算出与容器不同的 id —— 白拉一个用不上的 chunk'
-  );
-  check(
-    '选择器的 preload 有「内置包零请求」短路',
-    /if\s*\(id\s*===\s*pkg\s*&&\s*pkg\s*===\s*registry\.builtinPackage\)\s*return/.test(pickerSrc),
-    '内置包版式由容器静态引入，预取它等于白拉一个请求'
-  );
-  check(
-    '选择器不再是「把 url 当包名再试一次」的重复分支',
-    !/has\(url,\s*url,\s*device\)/.test(pickerSrc),
-    'resolve 的跨包分支已覆盖 `?view=compact`；重复一遍会让 `?view=base` 漏出已废弃的 id'
-  );
-  check(
     '选择器不再声称支持 `?pkg=` 参数（从未实现过）',
     !/\?pkg=/.test(pickerSrc),
-    '真的切换包用 `?view=<目标包名>`，全仓没有任何地方读 query.pkg'
+    '切换包用 `?th=<目标包名>`，全仓没有任何地方读 query.pkg'
   );
 
-  // 预取守卫必须与容器同源地传声明档（否则预取等于白拉）
+  // 路由表固定声明（页面清单是宿主事实，不来自主题页面清单；预取已去掉）
   const routesSrc = read(join(ROOT, 'router', 'routes.ts'));
   check(
-    '路由预取守卫把 viewFor(page) 的声明档一起传下去',
-    /theme:\s*readDeclaredView\(/.test(routesSrc) && /viewFor\(page,\s*device\)/.test(routesSrc),
-    '容器传了 theme 而守卫不传 ⇒ 预取算出的 id 与容器不同（白拉一个用不上的 chunk）'
+    '路由表固定声明主路由（PAGE_DEFS），不再由主题页面清单生成',
+    /PAGE_DEFS/.test(routesSrc) && !/listPageViews/.test(routesSrc),
+    'router 与主题分层：页面清单是宿主事实，路由表由 PAGE_DEFS 声明，不 import listPageViews'
   );
   check(
-    '移动端路由由页面注册表生成（listPageViews 派生，加页面不改路由）',
-    /listPageViews\(\)/.test(routesSrc) && /withViewPreload\(pv\.preload,\s*pv\.page\)/.test(routesSrc),
-    '路由数据化：/m/<page> 由页面清单 + 页面对象的 preload 自动生成，不再手写每页一条'
+    '路由守卫不再预取版式 chunk（靠 <ThemeView> 挂载时加载）',
+    !/withViewPreload/.test(routesSrc) && !/readDeclaredView/.test(routesSrc),
+    '预取机制已移除：内置包 eager 零请求、非内置包由 <ThemeView> 挂载时 load'
   );
 }
 {
@@ -712,11 +697,15 @@ check(
 );
 const devicesSrc = existsSync(DEVICES_FILE) ? read(DEVICES_FILE) : '';
 check(
-  'theme/views/devices.ts 导出设备维度（THEME_DEVICES / ThemeDevice / DEFAULT_THEME_DEVICE）',
-  /THEME_DEVICES/.test(devicesSrc) &&
-    /ThemeDevice/.test(devicesSrc) &&
-    /DEFAULT_THEME_DEVICE/.test(devicesSrc),
-  '设备维度的唯一声明处（清单 + 词汇表 + 兜底设备都在 views/devices.ts）'
+  'theme/views/devices.ts 用 defineThemeDevice 声明 + deviceIds/fallbackDevice 派生（不再手写词汇表）',
+  /defineThemeDevice/.test(devicesSrc) &&
+    /deviceIds/.test(devicesSrc) &&
+    /fallbackDevice/.test(devicesSrc) &&
+    !/const\s+DEVICE_IDS/.test(devicesSrc) &&
+    !/export\s+const\s+THEME_DEVICES/.test(devicesSrc) &&
+    !/export\s+type\s+ThemeDevice/.test(devicesSrc) &&
+    !/DEFAULT_THEME_DEVICE\s*:/.test(devicesSrc),
+  '设备清单由 defineThemeDevice 声明（自动注册设备域），id 清单与兜底设备从声明派生，不再手写 DEVICE_IDS/THEME_DEVICES/ThemeDevice/DEFAULT_THEME_DEVICE'
 );
 
 // ---- 默认版式 / 默认配色（2026-09-26 用户定：default + white）----
@@ -819,11 +808,18 @@ console.log(`\n=== 8b. 三设备容器各自静态引入自己设备的版式（
   }
 }
 
-console.log(`\n=== 9. store / 路由的设备接线 ===`);
+console.log(`\n=== 9. 主题状态机接线（scope/intent/runtime，2026-10-19 下沉 skinsuite/vue）===`);
 {
-  const store = read(join(ROOT, 'stores', 'theme.ts'));
-  check('store 有 activeDevice', /const\s+activeDevice\s*=\s*ref<ThemeDevice>/.test(store));
-  check('store 有 setActiveDevice', /function\s+setActiveDevice/.test(store));
+  // 🔴 2026-10-19 状态机 composable 下沉进 skinsuite/vue，宿主题 theme.ts 退化为壳，
+  //    断言读库内三个文件拼接（内容不变，只是搬家）。
+  const readVue = rel => {
+    const p = join(CORE, 'vue', rel);
+    return existsSync(p) ? read(p) : '';
+  };
+  const store = [readVue('theme-scope.ts'), readVue('theme-intent.ts'), readVue('theme-runtime.ts')].join('\n');
+  const scopeSrc = readVue('theme-scope.ts');
+  check('scope 有 activeDevice', /const\s+activeDevice\s*=\s*ref<string>/.test(scopeSrc));
+  check('scope 有 setActiveDevice', /function\s+setActiveDevice/.test(scopeSrc));
   check(
     'token 注入 watch 依赖 activeDevice',
     /watch\(\s*\[\s*themeTokens,\s*externalTokens,\s*activeDevice,\s*isDark\s*\]/.test(store),
@@ -1053,11 +1049,13 @@ console.log('\n=== 11. 设备维度 URL 参数（theme.<设备> / view.<设备>�
     '`?view.mobile=&view=compact` 里 mobile 侧应回退到通用的 compact'
   );
 
-  // ⚠️ 配色侧的 URL 解析逻辑在 2026-09-28 被抽到 `stores/theme-persistence.ts`
-  //    （纯函数层；store 主体保留）。断言读**两个文件拼接**，否则拆分后本组必红。
+  // ⚠️ 配色侧的 URL 解析逻辑已随状态机下沉进 `skinsuite/vue` 的 theme-persistence.ts
+  //    （纯函数层）。断言读库内实现，否则下沉后本组读空。
   const store = [
     read(join(ROOT, 'stores', 'theme.ts')),
-    read(join(ROOT, 'stores', 'theme-persistence.ts'))
+    existsSync(join(CORE, 'vue', 'theme-persistence.ts'))
+      ? read(join(CORE, 'vue', 'theme-persistence.ts'))
+      : ''
   ].join('\n');
   check(
     '配色侧按设备读 `theme.<设备>` / `skin.<设备>`',
@@ -1080,63 +1078,39 @@ console.log('\n=== 11. 设备维度 URL 参数（theme.<设备> / view.<设备>�
   );
 }
 
-console.log('\n=== 12. 版式优先级：三页同形（URL > 声明 > 环境变量 > 包名）===');
+console.log('\n=== 12. 版式声明：三页纯副作用 defineThemePage + 容器 <ThemeView> ===');
 {
   /**
-   * 页面名 → [契约文件名, 选择函数名, 预取函数名, 环境变量名]
-   *
-   * ⚠️ 取值链本身**只断言一次**（见上一节的 picker 块）：2026-09-26 起三页共用
-   *    `views/picker.ts` 一份实现，这里只验"每页有没有把本页的注册表与环境变量接进去"。
+   * 页面名 → 契约文件名。页面文件是**纯声明**：契约类型 + 一句 `defineThemePage({ page })`
+   * （副作用注册进页面域）。版式组件清单由内核从 virtual:theme 装好的单例**惰性解析**，
+   * 容器只用 `<ThemeView page>` 渲染、不自己 pick —— 所以这里不再有 pick / preload / envView。
    */
   const PAGE_FILES = [
-    ['login', 'login.ts', 'loginPage', 'pickLoginViewId', 'preloadLoginView', 'VITE_LOGIN_VIEW'],
-    [
-      'register',
-      'register.ts',
-      'registerPage',
-      'pickRegisterViewId',
-      'preloadRegisterView',
-      'VITE_REGISTER_VIEW'
-    ],
-    [
-      'forgot-password',
-      'forgot-password.ts',
-      'forgotPasswordPage',
-      'pickForgotPasswordViewId',
-      'preloadForgotPasswordView',
-      'VITE_FORGOT_PASSWORD_VIEW'
-    ]
+    ['login', 'login.ts'],
+    ['register', 'register.ts'],
+    ['forgot-password', 'forgot-password.ts']
   ];
-  for (const [page, file, pageObj, picker, preload, envName] of PAGE_FILES) {
+  for (const [page, file] of PAGE_FILES) {
     const src = read(join(VIEWS, file));
     check(
-      `${file} 用页面工厂声明（defineThemePage，含 envView）`,
-      new RegExp(
-        `defineThemePage\\(\\{[\\s\\S]{0,400}?envView:\\s*import\\.meta\\.env\\.`
-      ).test(src),
-      '机制统一在 views/page.ts；页面文件只声明 page / title / envView / loaders'
+      `${file} 用 defineThemePage({ page }) 副作用声明（无 envView / loaders / themeViews）`,
+      new RegExp(`defineThemePage\\(\\{\\s*page:\\s*'${page}'\\s*\\}\\)`).test(src) &&
+        !/envView/.test(src) &&
+        !/loaders/.test(src) &&
+        !/themeViews/.test(src),
+      '页面文件退化成「契约类型 + 一次声明」；版式清单由内核 virtual:theme 装单例后惰性解析'
     );
     check(
-      `${file} 导出 ${picker}，且委托给页面工厂（loginPage.pick）`,
-      new RegExp(`export\\s+const\\s+${picker}\\s*=\\s*${pageObj}\\.pick`).test(src),
-      '导入面必须保持（容器与关卡都按这个名字取），实现则统一到工厂的 picker'
-    );
-    check(
-      `${file} 导出 ${preload}，且委托给页面工厂（${pageObj}.preload）`,
-      new RegExp(`export\\s+const\\s+${preload}\\s*=\\s*${pageObj}\\.preload`).test(src),
-      '路由守卫按这个名字调预取'
-    );
-    check(
-      `${file} 引用部署级环境变量 ${envName}`,
-      src.includes(envName),
-      '部署级默认（整站换 UI，不动代码）；必须在页面文件里读，工厂拿不到 import.meta.env 的静态替换'
+      `${file} 不再导出 pick / preload / 页面对象（容器走 <ThemeView> 的 pageOf）`,
+      !/export\s+const\s+(loginPage|registerPage|forgotPasswordPage|pick\w+ViewId|preload\w+View|\w+Views)/.test(src),
+      '版式加载/回退/选择全在 <ThemeView> 内，容器不再按 pickLoginViewId / preloadLoginView 取'
     );
 
     const container = read(join(ROOT, 'view', 'app', page, 'index.vue'));
     check(
-      `${page} 容器把 themeStore.viewFor('${page}') 传进 ${picker}`,
-      new RegExp(`theme:\\s*themeStore\\.viewFor\\(\\s*'${page}'\\s*\\)`).test(container),
-      '声明档的**真源**是配色记录（包定义或配色自带），容器不传这一项就等于没这档'
+      `${page} 容器用 <ThemeView page="${page}"> 渲染（不手动 pick）`,
+      new RegExp(`<ThemeView\\s+page="${page}"`).test(container),
+      '版式加载/回退/选择全在 <ThemeView> 内，容器只组装 ctx'
     );
   }
 }

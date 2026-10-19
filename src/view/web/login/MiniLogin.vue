@@ -7,7 +7,7 @@
  *
  * @author yijiu2025
  */
-import { computed, markRaw, onMounted, reactive, ref, shallowRef, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/stores/auth';
@@ -23,11 +23,9 @@ import { useCountdown } from '@/composables/useCountdown';
 import { useCaptchaFlow } from '@/composables/useCaptchaFlow';
 import { useQrLogin } from '@/composables/useQrLogin';
 import { useLoginFlow } from '@/composables/useLoginFlow';
-import BaseMiniLoginView from '@/theme/themes/default/mini/login/index.vue';
-import { loginViews, pickLoginViewId } from '@/theme/views/login';
-import { readDeviceParam } from 'skinsuite';
+import { ThemeView } from 'skinsuite/vue';
 import type { LoginTranslate, LoginViewContext } from '@/theme/views/login';
-import type { Component, Ref } from 'vue';
+import type { Ref } from 'vue';
 
 const authStore = useAuthStore();
 const themeStore = useThemeStore();
@@ -155,35 +153,8 @@ watch(showQR, val => {
 });
 
 /* ============================================================================
-   版式（UI）加载 + 契约组装
+   契约组装（版式渲染已收进 <ThemeView>，本容器只组装 ctx）
    ========================================================================== */
-
-const THEME_DEVICE = 'mini' as const;
-
-const viewId = computed(() =>
-  pickLoginViewId({
-    url: readDeviceParam(route.query, 'view', THEME_DEVICE),
-    theme: themeStore.viewFor('login'),
-    pkg: themeStore.packageId,
-    device: THEME_DEVICE
-  })
-);
-
-watch(viewId, id => themeStore.setActivePageView('login', id), { immediate: true });
-
-const activeView = shallowRef<Component>(BaseMiniLoginView);
-let viewEpoch = 0;
-watch(
-  [viewId, () => themeStore.packageId],
-  ([id, pkg]) => {
-    const epoch = ++viewEpoch;
-    void loginViews.load(id, pkg, THEME_DEVICE).then(loaded => {
-      if (epoch !== viewEpoch) return;
-      activeView.value = loaded ? markRaw(loaded) : BaseMiniLoginView;
-    });
-  },
-  { immediate: true }
-);
 
 interface FieldSource {
   value: Ref<string>;
@@ -333,7 +304,7 @@ const ctx = assertLoginContract(
 </script>
 
 <template>
-  <component :is="activeView" :ctx="ctx" />
+  <ThemeView page="login" device="mini" :ctx="ctx" />
 
   <GraphicCaptcha
     :is-open="showCaptcha"

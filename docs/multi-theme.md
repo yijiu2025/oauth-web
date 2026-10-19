@@ -27,7 +27,7 @@
 | 维度 | 目录 / 载体 | 换的是什么 | 换的来源（优先级高 → 低） |
 | --- | --- | --- | --- |
 | ① token 基线 | `src/assets/styles/mobile-auth.scss` 的 `--mauth-*` | 不换。所有呈现取值的**唯一出口** | — |
-| ② 版式 | `src/theme/themes/<包>/<设备>/<页面>/index.vue` | **DOM 结构与交互组织**，**同一套业务** | `?view.<设备>=` → `?view=` → 主题包 `views.<页面>` → `VITE_<PAGE>_VIEW` → 当前包自带版式 |
+| ② 版式 | `src/theme/themes/<包>/<设备>/<页面>/index.vue` | **DOM 结构与交互组织**，**同一套业务** | `?view.<设备>=` → `?view=` → 主题包 `views.<页面>` → 当前包自带版式 |
 | ③ 配色 | `src/theme/themes/<包>/<设备>/<页面>/colors/<配色>/` | 颜色 / 圆角 / 描边 / 背景图 / 字体，**同一套 DOM** | `?theme.<设备>=`（`?skin.<设备>=`）→ `?theme=`（`?skin=`）→ 后端下发 → localStorage → **该范围的兜底配色** |
 
 「**设备**」不是一个独立的换装维度，而是**页面身份**：手机端页面与电脑端页面各住各的子树，
@@ -199,8 +199,7 @@ themes/<包>/<设备>/<page>/index.vue            非内置包版式（`import.m
 1. URL `?view.<当前设备>=<id>` —— 只给某端指定版式
 2. URL `?view=<id>` —— 本次访问的显式意图（联调 / 灰度 / 单页预览都走它，三端共用）
 3. 主题包声明 —— `themes/<包>/index.ts`（或配色里）的 `views: { <页面>: '<id>' }`（配色与版式成对下发）
-4. `VITE_<PAGE>_VIEW` —— 部署级默认（整站换 UI，不动代码）
-5. **当前包自带的版式** —— 缺省（就是包名本身）
+4. **当前包自带的版式** —— 缺省（就是包名本身）
 
 ⚠️ **版式 id 就是"目标主题包名"**：第 1/2 档解析出的 id 若不是当前包名，
 就把它当**目标包**去找（`?view=compact` = 切到 compact 包）；
@@ -341,7 +340,7 @@ const ctx = assertLoginContract(reactive({ /* … */ }));
    `<component :is="activeView" :ctx="ctx" />` + 与版式无关的业务浮层。
    （电脑端另建 `view/web/<page>/` 的分发器 + `Standard*` / `Mini*` 容器。）
 2. **契约 + 页面声明**：建 `theme/views/<page>.ts`，定义 `<Page>ViewContext` / `<Page>ViewProps` + 各子结构，
-   再用**页面工厂** `defineThemePage({ page, title, titles, envView, loaders })` 一次声明
+   再用**页面工厂** `defineThemePage({ page, title, titles, loaders })` 一次声明
    （机制统一在 `views/page.ts`，页面文件只声明自己的契约与页面名，**不再手写 `createViewRegistry` + picker**）。
    能从既有实现复用的联合类型，用 `import type` 直接引（如 `LoginSocialProviderId = SocialProviderId`），**不要重写一份**。
    ⚠️ 读 URL 参数一律用 `readDeviceParam(route.query, 'view', THEME_DEVICE)`，**不要**直接 `route.query.view`
@@ -525,11 +524,10 @@ export default {
    分发逻辑还要单测 **iframe 内宽度**的情形（`verify-forgot-view.mjs` 的 I 段：把页面放进
    指定宽度的 iframe，断言 `fromLogin=mini` 时窄 iframe 也保持桌面版 —— 见第十一节）。
    **版式优先级关卡**：`.tmp-probe/verify-view-priority.mjs`（Playwright）。逐档验第二节那张表
-   （`?view.<设备>` ＞ `?view` ＞ `views.<页面>` 声明 ＞ `VITE_<PAGE>_VIEW` ＞ 当前包名）与两条硬规则
-   （**设备键留空 = 未指定**、**URL 显式非法值不回退到声明/环境变量档**），并用**同一条链接**在三台设备上
+   （`?view.<设备>` ＞ `?view` ＞ `views.<页面>` 声明 ＞ 当前包名）与两条硬规则
+   （**设备键留空 = 未指定**、**URL 显式非法值不回退到声明档**），并用**同一条链接**在三台设备上
    各验一遍（不串台：`view.mobile` 不能在 standard 上生效）。
-   ⚠️ 第 4 档（环境变量）需要一个**带 `VITE_<PAGE>_VIEW` 启动**的实例 —— 用 `--env-base <url>` 传入；
-   不传就**明确跳过该组**，不写恒绿的空断言。第 3 档（声明）本仓三个包都还没声明 `views`，
+   第 3 档（声明）本仓三个包都还没声明 `views`，
    浏览器侧只能验"不误伤"，"声明真的生效"由下一项从实现口径守。
 2. **目录口径关卡**：`.tmp-probe/verify-theme-dirs.mjs`（**552 项**静态断言，纯文件系统、**不需要浏览器**）。
    其中第 13 节是**抽包后新增的包契约断言**（内核不得依赖宿主 / 公开面显式具名 / 壳里无逻辑，18 条），

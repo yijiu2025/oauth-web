@@ -6,7 +6,7 @@
  * view/app/login/index.vue        业务容器：表单校验 / useLoginFlow / 图形码 / 第三方登录 / 路由
  *        │  传 ctx（= 本文件定义的 LoginViewContext）
  *        ▼
- * theme/themes/<包>/login/index.vue 或 theme/themes/<包>/login/<变体>/index.vue
+ * theme/themes/<包>/<设备>/login/index.vue
  *                                   版式：只渲染 ctx、只调 ctx.actions
  * ```
  *
@@ -20,12 +20,17 @@
  *   主题包（`theme/themes/<包>/`）= **一整套设计**，版式与配色都在包里，一起开发
  *   配色（包内 `colors/<配色>/`）= 只换颜色/圆角/背景图，**同一套 DOM**（靠 CSS 变量）
  *   版式（本文件定义的就是它的契约）= 换 DOM 结构与交互组织方式
- * 因此 `?view=` 只在**当前主题包内**查找：换包就换版式，两者不再是各自独立的两个维度。
+ * 因此版式只在**当前主题包内**查找：换包就换版式，两者不再是各自独立的两个维度。
  *
  * @author yijiu2025
  * @since 2026-09-24
  */
+import { defineThemePage } from 'skinsuite/vue';
 import type { SocialProviderId } from '@/composables/useSocialLogin';
+
+/* ---------------------------------------------------------------------------
+ * 契约类型（纯类型，按「依赖先后」排：基础联合 → 翻译函数 → 字段绑定 → 辅助接口 → 行为 → 上下文 → props）
+ * ------------------------------------------------------------------------- */
 
 /**
  * 第三方登录渠道 id
@@ -224,64 +229,12 @@ export interface LoginViewProps {
   ctx: LoginViewContext;
 }
 
-/**
- * 登录页版式注册表 —— 谁来决定"用哪套 UI"
+/* ---------------------------------------------------------------------------
+ * 版式机制：`defineThemePage({ page })` 一次声明，即注册进页面域（<ThemeView> 的
+ * `pageOf` 依赖）。版式组件清单由内核从 `virtual:theme` 装好的单例**惰性解析**，
+ * 本文件不再 import `virtual:theme`、也不自己 `import.meta.glob`。
  *
- * === 选择优先级（高 → 低；链的唯一实现在 `./picker.ts`）===
- *   1. URL `?view=<id>`        —— 本次访问的显式意图（联调 / 灰度 / 单页预览都用它）
- *                                 （设备维度键 `view.<设备>` 已在容器侧解析完，见 `./params.ts`）
- *   2. 主题包声明               —— `views.login`（写在包根则该包所有配色共用；写在 colors 里只覆盖那套配色）
- *   3. `VITE_LOGIN_VIEW`       —— 部署级默认（整站换 UI，不动代码）
- *   4. 当前**包名**             —— 一个主题包 = 一种版式 ⇒ 版式 id ≡ 包名（不再有 `base`）
- *
- * ⚠️ 查找范围是**当前主题包 × 当前设备**（版式跟随主题包，见 `./registry.ts`）：
- *    某个包没登记这套版式时，回退的是**该包自己的**版式，不会去借别的包。
- * ⚠️ 第 1 档里**非法值不回退**：`?view=typo` 落**当前包**，而不是被第 2/3 档接管。
- *    显式参数写错时静默换用另一套 UI，比看到当前包的版式更难排查。
- *
- * ⚠️ glob 用 **`/src/...` 根绝对路径**，不要用 `../` 相对路径：本文件在 `views/` 下一层，
- *    相对路径在当前 Vite 版本下**扫不到任何文件且不报错**（非内置包的版式永远加载不出来）。
- * ⚠️ 非内置包的版式是**惰性加载**的（`import.meta.glob` → 独立 chunk）；内置包的版式由
- *    容器静态引入（首屏零请求）。新增包或版式目录后要**重启 dev server**
- *    （glob 在启动时静态扫描，热更新发现不了新目录）。
- *
- * 三页（login / register / forgot-password）的取值链**只有一份实现**（`./picker.ts`）：
- * 各页文件只声明自己的页面名与环境变量，不复制链。
- *
- * @author yijiu2025
- * @since 2026-09-24
- * @see ./picker.ts —— 取值链与回退口径的唯一实现
- */
-import type { Component } from 'vue';
-import { defineThemePage } from 'skinsuite/vue';
-import { DEFAULT_THEME_DEVICE, asThemeDevice } from './devices';
-
-/**
- * 本页的版式机制 —— 机制本身在 `skinsuite/vue` 的 `defineThemePage`（页面工厂），
- * 本文件只声明**本页独有**的事：页面名、标题、版式 glob、设备归一化。
- *
- * ⚠️ 用 **`/src/...` 根绝对路径**：相对路径在当前 Vite 版本下**扫不到任何文件且不报错**。
- * ⚠️ 新增包或版式目录后要**重启 dev server**（glob 在启动时静态扫描）。
- */
-export const loginPage = defineThemePage({
-  page: 'login',
-  title: '安全登录',
-  titles: { mobile: '移动端登录', mini: '快捷登录' },
-  envView: import.meta.env.VITE_LOGIN_VIEW,
-  loaders: import.meta.glob<{ default: Component }>('/src/theme/themes/*/*/login/index.vue'),
-  device: { defaultDevice: DEFAULT_THEME_DEVICE, asKnownDevice: asThemeDevice }
-});
-
-/** 本页版式注册表（容器与调试面板按这个名字取） */
-export const loginViews = loginPage.views;
-
-/** 按优先级挑出版式 id —— 永远返回可用 id，最差是当前**包名** */
-export const pickLoginViewId = loginPage.pick;
-
-/**
- * 提前把版式 chunk 拉下来（路由守卫里调用，**不 await**）
- *
- * ⚠️ `source` 必须**原样**传（含声明档 `theme`）：漏掉它会让预取算出一个与容器**不同**的
- *    id —— 白拉一个用不上的 chunk，而真正要用的那个仍得现场等。
- */
-export const preloadLoginView = loginPage.preload;
+ * 选择优先级（高 → 低；实现收在 `skinsuite/vue` 的 `createViewPicker`）：
+ *   `?th[_<设备缩写>]`  >  主题包声明 `views.login`  >  当前包名（view ≡ pkg）
+ * ------------------------------------------------------------------------- */
+defineThemePage({ page: 'login' });

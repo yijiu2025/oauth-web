@@ -14,7 +14,7 @@ import { z } from 'zod';
 import { toTypedSchema } from '@vee-validate/zod';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import { computed, inject, markRaw, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue';
+import { computed, inject, onMounted, onUnmounted, reactive, ref } from 'vue';
 import GraphicCaptcha from '@/components/common/GraphicCaptcha.vue';
 import AgreementModals from '@/components/common/AgreementModals.vue';
 import MessageToast from '@/components/common/MessageToast.vue';
@@ -25,12 +25,9 @@ import { useButtonLock } from '@/composables/useButtonLock';
 import { useCaptcha } from '@/composables/useCaptcha';
 import { useAgreementVersion, captureAgreementVersion } from '@/composables/useAgreementVersion';
 import { rsaEncrypt, getCachedKid } from '@/utils/crypto';
-import { useThemeStore } from '@/stores/theme';
-import BaseMiniRegisterView from '@/theme/themes/default/mini/register/index.vue';
-import { pickRegisterViewId, registerViews } from '@/theme/views/register';
-import { readDeviceParam } from 'skinsuite';
+import { ThemeView } from 'skinsuite/vue';
 import type { RegisterDirection, RegisterTranslate, RegisterViewContext } from '@/theme/views/register';
-import type { Component, Ref } from 'vue';
+import type { Ref } from 'vue';
 
 /** 步骤总数：web 端两步（账号+验证码 → 密码+协议） */
 const TOTAL_STEPS = 2;
@@ -48,7 +45,6 @@ const RSA_ENCRYPT_TIMEOUT = 30_000; // RSA 加密超时时间（毫秒）
 const router = useRouter();
 const route = useRoute();
 const { t, locale } = useI18n();
-const themeStore = useThemeStore();
 
 // 父组件透传的注册上下文（dispatcher provide）
 interface RegisterContext {
@@ -310,35 +306,8 @@ onMounted(() => {
 onUnmounted(() => dispose());
 
 /* ============================================================================
-   版式（UI）加载 + 契约组装
+   契约组装（版式渲染已收进 <ThemeView>，本容器只组装 ctx）
    ========================================================================== */
-
-/** 本容器的设备身份：mini */
-const THEME_DEVICE = 'mini' as const;
-
-const viewId = computed(() =>
-  pickRegisterViewId({
-    url: readDeviceParam(route.query, 'view', THEME_DEVICE),
-    pkg: themeStore.packageId,
-    device: THEME_DEVICE
-  })
-);
-
-watch(viewId, id => themeStore.setActivePageView('register', id), { immediate: true });
-
-const activeView = shallowRef<Component>(BaseMiniRegisterView);
-let viewEpoch = 0;
-watch(
-  [viewId, () => themeStore.packageId],
-  ([id, pkg]) => {
-    const epoch = ++viewEpoch;
-    void registerViews.load(id, pkg, THEME_DEVICE).then(loaded => {
-      if (epoch !== viewEpoch) return;
-      activeView.value = loaded ? markRaw(loaded) : BaseMiniRegisterView;
-    });
-  },
-  { immediate: true }
-);
 
 /** 契约里字段绑定的内部构造形态 */
 interface FieldSource {
@@ -439,8 +408,7 @@ const ctx = assertRegisterContract(
 </script>
 
 <template>
-  <!-- 业务容器只做两件事：把 ctx 交给当前版式；渲染与版式无关的业务浮层 -->
-  <component :is="activeView" :ctx="ctx" />
+  <ThemeView page="register" device="mini" :ctx="ctx" />
 
   <!-- 图形验证码弹窗 -->
   <GraphicCaptcha :is-open="showCaptcha" :email="values.email" :send-email="true" type="register" @close="showCaptcha = false" @success="onCaptchaSuccess" />

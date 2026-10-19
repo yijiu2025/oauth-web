@@ -8,11 +8,14 @@
  *
  * @author yijiu2025
  */
-import ThemeRoot from '@/components/ThemeRoot.vue';
+import { ThemeRoot, ThemeDebugPanel } from 'skinsuite/vue';
+import { useThemeStore } from '@/stores/theme';
+
+const themeStore = useThemeStore();
 </script>
 
 <template>
-  <ThemeRoot>
+  <ThemeRoot :theme-store="themeStore">
     <!--
       路由级淡入淡出过渡（v2.20.1 修复手机端「立即注册/立即登录」切换闪屏）
 
@@ -38,6 +41,8 @@ import ThemeRoot from '@/components/ThemeRoot.vue';
         </div>
       </Transition>
     </router-view>
+    <!-- 调试面板：独立组件，任意位置挂载，?debug=theme 时才下载/显示 -->
+    <ThemeDebugPanel />
   </ThemeRoot>
 </template>
 

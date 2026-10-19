@@ -65,7 +65,7 @@ export default { ...base, cacheDir: process.env.PROBE_CACHE_DIR || 'node_modules
 ```bash
 PROBE_CACHE_DIR=node_modules/.vite-p5174 npx vite --config .tmp-probe/vite.probe.config.mjs --port 5174 --strictPort
 PROBE_CACHE_DIR=node_modules/.vite-p5175 VITE_PASSWORD_RESET_MODE=link npx vite --config .tmp-probe/vite.probe.config.mjs --port 5175 --strictPort
-PROBE_CACHE_DIR=node_modules/.vite-p5177 VITE_REGISTER_VIEW=compact npx vite --config .tmp-probe/vite.probe.config.mjs --port 5177 --strictPort
+PROBE_CACHE_DIR=node_modules/.vite-p5177 npx vite --config .tmp-probe/vite.probe.config.mjs --port 5177 --strictPort
 PROBE_CACHE_DIR=node_modules/.vite-p5197 npx vite --config .tmp-probe/vite.probe.config.mjs --port 5197 --strictPort
 ```
 
@@ -90,7 +90,7 @@ PROBE_CACHE_DIR=node_modules/.vite-p5197 npx vite --config .tmp-probe/vite.probe
 2. **env 四文件必须同序同注释**：新增变量时四个文件同时加、注释写全（含漏配症状）；`.env` 永远不入库；真实密钥一律走部署平台，`.env.production` 只放默认值 / 占位符。
 3. **第三方登录端点只接受站内相对路径**：`VITE_SOCIAL_ENDPOINT` 刻意不支持绝对地址——端点一旦能由外部指定，「把用户送去任意外域」就从漏洞变成配置问题。
 4. **iframe 消息必须 origin + source 双校验**：只有父 origin 命中 `VITE_ALLOWED_PARENT_ORIGINS` 白名单才 `postMessage`。漏配的症状是宿主弹窗「正在加载安全登录」等满 3 秒兜底超时——不报错，极难排查。
-5. **主题 / 版式三段正交，目录名即 id**：token 基线 → 皮肤包 → 版式三者独立组合；`view ≡ pkg`（**`'base'` 不是合法 view 名**）；设备平级 `mobile | standard | mini | tablet`（mini 是独立设备维度，不是 mobile 的缩写）；版式优先级 `?view=` > 包声明 > `VITE_<PAGE>_VIEW` > 包名；URL 显式非法值**不回退**。完整规范（目录契约 / 替换入口 / 优先级 / 安全边界 / 验收清单）以 [docs/theme-replacement.md](docs/theme-replacement.md) 为单一来源，动手前先读它。
+5. **主题 / 版式三段正交，目录名即 id**：token 基线 → 皮肤包 → 版式三者独立组合；`view ≡ pkg`（**`'base'` 不是合法 view 名**）；设备平级 `mobile | standard | mini | tablet`（mini 是独立设备维度，不是 mobile 的缩写）；版式优先级 `?view=` > 包声明 > 包名；URL 显式非法值**不回退**。完整规范（目录契约 / 替换入口 / 优先级 / 安全边界 / 验收清单）以 [docs/theme-replacement.md](docs/theme-replacement.md) 为单一来源，动手前先读它。
 6. **改别名只改 `config/aliases.ts` 一处**：vite alias 与 tsconfig paths 都从它派生，两处同改、别手改下游。`skinsuite` / `stable-deviceid` **零外部 import**——包内 `import vue` 会造成两份 Vue 实例，主题与设备 ID 静默失效。
 7. **H5 签名是弱防爬，不是安全边界**：appKey 必然随前端代码分发，真正的边界在后端登录态 + 权限校验。不要在前端加「自以为安全」的校验来替代后端控制。
 8. **eslint 全局是按目录配的**：`e2e/`（node + browser）、`scripts/`（node）、`src`（浏览器）三组 `languageOptions.globals` 各管各的。新增同类脚本目录要先补对应的 languageOptions 块，否则满屏 no-undef。

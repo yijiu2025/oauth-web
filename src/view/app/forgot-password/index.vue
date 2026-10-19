@@ -32,7 +32,7 @@
  *
  * @author yijiu2025
  */
-import { computed, markRaw, onMounted, reactive, ref, shallowRef, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useForm } from 'vee-validate';
@@ -47,23 +47,13 @@ import { useCaptchaFlow } from '@/composables/useCaptchaFlow';
 import { useKeyboardAvoid } from '@/composables/useKeyboardAvoid';
 import { usePasswordStrength } from '@/composables/usePasswordStrength';
 import { rsaEncrypt, getCachedKid } from '@/utils/crypto';
-import { useThemeStore } from '@/stores/theme';
-/**
- * 静态引入**内置包**的基础版式 —— 首屏零请求的那条路径
- *
- * 路径里的 `default` 必须写死：静态 import 在编译期就要定下来，而"当前是哪个包"
- * 是运行时才知道的（URL / 后端下发 / localStorage）。运行时的那份判定在
- * `forgotPasswordViews.builtinPackage`，两者必须是同一个包。
- */
-import BaseForgotPasswordView from '@/theme/themes/default/mobile/forgot-password/index.vue';
-import { forgotPasswordViews, pickForgotPasswordViewId } from '@/theme/views/forgot-password';
-import { readDeviceParam } from 'skinsuite';
+import { ThemeView } from 'skinsuite/vue';
 import type {
   ForgotPasswordStage,
   ForgotPasswordTranslate,
   ForgotPasswordViewContext
 } from '@/theme/views/forgot-password';
-import type { Component, Ref } from 'vue';
+import type { Ref } from 'vue';
 
 const { t, locale } = useI18n();
 const route = useRoute();
@@ -294,65 +284,8 @@ const goBack = () => {
 };
 
 /* ============================================================================
-   版式（UI）加载 + 契约组装
+   契约组装（版式渲染已收进 <ThemeView>，本容器只组装 ctx）
    ========================================================================== */
-
-const themeStore = useThemeStore();
-
-/**
- * 本容器的**设备身份**：文件位置即身份（`view/app/` 下都是移动端）。
- *
- * 取常量而不是运行时判定，是为了让"这个页面属于哪种设备"只有一个答案 ——
- * 再跑一次视口判定就会出现"URL 说是移动端路由、视口却已变宽"这类自相矛盾的状态。
- * 视口判定的口径仍然只在 `utils/device.ts` 有一份（路由分发用它）。
- */
-const THEME_DEVICE = 'mobile' as const;
-
-/**
- * 用哪套版式：`?view=` > 主题包声明（theme/themes/<包>/index.ts 的 views['forgot-password']）
- * > VITE_FORGOT_PASSWORD_VIEW > 当前包名（一个主题包 = 一种版式）。
- *
- * 做成 computed 而不是 setup 里取一次：后端下发的换配色配置可能晚于本页 setup 到达。
- * `pkg` 决定**在哪个包里找**（版式跟随主题包），所以包变了要重新解析。
- */
-const viewId = computed(() =>
-  pickForgotPasswordViewId({
-    url: readDeviceParam(route.query, 'view', THEME_DEVICE),
-    theme: themeStore.viewFor('forgot-password'),
-    pkg: themeStore.packageId,
-    device: THEME_DEVICE
-  })
-);
-
-/**
- * 告诉 store「当前是哪一页、哪套版式」
- *
- * 🔴 配色挂在**版式**下（`themes/<包>/<设备>/<页面>/[<版式>/]colors/<颜色>/`），
- *    所以"该注入哪套颜色的 token"必须知道这两个值 —— 不知道就会落到
- *    `DEFAULT_THEME_PAGE` + `base`，表现为「页面里选的颜色不生效」。
- */
-watch(viewId, id => themeStore.setActivePageView('forgot-password', id), { immediate: true });
-
-/**
- * 当前渲染的版式组件（默认是静态引入的内置包基础版式，首帧直接正确）
- *
- * ⚠️ 必须**同时**盯住主题包：版式只在当前包内查找，换了包但解析出的 id 字符串没变
- *    （两边都是 `base`）时，渲染的组件其实换了一整套 —— 只盯 id 会漏掉这一整类切换。
- */
-const activeView = shallowRef<Component>(BaseForgotPasswordView);
-let viewEpoch = 0;
-watch(
-  [viewId, () => themeStore.packageId],
-  ([id, pkg]) => {
-    const epoch = ++viewEpoch;
-    void forgotPasswordViews.load(id, pkg, THEME_DEVICE).then(loaded => {
-      if (epoch !== viewEpoch) return;
-      // null = 用静态引入的内置包基础版式（首屏零请求那条路径）
-      activeView.value = loaded ? markRaw(loaded) : BaseForgotPasswordView;
-    });
-  },
-  { immediate: true }
-);
 
 /** 契约里字段绑定的**内部构造形态**：值与错误都是 ref，交给 reactive 自动解包成契约里的标量 */
 interface FieldSource {
@@ -463,8 +396,8 @@ const ctx = assertForgotPasswordContract(
 </script>
 
 <template>
-  <!-- 业务容器只做两件事：把 ctx 交给当前版式；渲染与版式无关的业务浮层 -->
-  <component :is="activeView" :ctx="ctx" />
+  <!-- 业务容器只做一件事：把 ctx 交给当前版式（版式加载/回退由 <ThemeView> 负责） -->
+  <ThemeView page="forgot-password" device="mobile" :ctx="ctx" />
 
   <!-- 图形验证码：code 模式通过后由 verify-captcha 顺带发邮箱码；link 模式通过后才发重置链接 -->
   <GraphicCaptcha

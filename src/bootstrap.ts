@@ -24,9 +24,7 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router';
-import { useThemeStore } from '@/stores/theme';
-import { initThemeDomain } from '@/theme-manifest';
-import type { ThemeDevice } from '@/theme/views/devices';
+import { theme } from 'skinsuite/vue';
 import i18n from './i18n';
 import request from './utils/request';
 import { initDeviceSync } from 'stable-deviceid';
@@ -57,28 +55,25 @@ app.config.errorHandler = (err, _instance, info) => {
 };
 
 // ---------------------------------------------------------------------------
-// 2. 插件注册（顺序：pinia → router → i18n）
+// 2. 插件注册（顺序：pinia → router → i18n → theme）
 // ---------------------------------------------------------------------------
 app.use(pinia);
 app.use(router);
 app.use(i18n);
 
-// 主题域初始化：把「当前路由属于哪种设备」同步给主题 store（决定注入哪一套配色的
-// token、版式在 `<包>/mobile/` / `<包>/standard/` / `<包>/mini/` 下查找）。
+// 设备域启动：传 router + 宿主自己的「设备覆盖」解析 —— 库监听「链接变动 + 视口」→
+// 用设备清单 `match` 判定设备 → 维护 `activeDevice`（宿主 store 从设备域订阅）。
+// 不再写 `deviceSource`、不标 `meta.device`、不手动 `setActiveDevice`。
 //
-// 它做的只有一件事：**实例化主题 store**（设备基线 + 存量 watch 立即执行）。
-// 明暗类、`data-mauth-theme`、CSS 变量都在 store 的 `watch(immediate)` 里 ——
-// 所以必须在 `app.mount()` 之前调用，否则首帧会先渲染基线色再跳变。
+// 🔴 `?device=<id>` 是**宿主机制**（oauth21 的 URL 词汇）：库不认这个参数名，只提供
+//    `resolveDeviceOverride` 注入点，这里把「读 query.device」作为覆盖逻辑交给库，
+//    命中合法设备即锁定（压过视口 / ?isMobile 自动判定）。
 //
-// ⚠️ 必须在 `app.use(pinia)` **之后**调用：`setActiveDevice` 内部会 `useThemeStore()`，
-//    而 Pinia 的 activeInstance 由 `use()` 建立。
-//
-// 🔴 机制在 `skinsuite`（注册表安装 + 设备同步都收进了 `initThemeDomain`），
-//    这里只注入两个宿主事实：设备来源 = 路由 meta、写入目标 = 主题 store。
-initThemeDomain({
-  deviceSource: () =>
-    router.currentRoute.value.meta.device === 'mobile' ? 'mobile' : 'standard',
-  setDevice: device => useThemeStore().setActiveDevice(device as ThemeDevice)
+// ⚠️ 必须在 `app.use(pinia)` 之后：主题 store 实例化（App.vue 接线壳组装 host 时）依赖
+//    Pinia 的 activeInstance 已建立；设备判定本身不依赖 pinia，但 store 订阅它。
+app.use(theme, {
+  router,
+  resolveDeviceOverride: query => (typeof query.device === 'string' ? query.device : null)
 });
 
 // ---------------------------------------------------------------------------

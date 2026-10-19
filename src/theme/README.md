@@ -12,11 +12,10 @@
 ```
 src/theme/
 ├── README.md           本文件
-├── theme.config.ts     主题域清单（调试开关 + 路由投影，`virtual:theme` 扫进内核）
+├── theme.config.ts     主题域清单（调试开关，`virtual:theme` 扫进内核）
 ├── views/              版式信息（**契约 + 声明**；机制全部下沉到 `skinsuite`）
-│   ├── devices.ts      设备清单声明（**唯一声明处**：id / label / routePath / match /
-│   │                   containers glob）。机制由 `createDeviceRegistry` 装配，不在本文件
-│   ├── pages.ts        页面版式总览壳（`import.meta.glob` + `createPageIndex` 一行装配）
+│   ├── devices.ts      设备清单声明（**唯一声明处**：id / label / urlKey / routePath / match /
+│   │                   containers glob）。机制由 `defineThemeDevice` 自动注册进设备域
 │   ├── login.ts        login 页的契约 + 注册表（`defineThemePage` 声明）
 │   ├── register.ts     register 页的契约 + 注册表
 │   └── forgot-password.ts  forgot-password 页的契约 + 注册表
@@ -468,21 +467,20 @@ store 用这个值决定
 1. URL `?view.<当前设备>=<id>`
 2. URL `?view=<id>`
 3. 声明（包根 `themes/<包>/index.ts` 或配色 `<设备>/<页面>/colors/<配色>/index.ts` 的 `views[page]`）
-4. `VITE_<PAGE>_VIEW`（部署级默认，整站换 UI 不动代码）
-5. 当前包（`pkg`）自带的那套版式
+4. 当前包（`pkg`）自带的那套版式
 
 第 1/2 档都在**当前主题包 × 当前设备内**查找，找不到就回退**该包该设备自己的**版式
 （不跨设备借别人的版式）。
-🔴 **URL 只要给了值就不再往下走**：非法值落**当前包**，不会被第 3/4 档接管
-（`?view=typo` → 当前包，而不是环境变量指的那套）—— 显式写错时静默换 UI 更难排查。
+🔴 **URL 只要给了值就不再往下走**：非法值落**当前包**，不会被第 3 档接管
+（`?view=typo` → 当前包）—— 显式写错时静默换 UI 更难排查。
 🔴 **设备键留空 = 未指定**：`?view.mobile=`（或纯空白）视为没给，继续落通用的 `?view`，
-再往下才是第 3/4/5 档。参数留空是部署方常用的"这台设备不特殊指定"。
+再往下才是第 3/4 档。参数留空是部署方常用的"这台设备不特殊指定"。
 三页（login / register / forgot-password）**同一套规则、同一份形状**：
 `pick*ViewId` 都接收 `source.theme`，URL 分支都是 `resolve(url, pkg, device) ?? pkg` ——
 `verify-theme-dirs.mjs` §12 守这条（register 曾缺第 3 档、还多一条会把 `?view=base`
 漏成 `'base'` 的重复分支）。
-`<PAGE>` 为大写下划线形式，各页一枚：`VITE_REGISTER_VIEW` / `VITE_LOGIN_VIEW` /
-`VITE_FORGOT_PASSWORD_VIEW`（定义在各页 `views/<page>.ts` 顶部的 `ENV_VIEW`）。
+> 部署级默认版式（`VITE_<PAGE>_VIEW`）机制已取消（2026-10-18）：换 UI 只靠「换主题包」或
+> 「URL 显式指定」，不再通过 env 变量整站切换默认版式。
 
 ⚠️ 第 2 档**非法值不回退**：`?view=typo` 直接落当前包自带版式，而不是被第 3/4 档接管 ——
 显式参数写错时静默换成另一套 UI，比看到默认版式更难排查。
@@ -567,10 +565,6 @@ node .tmp-probe/measure-load-budget.mjs       # 真实流量（生产构建，�
   （dev server 下本来就没有 SW）。移除原因与必须留的自毁迁移见 CoreFlow `https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/pwa-guide.md` 第六节。
   ⚠️ outDir 每次用**全新目录名**（沙箱会拦已存在目录的清理）。
 
-- `verify-view-priority.mjs` 的第 4 档（`VITE_<PAGE>_VIEW`）需要一个**带环境变量启动**的实例：
-  `VITE_REGISTER_VIEW=compact npx vite --port 5177 --strictPort`，然后
-  `node .tmp-probe/verify-view-priority.mjs http://127.0.0.1:5174 --env-base http://127.0.0.1:5177`。
-  不传就**明确跳过**那一组（不写恒绿断言）。
 - ⚠️ 起多个实例时**串行启动**：几个 Vite 共用 `node_modules/.vite`，同时冷启会让各自的
   `optimizeDeps` 结果互相作废 → 页面白屏 + 控制台 `504 (Outdated Optimize Dep)`。
 - `verify-theme-dirs.mjs` / `verify-glob-device.mjs` 用**毒丸验证**过有效性

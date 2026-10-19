@@ -30,7 +30,7 @@ import { z } from 'zod';
 import { toTypedSchema } from '@vee-validate/zod';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import { computed, inject, markRaw, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue';
+import { computed, inject, onMounted, onUnmounted, reactive, ref } from 'vue';
 import GraphicCaptcha from '@/components/common/GraphicCaptcha.vue';
 import AgreementModals from '@/components/common/AgreementModals.vue';
 import MessageToast from '@/components/common/MessageToast.vue';
@@ -41,13 +41,9 @@ import { useButtonLock } from '@/composables/useButtonLock';
 import { useCaptcha } from '@/composables/useCaptcha';
 import { useAgreementVersion, captureAgreementVersion } from '@/composables/useAgreementVersion';
 import { rsaEncrypt, getCachedKid } from '@/utils/crypto';
-import { useThemeStore } from '@/stores/theme';
-import BaseRegisterView from '@/theme/themes/default/standard/register/index.vue';
-import { pickRegisterViewId, registerViews } from '@/theme/views/register';
-import { readDeviceParam } from 'skinsuite';
+import { ThemeView } from 'skinsuite/vue';
 import type { RegisterDirection, RegisterTranslate, RegisterViewContext } from '@/theme/views/register';
-import type { ThemeDevice } from '@/theme/views/devices';
-import type { Component, Ref } from 'vue';
+import type { Ref } from 'vue';
 
 /** 步骤总数：web 端两步（账号+验证码 → 密码+协议） */
 const TOTAL_STEPS = 2;
@@ -65,7 +61,6 @@ const RSA_ENCRYPT_TIMEOUT = 30_000; // RSA 加密超时时间（毫秒）
 const router = useRouter();
 const route = useRoute();
 const { t, locale } = useI18n();
-const themeStore = useThemeStore();
 
 // 父组件透传的注册上下文（dispatcher provide）
 interface RegisterContext {
@@ -313,39 +308,14 @@ onMounted(() => {
 onUnmounted(() => dispose());
 
 /* ============================================================================
-   版式（UI）加载 + 契约组装
+   契约组装（版式渲染已收进 <ThemeView>，本容器只组装 ctx）
    ========================================================================== */
 
 /**
  * 本容器的**设备身份**：默认 standard（文件位置即身份，`view/web/` 下都是电脑端）。
  * 其它设备（如 tablet）复用本容器的业务时通过 `device` prop 覆盖 —— 避免复制业务。
  */
-const props = withDefaults(defineProps<{ device?: ThemeDevice }>(), { device: 'standard' });
-const THEME_DEVICE = computed(() => props.device);
-
-const viewId = computed(() =>
-  pickRegisterViewId({
-    url: readDeviceParam(route.query, 'view', THEME_DEVICE.value),
-    pkg: themeStore.packageId,
-    device: THEME_DEVICE.value
-  })
-);
-
-watch(viewId, id => themeStore.setActivePageView('register', id), { immediate: true });
-
-const activeView = shallowRef<Component>(BaseRegisterView);
-let viewEpoch = 0;
-watch(
-  [viewId, () => themeStore.packageId],
-  ([id, pkg]) => {
-    const epoch = ++viewEpoch;
-    void registerViews.load(id, pkg, THEME_DEVICE.value).then(loaded => {
-      if (epoch !== viewEpoch) return;
-      activeView.value = loaded ? markRaw(loaded) : BaseRegisterView;
-    });
-  },
-  { immediate: true }
-);
+const props = withDefaults(defineProps<{ device?: string }>(), { device: 'standard' });
 
 /** 契约里字段绑定的内部构造形态 */
 interface FieldSource {
@@ -446,8 +416,7 @@ const ctx = assertRegisterContract(
 </script>
 
 <template>
-  <!-- 业务容器只做两件事：把 ctx 交给当前版式；渲染与版式无关的业务浮层 -->
-  <component :is="activeView" :ctx="ctx" />
+  <ThemeView page="register" :device="props.device" :ctx="ctx" />
 
   <!-- 图形验证码弹窗（注册 = 校验图形码 + 发邮箱码，必须带 send-email） -->
   <GraphicCaptcha :is-open="showCaptcha" :email="values.email" :send-email="true" type="register" @close="showCaptcha = false" @success="onCaptchaSuccess" />
