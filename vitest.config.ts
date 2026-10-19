@@ -37,6 +37,14 @@ export default defineConfig(({ mode }) => ({
     environment: 'happy-dom',
     globals: true,
     // 只认 `__tests__/` 与 `src/**/__tests__/` 下的测试文件
-    include: ['__tests__/**/*.{test,spec}.{ts,js}', 'src/**/__tests__/**/*.{test,spec}.{ts,js}']
+    include: ['__tests__/**/*.{test,spec}.{ts,js}', 'src/**/__tests__/**/*.{test,spec}.{ts,js}'],
+    // 🔴 `skinsuite/vue` 以**源码形态**发布（含 `.vue` 与组合式 API，tsc 编不出 SFC）。
+    // monorepo 形态下 alias 指到 `packages/theme-core/src/`，不在 node_modules 里，Node 能直接剥类型；
+    // 独立仓形态（CI / 开源用户）没有 packages/，解析落到 `node_modules/skinsuite/src/vue/index.ts`，
+    // Node 会拒绝：
+    //   Error [ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING]: Stripping types is currently
+    //   unsupported for files under node_modules
+    // 强制让 vitest 用自己的转译链路处理这个包，而不是交给 Node 原生 import。
+    server: { deps: { inline: ['skinsuite'] } }
   }
 }));

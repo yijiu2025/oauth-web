@@ -14,20 +14,22 @@
  *     也可能因为路径仍存在（只是指向别处）而**完全静默**
  *   - aliases.ts 与 tsconfig 各指不同实现 → 类型检查用 A、运行用 B，最阴险
  *
- * === 双形态分流（2026-10-15）===
- * `config/aliases.ts` 对两个本地包做**存在性回落**（详见其文件头「双形态」）：
- *   - **monorepo 形态**（上级有 packages/）：alias 指源码 src/index.ts，本关跑
- *     全部历史断言（源码直供 / 不指 node_modules / 三处语义同源）。
- *   - **standalone 形态**（单仓 checkout / CI / 开源用户）：两个 alias 键不注册，
- *     解析走 node_modules 的 npm 版。此时：
- *       · alias 表应恰为 1 个键（`@`）；
- *       · tsconfig 仍**声明**两个 pkg 键（静态描述不随形态裁剪，否则丢
- *         monorepo 的类型直供），TS 会回落 node_modules —— 因此"tsconfig 声明了
- *         该键"仍要断言，"与 aliases.ts 解析到同一文件"按设计跳过；
- *       · 探针改用 node 原生 `import.meta.resolve` 断言裸说明符命中
- *         `node_modules/<pkg>/dist/` 且文件真实存在（刻意不用 vite 探针：dev
- *         server 的 optimizeDeps 会把裸包预热成 `.vite/deps/` 缓存产物，
- *         resolveId 命中的是预构建文件，验证不到"命中 npm 版"的语义）。
+ * === 双形态分流（2026-10-19 收口：两种形态都「源码直供」）===
+ * `config/aliases.ts` 对本地包做**存在性回落**（详见其文件头「双形态」）：
+ *   - **monorepo 形态**（上级有 packages/）：alias 指 `packages/<包>/src`。
+ *   - **standalone 形态**（单仓 checkout / CI / 开源用户）：alias 指
+ *     `node_modules/skinsuite/src`（该包 `files` 里带 src）。
+ *
+ * 🔴 为什么 standalone 不再「删键回落 npm 版」：npm 版里 `.` 与 `./vite` 的运行时是
+ *   dist、`./vue` 的运行时只能是源码，同一个构建会出现**两个机制实例**（注册表写在
+ *   dist 那份、状态机读源码那份）—— 配色静默落占位 id `default`，而四道关卡全绿。
+ *   两种形态统一源码直供后，同一文件 = 一个模块实例。
+ *
+ * 于是 standalone 形态的断言变成：
+ *   · alias 表 = `@` + skinsuite 家族 5 个键（`stable-deviceid` 只发 dist，仍不注册）；
+ *   · skinsuite 家族必须指到 `node_modules/skinsuite/src/**`（不是 dist）；
+ *   · `skinsuite/vite` 在**配置加载阶段**仍由包 exports 解析到 `dist/vite/index.js`
+ *     （Node 拒绝在 node_modules 里剥类型），两条解析并存且都成立。
  *
  * 退出码：0 全绿 / 1 有失败
  */
@@ -110,10 +112,12 @@ if (MONOREPO_FORM) {
     `实际：${aliasKeys.join(', ') || '(空)'}`
   );
 } else {
-  // standalone：本地包键按设计不注册，解析回落 node_modules
+  // standalone：skinsuite 家族同样源码直供（指 node_modules/skinsuite/src），
+  // stable-deviceid 只发 dist，按设计不注册
   check(
-    'standalone 形态 aliases 恰 1 个键（@，本地包回落 node_modules）',
-    aliasKeys.length === 1 && aliasKeys[0] === '@',
+    'standalone 形态 aliases 含 5 个键（@ + skinsuite 家族 4 个）',
+    aliasKeys.length === 5 &&
+      aliasKeys.join(',') === '@,skinsuite,skinsuite/vite,skinsuite/vue,skinsuite/vue/panel',
     `实际：${aliasKeys.join(', ') || '(空)'}`
   );
 }
@@ -140,13 +144,20 @@ if (MONOREPO_FORM) {
     );
   }
 } else {
-  for (const pkg of ['skinsuite', 'stable-deviceid']) {
+  // skinsuite 家族：必须指向 node_modules 里的**源码**（同一实例的前提）
+  for (const spec of ['skinsuite', 'skinsuite/vue', 'skinsuite/vite', 'skinsuite/vue/panel']) {
+    const target = (aliases[spec] || '').replace(/\\/g, '/');
     check(
-      `${pkg} 未注册 alias（standalone 设计如此，走 node_modules）`,
-      !Object.prototype.hasOwnProperty.call(aliases, pkg),
-      `实际已注册：${aliases[pkg]}`
+      `${spec} 指向 node_modules/skinsuite/src（standalone 源码直供）`,
+      /node_modules\/skinsuite\/src\//.test(target),
+      `实际：${target || '(未注册)'}`
     );
   }
+  check(
+    'stable-deviceid 未注册 alias（该包只发 dist，standalone 走 node_modules）',
+    !Object.prototype.hasOwnProperty.call(aliases, 'stable-deviceid'),
+    `实际已注册：${aliases['stable-deviceid']}`
+  );
 }
 
 // ---------------------------------------------------------------- 2) 与 tsconfig.app.json 比对
@@ -202,11 +213,7 @@ for (const k of tsKeys) {
     Object.prototype.hasOwnProperty.call(aliases, base) ||
     Object.prototype.hasOwnProperty.call(aliases, k);
   const exemptStandalone =
-    !MONOREPO_FORM &&
-    (base === 'skinsuite' ||
-      base === 'skinsuite/vue' ||
-      base === 'skinsuite/vue/panel' ||
-      base === 'stable-deviceid');
+    !MONOREPO_FORM && base === 'stable-deviceid';
   check(
     `tsconfig 键 "${k}" 在 aliases.ts 里有对应项`,
     inAliases || exemptStandalone,

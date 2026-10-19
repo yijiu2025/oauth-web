@@ -26,26 +26,31 @@
  * 🔴 关卡 `e2e/verify-alias-single-source.mjs` 会**比对**（本文件 / tsconfig.app.json /
  *    vitest 实际解析）是否一致，任何一处漂移直接红。
  *
- * === 双形态：monorepo 源码直供 ↔ 独立仓 npm 版 ===
- * 本仓有两种运行形态，两个本地包的 alias **按源码是否存在条件注册**：
- *   - **monorepo 形态**（上级目录有 `packages/`）：源码直供，开发期改包源码即时生效。
- *   - **独立仓形态**（单仓 checkout / CI / 开源用户装完即用）：上级没有 `packages/`，
- *     这两个 alias 键**不注册**，裸说明符 `skinsuite` / `stable-deviceid` 自然解析到
- *     `node_modules` 里的 npm 版（package.json 声明的 `^0.1.0`）。
+ * === 双形态：都用「源码直供」，只是源码根不同 ===
+ *   - **monorepo 形态**（上级目录有 `packages/`）：指向 `packages/<包>/src`，改包源码即时生效。
+ *   - **独立仓形态**（单仓 checkout / CI / 开源用户装完即用）：指向
+ *     `node_modules/skinsuite/src`（该包 `files` 里带 `src`，源码随包发布）。
  *
- * 🔴 为什么是"删键"而不是别的办法（2026-10-15 CI 实测踩坑）：
- *   - vite / vitest 的 alias 是**精确匹配且优先于 node_modules**：键在、但指向的
- *     源码文件不存在（独立仓没有 packages/）= `Failed to resolve import "skinsuite"`，
- *     vitest 两个 suite 27 例全红。**它不会自动回落 node_modules。**
- *   - 删键后 vite/vitest 走标准 node 解析命中 npm 版；TypeScript 的 paths 同理——
- *     paths 未命中会继续 node_modules 解析（CI type-check 在删键前就已实证：tsconfig
- *     的 paths 指向不存在的 `../packages/...` 时 vue-tsc 不报错，回落 npm 版声明）。
- *   - 也不"指向 node_modules 绝对路径"：那条路径依赖安装布局（hoist / pnpm 符号链接），
- *     比删键脆弱。
+ * 🔴 为什么独立仓形态**不能**「删键回落 npm 版」（2026-10-19 CI 实测）：
+ * npm 版三个入口的运行时形态是**混的** —— `.` 与 `./vite` 指 `dist/*.js`（编译产物），
+ * `./vue` 只能指 `src/vue/index.ts`（含 `.vue` 与组合式 API，tsc 编不出 SFC）。
+ * 于是同一个构建里机制出现**两个模块实例**：`virtual:theme` 用 `skinsuite`（dist）写入
+ * 注册表，而 `createThemeState`（`skinsuite/vue`，源码）读的是另一份空表 ——
+ * 症状是配色静默落占位 id `default`（不是 `white`），**类型检查 / lint / 构建全绿**，
+ * 只有「按设备/页面取配色」的运行时行为错，极难归因。
  *
- * 🔴 npm 版与源码版的一致性靠两道闸：① 发包前导出集合对比（0.1.0 实测零缺口）；
- *   ② 关卡在两种形态下分别验证 —— monorepo 比源码路径，standalone 探 node_modules
- *   dist 真实存在且可解析。
+ * 所以两种形态统一「源码直供」：同一个文件 → 一个模块实例。
+ * 代价是消费方要能编译 TS（Vite / Vitest 都能，这也是本仓唯一的使用场景）。
+ *
+ * 🔴 仍然不能"指向不存在的路径"（2026-10-15 踩坑）：alias 键在、文件不存在 =
+ *   `Failed to resolve import`，**不会自动回落 node_modules**。所以这里的每一步都
+ *   先 `existsSync` 探路径，探不到就不注册。
+ *
+ * ⚠️ `skinsuite/vite` 在独立仓形态下**两种解析并存且都成立**：`vite.config.ts` /
+ *   `vitest.config.ts` 由 Node 在**配置加载阶段**用包 exports 解析到 `dist/vite/index.js`
+ *   （Node 拒绝在 node_modules 里剥类型，必须走编译产物）；alias 只作用于 Vite 处理的
+ *   应用模块，那里的 `skinsuite/vite` 指向源码。构建插件只用纯常量，无共享状态，两种
+ *   解析互不影响。
  *
  * @see oauth21/e2e/verify-alias-single-source.mjs
  */
@@ -62,7 +67,7 @@ export const OAUTH21_ROOT = path.resolve(HERE, '..');
 export const MONOREPO_ROOT = path.resolve(OAUTH21_ROOT, '..');
 
 /**
- * 本地包的 monorepo 源码入口（源码直供目标）。
+ * 本地包的入口声明（`说明符 → 包内相对路径`）。
  * 键顺序即 aliases 注册顺序（`@` 恒在最前）。
  *
  * 🔴 **子路径必须排在父路径之前**：Vite 的 `resolve.alias` 对字符串 `find`
@@ -70,34 +75,60 @@ export const MONOREPO_ROOT = path.resolve(OAUTH21_ROOT, '..');
  * 不是精确匹配。若 `skinsuite` 在前，`skinsuite/vue` 会被改写成
  * `…/src/index.ts/vue`，报 `系统找不到指定的路径`（本仓 2026-10-17 实测）。
  */
-const LOCAL_PKG_SOURCES: Record<string, string> = {
+const LOCAL_PKG_ENTRIES: ReadonlyArray<{ readonly spec: string; readonly dir: string; readonly rel: string }> = [
   // Vue 绑定层的**独立面板入口**：宿主用 `defineAsyncComponent` 加载它，
   // 单独一条子路径才能让打包器切出独立 chunk（否则面板会并回主包）。
-  'skinsuite/vue/panel': path.resolve(MONOREPO_ROOT, 'packages/theme-core/src/vue/panel.ts'),
+  { spec: 'skinsuite/vue/panel', dir: 'theme-core', rel: 'src/vue/panel.ts' },
   // Vue 绑定层的**同步入口**（composable / 类型）：与纯内核分开，
   // 这样"只要机制不要 Vue"的消费者不会被迫装 UI 层。
-  'skinsuite/vue': path.resolve(MONOREPO_ROOT, 'packages/theme-core/src/vue/index.ts'),
+  { spec: 'skinsuite/vue', dir: 'theme-core', rel: 'src/vue/index.ts' },
   // 构建期适配器（Vite 扫描插件 + 目录解析）：宿主在 vite/vitest config 里挂它。
-  'skinsuite/vite': path.resolve(MONOREPO_ROOT, 'packages/theme-core/src/vite/index.ts'),
-  'skinsuite': path.resolve(MONOREPO_ROOT, 'packages/theme-core/src/index.ts'),
-  'stable-deviceid': path.resolve(MONOREPO_ROOT, 'packages/shared-device/src/index.ts')
-};
+  { spec: 'skinsuite/vite', dir: 'theme-core', rel: 'src/vite/index.ts' },
+  { spec: 'skinsuite', dir: 'theme-core', rel: 'src/index.ts' },
+  { spec: 'stable-deviceid', dir: 'shared-device', rel: 'src/index.ts' }
+];
+
+/** 独立仓形态的源码根候选：hoist 到根或落在本仓 node_modules 都认 */
+const INSTALLED_ROOTS = [
+  path.resolve(MONOREPO_ROOT, 'node_modules'),
+  path.resolve(OAUTH21_ROOT, 'node_modules')
+];
+
+/**
+ * 取某包在「已安装形态」下的源码入口（独立仓形态用）。
+ *
+ * 只有 `skinsuite` 能这样直供 —— 它 `files` 里带 `src`；`stable-deviceid` 只发 dist，
+ * 探不到就自然不注册（回落 node_modules 的正常解析）。
+ */
+function installedSource(rel: string): string | undefined {
+  for (const root of INSTALLED_ROOTS) {
+    const candidate = path.resolve(root, 'skinsuite', rel);
+    if (existsSync(candidate)) return candidate;
+  }
+  return undefined;
+}
 
 /**
  * 别名表：键 = import 说明符，值 = 绝对路径。
  *
  * ⚠️ 前缀匹配的后果（见上）：注册顺序有意义，**更具体的键必须排在前面**。
  *
- * `@` 恒注册（src/ 是本仓自有目录，两种形态都在）；本地包仅当
- * monorepo 源码存在时注册（见文件头「双形态」）。
+ * `@` 恒注册（src/ 是本仓自有目录，两种形态都在）；本地包**先找 monorepo 源码，
+ * 找不到再找 `node_modules/skinsuite/src`** —— 两种形态都是源码直供，见文件头。
  */
 export const aliases: Record<string, string> = {
   '@': path.resolve(OAUTH21_ROOT, 'src')
 };
 
-for (const [spec, src] of Object.entries(LOCAL_PKG_SOURCES)) {
-  if (existsSync(src)) {
-    aliases[spec] = src;
+for (const { spec, dir, rel } of LOCAL_PKG_ENTRIES) {
+  const monorepo = path.resolve(MONOREPO_ROOT, 'packages', dir, rel);
+  if (existsSync(monorepo)) {
+    aliases[spec] = monorepo;
+    continue;
+  }
+  if (dir === 'theme-core') {
+    const installed = installedSource(rel);
+    if (installed) aliases[spec] = installed;
   }
 }
 
@@ -105,9 +136,10 @@ for (const [spec, src] of Object.entries(LOCAL_PKG_SOURCES)) {
  * tsconfig `paths` 形态（值必须是**相对 tsconfig 文件**的路径，且用 `/` 分隔）。
  * 供关卡与本文件比对；运行时不被 vite/vitest 读取。
  *
- * 注意这是 **monorepo 形态的静态描述**：独立仓形态下这两条指向的
- * `../packages/...` 不存在，TypeScript 会回落 node_modules 解析 npm 版
- * （paths 未命中不报错）。关卡按形态分流比对，见关卡脚本。
+ * 注意这是 **monorepo 形态的静态描述**：独立仓形态下这些 `../packages/...` 不存在，
+ * TypeScript 会回落 node_modules 解析 —— 而 `skinsuite` 的 `types` 本来就指向包内
+ * `src/index.ts` / `src/vue/index.ts`（见其 exports），所以两种形态对 TS 而言是
+ * **同一份源码**，与上面 aliases 的口径一致。关卡按形态分流比对，见关卡脚本。
  */
 export const tsconfigPaths: Record<string, string[]> = {
   '@/*': ['./src/*'],

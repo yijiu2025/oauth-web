@@ -26,7 +26,7 @@
     "axios": "^1.16.0",
     "pinia": "^3.0.4",
     "qrcode": "^1.5.4",
-    "skinsuite": "^0.1.0",
+    "skinsuite": "^0.2.3",
     "stable-deviceid": "^1.0.3",
     "vee-validate": "^4.15.1",
     "vue": "^3.5.32",

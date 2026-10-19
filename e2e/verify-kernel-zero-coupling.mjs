@@ -4,7 +4,7 @@
  * === 背景（评审第 4 条的核实结论）===
  * 评审提出「skinsuite 未在 root-workspace 对齐，有双 Vue 实例风险」，据此要求加固。
  * 2026-09-28 **实测核实**后修正了这一判断：
- *   - `packages/theme-core`（skinsuite 0.1.0）：dependencies / peerDependencies **全空**，
+ *   - `packages/theme-core`（skinsuite 0.2.0）：dependencies / peerDependencies **全空**，
  *     只有 devDependency `typescript`；源码 import 面**只有内部相对路径**（./mode.js 等）。
  *   - `packages/shared-device`（stable-deviceid 1.0.3）：dependencies / peerDependencies 全空，
  *     连 devDependencies 都没有；同样零外部 import。
