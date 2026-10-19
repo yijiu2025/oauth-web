@@ -14,8 +14,9 @@
  *   · 不碰任何 HTTP 细节（第 8 步只发一个 fire-and-forget 预取，失败路径见其注释）；
  *   · 不处理业务分支。
  *   判据很简单：**删掉本文件换一种装配方式，业务一行不该变。**
- *   例外：主题域初始化需要一个 `useThemeStore()` 实例来注入 `setDevice`（见第 2 步），
- *   这是「装配胶水」而非「业务实现」——主题机制本身已收进 `skinsuite/vue` 的 `setupTheme`。
+ *   例外：主题域初始化要传两个宿主事实 —— `router`（设备域从它读 `query/path`）与
+ *   `resolveDevice`（**怎么判定当前设备**，宿主的口径）。这是「装配胶水」而非「业务实现」：
+ *   机制在 `skinsuite/vue`，判定在 `theme/views/devices.ts`。
  *
  * @author yijiu2025
  * @since 2026-10-17
@@ -24,12 +25,18 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router';
-import { theme } from 'skinsuite/vue';
+import { refreshDevice, theme } from 'skinsuite/vue';
 import i18n from './i18n';
 import request from './utils/request';
 import { initDeviceSync } from 'stable-deviceid';
 import { reportError } from './composables/useErrorReporter';
 import { setupViewportFix } from './utils/viewport-fix';
+import { watchViewport } from './utils/device';
+// 设备判定（宿主口径）：库只提供注入点，判定与它的词汇都在宿主 utils 层
+// （不放 theme/views —— 那是对外可迁移的纯声明目录）
+import { resolveCurrentDevice } from './utils/device-resolve';
+// 设备声明（副作用：注册进设备域）。必须在 `app.use(theme)` 之前 —— 判定函数要查已注册清单
+import './theme/views/devices';
 
 // ---------------------------------------------------------------------------
 // 0. 挂载前的两项全局初始化（必须在 createApp / mount 之前）
@@ -61,20 +68,22 @@ app.use(pinia);
 app.use(router);
 app.use(i18n);
 
-// 设备域启动：传 router + 宿主自己的「设备覆盖」解析 —— 库监听「链接变动 + 视口」→
-// 用设备清单 `match` 判定设备 → 维护 `activeDevice`（宿主 store 从设备域订阅）。
+// 设备域启动：传 router + **宿主自己的判定函数** `resolveCurrentDevice`。
+// 库只做三件事：链接变动时把 `query / path / fullPath` 递进来、记住返回的设备 id、
+// 通知订阅方（宿主 store 从设备域订阅）。它不认识视口阈值 / UA / `?device=` / `?from=`
+// 这些词汇 —— 全在 `utils/device-resolve.ts` 里（含 `?device=<id>` 一次性锁定）。
 // 不再写 `deviceSource`、不标 `meta.device`、不手动 `setActiveDevice`。
-//
-// 🔴 `?device=<id>` 是**宿主机制**（oauth21 的 URL 词汇）：库不认这个参数名，只提供
-//    `resolveDeviceOverride` 注入点，这里把「读 query.device」作为覆盖逻辑交给库，
-//    命中合法设备即锁定（压过视口 / ?isMobile 自动判定）。
 //
 // ⚠️ 必须在 `app.use(pinia)` 之后：主题 store 实例化（App.vue 接线壳组装 host 时）依赖
 //    Pinia 的 activeInstance 已建立；设备判定本身不依赖 pinia，但 store 订阅它。
 app.use(theme, {
   router,
-  resolveDeviceOverride: query => (typeof query.device === 'string' ? query.device : null)
+  resolveDevice: resolveCurrentDevice
 });
+
+// 宿主自己的视口信号 → 让设备域重判（库不订阅 matchMedia：「什么算变了」是宿主口径）。
+// 跨 768 / 1024 两个断点才回调，不产生 scroll/resize 级别的抖动。
+watchViewport(() => refreshDevice());
 
 // ---------------------------------------------------------------------------
 // 3. 预发 H5 签名 Token（拿 _m_h5_tk cookie，后续请求拦截器才能算签名）

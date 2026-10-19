@@ -754,15 +754,54 @@ check(
 );
 const devicesSrc = existsSync(DEVICES_FILE) ? read(DEVICES_FILE) : '';
 check(
-  'theme/views/devices.ts 用 defineThemeDevice 声明 + deviceIds/fallbackDevice 派生（不再手写词汇表）',
+  'theme/views/devices.ts 用 defineThemeDevice 声明 + 从设备域派生（不再手写词汇表）',
   /defineThemeDevice/.test(devicesSrc) &&
-    /deviceIds/.test(devicesSrc) &&
     /fallbackDevice/.test(devicesSrc) &&
     !/const\s+DEVICE_IDS/.test(devicesSrc) &&
     !/export\s+const\s+THEME_DEVICES/.test(devicesSrc) &&
     !/export\s+type\s+ThemeDevice/.test(devicesSrc) &&
     !/DEFAULT_THEME_DEVICE\s*:/.test(devicesSrc),
   '设备清单由 defineThemeDevice 声明（自动注册设备域），id 清单与兜底设备从声明派生，不再手写 DEVICE_IDS/THEME_DEVICES/ThemeDevice/DEFAULT_THEME_DEVICE'
+);
+
+// ---- 🔴 判定归宿主（2026-10-19 定稿）----
+// 「当前是哪台设备」是业务口径：视口阈值 / UA / ?isMobile / ?from= / ?device= 都是本产品
+// 的词汇。库只收 `resolveDevice` 注入；库一旦自己判，别的项目复用机制就被绑死了。
+const deviceDomainSrc = implText(['vue/device-domain.ts']);
+check(
+  '设备判定归宿主：库的设备域只收 resolveDevice 注入（不认视口 / UA / ?isMobile）',
+  /resolveDevice/.test(deviceDomainSrc) &&
+    !/matchMedia\s*\(/.test(deviceDomainSrc) &&
+    !/detectMobileUA/.test(deviceDomainSrc) &&
+    !/viewportIsMobile/.test(deviceDomainSrc) &&
+    !/'isMobile'/.test(deviceDomainSrc),
+  '库内出现视口 / UA 判定 = 判定又下沉了（宿主的口径被写进通用机制）'
+);
+// 🔴 theme/views 是**可整体迁移的纯声明目录**：只有 defineThemeDevice / defineThemePage。
+//    判定（URL 词汇 / 视口 / UA）一旦写进去，就会被 virtual:theme 当声明副作用拉进包，
+//    而且「主题域换个应用照搬」不再成立。
+const resolverFile = join(ROOT, 'utils', 'device-resolve.ts');
+const resolverSrc = existsSync(resolverFile) ? read(resolverFile) : '';
+check(
+  '宿主侧确有判定实现（utils/device-resolve.ts 的 resolveCurrentDevice）',
+  /export\s+function\s+resolveCurrentDevice/.test(resolverSrc),
+  '判定搬回宿主后必须有一个明确入口，否则设备域永远落兜底设备'
+);
+check(
+  'theme/views/devices.ts 保持纯声明（不含判定实现与 URL 词汇）',
+  !/resolveCurrentDevice/.test(devicesSrc) &&
+    !/isMobileViewport/.test(devicesSrc) &&
+    !/'isMobile'/.test(devicesSrc) &&
+    !/function\s+pathHasSegment/.test(devicesSrc),
+  'theme/views 只放声明（defineThemeDevice）；判定要住 utils —— 主题域才可整体迁移'
+);
+const kernelDeviceSrc = implText(['views/device.ts']);
+check(
+  '内核 views/device.ts 只剩清单与查询（无 match / pickDeviceId / deviceContext 实现）',
+  !/export\s+function\s+pickDeviceId/.test(kernelDeviceSrc) &&
+    !/export\s+function\s+deviceContext/.test(kernelDeviceSrc) &&
+    !/match\s*\(ctx/.test(kernelDeviceSrc),
+  '判定实现残留在内核 = 两套判定并存，宿主的 resolveDevice 会被绕过'
 );
 
 // ---- 默认版式 / 默认配色（2026-09-26 用户定：default + white）----
