@@ -71,6 +71,11 @@ const GROUPS = [
       // 2026-10-21：预检门诊 doctor 的判定函数测试（node --test）—— 判定写错比没有
       // 预检更糟（会用自信的语气把人带偏），与 env-guard 同一思路
       { name: 'verify-doctor', cmd: ['--test', join('..', 'scripts', 'doctor.test.mjs')], needs: {} },
+      // 2026-10-21：env 四文件一致性机检（CONTRIBUTING 红线 #2 从人守变机检）
+      { name: 'verify-env-files', cmd: ['verify-env-files.mjs'], needs: {} },
+      // 2026-10-21：上一项的判定函数测试（node --test）—— 顺序漂移/少键/多键/键形
+      // 四条判定路径各自覆盖通过+失败两侧，防第一次真实触发就误判
+      { name: 'verify-env-files-test', cmd: ['--test', 'verify-env-files.test.mjs'], needs: {} },
       { name: 'verify-theme-dirs', cmd: ['verify-theme-dirs.mjs'], needs: {} },
       { name: 'verify-glob-device', cmd: ['verify-glob-device.mjs'], needs: {} },
       // 2026-09-28 新增：别名三处一致（aliases.ts ↔ tsconfig.app.json ↔ vite 实解析）

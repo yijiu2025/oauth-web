@@ -40,13 +40,15 @@ npm 包装（等价入口，见 package.json）：`npm run verify`（CI 顺序�
 ⚠️ 起多个实例**必须串行**（前一个 curl 到 200 再起下一个）：几个 Vite 共用
 `node_modules/.vite`，同时冷启会互相废掉 optimizeDeps → 白屏 + `504 (Outdated Optimize Dep)`。
 
-## 三、活跃关卡（24 个，分四组）
+## 三、活跃关卡（26 个，分四组）
 
 ### ① 静态关卡（无浏览器 / 无服务器）
 | 关卡 | 守什么 |
 | --- | --- |
 | `verify-env-guard.mjs` | **自检模块自身的行为测试**（`lib/env-guard.mjs` 的 node --test）：扫描目录空 / 端口 5xx / 产物陈旧三条失败路径 + 仓根推导，防「守卫本身误判」（10 项） |
 | `verify-doctor` | **预检门诊自身的行为测试**（`scripts/doctor.mjs` 判定函数的 node --test）：版本范围 / 端口三态 / vite 缓存四态 / skinsuite 双形态 / env 文件齐否（13 项） |
+| `verify-env-files.mjs` | **env 四文件一致性机检**（CONTRIBUTING 红线 #2 从人守变机检）：四文件同键同序 / 文件内无重复键 / 键形 `^VITE_[A-Z0-9_]+$` / `.env.example` 每键有注释 —— 漏改的症状是**静默**的（读到的是另一文件的默认值），只有机检能抓到（当前 12 键全绿） |
+| `verify-env-files-test` | **上一项的判定函数测试**（`parseEnvKeys`/`compareEnvFiles` 的 node --test）：注释块隔断 / CRLF / 值含 `=` / 顺序漂移 / 少键 / 多键 / 重复键 / 键形，四条判定路径各自覆盖通过+失败两侧（13 项） |
 | `verify-theme-dirs.mjs` | **核心静态关卡**：四级目录口径 + 无版式层 + 四段键 + `data-mauth-view`=包名 + 三设备静态引入 + 内核包契约（589 项） |
 | `verify-glob-device.mjs` | glob 真的扫到设备段、配色 glob 只有一套（26 项） |
 | `verify-alias-single-source.mjs` | **别名三处一致**：`config/aliases.ts` ↔ `tsconfig.app.json` paths ↔ 实解析探针。双形态分流：monorepo（上级有 `packages/`）下 `skinsuite`/`stable-deviceid` 必须解析到 `packages/*/src/index.ts`（源码直供，不是 node_modules dist）；standalone（单仓 checkout / CI / 开源用户）下两键按设计不注册，探针用 node `import.meta.resolve` 确认裸说明符命中 `node_modules/<pkg>/dist`（21/15 项） |

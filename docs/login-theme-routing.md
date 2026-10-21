@@ -1,6 +1,6 @@
 # 登录链路主题路由设计（URL 参数 → store）
 
-> **状态：契约文档（先行，2026-10-19；2026-10-21 随 skinsuite 0.5.0 补设备判定归属）**。代码按本文档实施；落地后在文首标注版本。
+> **状态：契约文档（先行，2026-10-19；2026-10-21 随 skinsuite 0.5.0 补设备判定归属、随 0.7.0 补 §2.6 调试出口）**。代码按本文档实施；落地后在文首标注版本。
 > **读者**：改登录链路 / 主题参数 / 调试面板的人；拼 SSO 登录链接的宿友应用方。
 > **上位文档**：`multi-theme.md`（主题机制全文与强制规则）、`theme-replacement.md`（主题替换规范）。
 > 本文只定**登录链路的 URL 参数契约与 store 化设计**，不重复主题机制全景。
@@ -79,6 +79,38 @@ Spec 词汇 → 实现词汇：`th_web` → `th_std`、`th_app` → `th_mobile`�
 
 允许且仅允许：`th` / `th_<urlKey>` / `th_color` / `th_color_<urlKey>` / `device` / `debug`。
 🔴 禁点号旧键（`?view.` / `?theme.` / `?skin.`）复活——2026-10-18 已统一下划线，门禁防回潮。
+
+### 2.6 调试出口：静默失败警告 + `__MAUTH_STORE__` 探针（2026-10-21，skinsuite 0.7.0）
+
+主题链的失败几乎全是**静默**的：`?th=compat`（拼错）不报错，`pick()` 按契约落当前包；`?device=phon` 不报错，分发器落兜底设备；`?th=a&th=b` 不报错，读取侧按未指定处理。踩坑的人当时唯一的线索是「怎么点都没变化」。本节把这些静默失败变成**可判定的**输出。
+
+**实落在库不在宿主**（`skinsuite/vue` 的 `installThemeDebug`，`createThemeState` 装配末尾自动调用，宿主零接线；prod 下 `import.meta.env.DEV` 静态为 false，安装函数体整体消失）：判定知识（`pageOf(page).views.has()` / `registeredDevices()` / 参数键形）与被诊断的静默失败（`pick()` 回落、未知设备落兜底）**都是库的**——宿主各写一遍就是「抄 N 份必然漂移」，正是 params.ts / view-picker / registry 曾下沉内核的同款理由。纯判定在内核 `views/param-audit.ts`（零 import，CI 可直接调用做上线前链接体检）。
+
+**两级出口**：
+
+| 触发条件 | 输出 |
+|---|---|
+| **dev 无条件**（不需要 `?debug=theme`） | console 警告（`[theme] …`，同一问题只喊一次）—— 静默失败不靠「记得开开关」防 |
+| **dev + `?debug=theme`** | 上述警告 **+** `window.__MAUTH_STORE__` 探针 **+** 右下角角标（警告计数红 / 绿，点击打印快照） |
+
+**警告检四类**（都是「不报错、只是不生效」的静默失败）：
+
+1. `?device=` 未知 id —— 含已注册清单与兜底设备名；
+2. 当前设备生效的版式值（`th_<urlKey>` > `th`）在 包×设备×页 下不存在 —— 带「可用版式：…」字典序建议；
+3. 其它设备的专属版式键同样不存在 —— 现在不渲染，切到那台设备才静默落包，提前报；
+4. 白名单键重复定义 —— **两种读取语义分开说**：版式键（`readUrlViewIntent` 的 `present()` 拒绝数组）「按未指定处理」；配色键 `th_color`（`readUrlIntent` 的 `URLSearchParams.get()` 只取首值）「取首值「blue」」——说错一边，审计本身就成了误诊。
+
+明确**不检**：配色合法性（生效配色 = URL 覆盖 + localStorage + 用户操作的合成，脱离 store 单看 URL 会误报）、通用键对其余设备的解析（部署方常有意只保一端；原始值在快照里看得到）。
+
+**探针 `window.__MAUTH_STORE__`**（getter 形态，随 store 实时；e2e 三个关卡按 key 可选链读取，增量安全）：
+
+- 既有 11 键**原样保留**：`themeId` / `deviceTheme` / `viewIntent` / `deviceView` / `mode` / `packageId` / `activeDevice` / `activePage` / `activeView` / `activeThemeId` / `activeTone`；
+- 0.7.0 新增三个链路键（地址栏原始值 → store 意图 → 生效结果并排）：
+  - `url` —— `parseThemeParams(currentQuery())` 的原始值快照（路由 query 同源，非 `location.search` 字符串）；
+  - `effectiveView` —— `{ raw, legal }`（`legal = null` 表示无 URL 值或页未注册）；
+  - `warnings` —— 当前存在的问题列表（与 console 警告同源）。
+
+响应式刷新：watch store 六值 + `watch(currentQuery, { deep })`，**不轮询**。行为守卫：库 `test/param-audit.test.mjs` 23 例（打 dist）+ 宿主 `src/theme/views/__tests__/theme-debug.test.ts` 6 例（真实 store + 假 router 域测装配）。
 
 ## 3. 目标设计：版式意图 store 化（本次唯一代码改造）
 
@@ -190,6 +222,7 @@ view/web/login/index.vue（分发器：useRenderDevice() 选容器，不换路�
 | 4 | 测试与门禁 | 新用例：`?th_std=x` 仅 standard 生效；`?device=mobile&th_std=x` 锁定后无效；`setDeviceView` 不改 URL；`?theme=dark` 被忽略；参数白名单门禁 | e2e 全绿 |
 | 5 | 发布验证 | npm 发布 + CI 双端全绿 | CI 绿 |
 | 6 | 设备判定归宿主（2026-10-21，skinsuite **0.5.0**） | 判定改纯函数（`utils/device-resolve.ts`）+ 薄封装（`useRenderDevice`），零主题 import；分发器只选容器不碰主题；`ThemeStoreLike` 补 `activeDevice`/`setActiveDevice`，`<ThemeView>` device prop 告知；库撤全部注册槽 / 判定 composable | 库 build + 单测绿；宿主 vue-tsc / vitest / build 绿；e2e 静态断言改版后全绿 |
+| 7 | 调试句柄下沉库（2026-10-21，skinsuite **0.7.0**） | §2.6：URL 主题参数静默失败审计。内核 `param-audit` 纯函数 + `installThemeDebug` 安装器（`createThemeState` 自动接线，宿主零接线，`bootstrap.ts` 回退）；`__MAUTH_STORE__` 既有 11 键原样 + `url` / `effectiveView` / `warnings` 三链路键 | 库 build + typecheck + 53/53 单测；宿主 vue-tsc / vitest 73/73 / eslint 绿；e2e 全量 26/26 |
 
 ## 7. 风险与回滚
 

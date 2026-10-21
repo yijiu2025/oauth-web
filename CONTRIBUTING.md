@@ -48,7 +48,7 @@ npm run dev            # http://localhost:5174
 | `npm run verify:all`                    | 全量关卡（先 `npm run probe:up` 起 dev 实例；生产组还要构建 + 5189 预览，见 [e2e/VERIFY.md](e2e/VERIFY.md)） |
 | `npm run probe:up` / `down` / `status`  | 一键起 / 全杀 / 探活四个 dev 实例（5174/5175/5177/5197，各独占 cacheDir）                           |
 | `npm run audit`                         | 依赖漏洞审查（`--audit-level=moderate`）                                                            |
-| `node e2e/verify-all.mjs --only static` | 静态关卡：主题目录形态 / 别名单一来源 / 内核零框架耦合 / console 剥离 / any 债务 / PWA / 包体积预算   |
+| `node e2e/verify-all.mjs --only static` | 静态关卡：主题目录形态 / env 四文件一致性 / 别名单一来源 / 内核零框架耦合 / console 剥离 / any 债务 / PWA / 包体积预算   |
 
 需要 dev server 的关卡组刻意不进 CI（起服务易 flake），本地用 `npm run verify:all`（或 `node e2e/verify-all.mjs`）全量跑。
 
@@ -93,14 +93,14 @@ export default (env) => ({
 
 ### 环境变量
 
-复制 `.env.example` 为 `.env` 起步。四个 env 文件（`.env` / `.env.development` / `.env.production` / `.env.example`）的**变量顺序完全一致**（14 个变量），每个文件内的注释就是完整解释（含漏配症状与安全边界）。完整清单见 [README 环境变量一节](README.md#环境变量)。用不到的变量留空即「不启用」，**不要删行**。
+复制 `.env.example` 为 `.env` 起步。四个 env 文件（`.env` / `.env.development` / `.env.production` / `.env.example`）的**变量顺序完全一致**（12 个变量），每个文件内的注释就是完整解释（含漏配症状与安全边界）。完整清单见 [README 环境变量一节](README.md#环境变量)。用不到的变量留空即「不启用」，**不要删行**。这条一致性已机检化（`e2e/verify-env-files.mjs`，静态组常驻）：四文件同键同序、无重复键、键形 `VITE_` 前缀、模板每键有注释，漏改一处即红。
 
 ## 二、代码红线
 
 以下每一条都对应一类「本可以拦住」的事故，违反会被 review 打回：
 
 1. **端口 5174 是写死的**：`strictPort` 被占会直接启动失败——这是故意的，避免手机调试连错端口。不要为了自己方便改端口。
-2. **env 四文件必须同序同注释**：新增变量时四个文件同时加、注释写全（含漏配症状）；`.env` 永远不入库；真实密钥一律走部署平台，`.env.production` 只放默认值 / 占位符。
+2. **env 四文件必须同序同注释**：新增变量时四个文件同时加、注释写全（含漏配症状）；`.env` 永远不入库；真实密钥一律走部署平台，`.env.production` 只放默认值 / 占位符。机检：`node e2e/verify-env-files.mjs`（同序 / 无重复 / `VITE_` 前缀 / 模板注释，漏改即红）——漏改的症状是静默的（代码读到的是另一文件的默认值），人守不住，靠机检。
 3. **第三方登录端点只接受站内相对路径**：`VITE_SOCIAL_ENDPOINT` 刻意不支持绝对地址——端点一旦能由外部指定，「把用户送去任意外域」就从漏洞变成配置问题。
 4. **iframe 消息必须 origin + source 双校验**：只有父 origin 命中 `VITE_ALLOWED_PARENT_ORIGINS` 白名单才 `postMessage`。漏配的症状是宿主弹窗「正在加载安全登录」等满 3 秒兜底超时——不报错，极难排查。
 5. **主题 / 版式三段正交，目录名即 id**：token 基线 → 皮肤包 → 版式三者独立组合；`view ≡ pkg`（**`'base'` 不是合法 view 名**）；设备平级 `mobile | standard | mini | tablet`（mini 是独立设备维度，不是 mobile 的缩写）；版式优先级 `?view=` > 包声明 > 包名；URL 显式非法值**不回退**。完整规范（目录契约 / 替换入口 / 优先级 / 安全边界 / 验收清单）以 [docs/theme-replacement.md](docs/theme-replacement.md) 为单一来源，动手前先读它。
@@ -113,6 +113,7 @@ export default (env) => ({
     - **token 名不可改**：`packages/theme-core` 的皮肤 / 版式替换体系按名引用 `--color-*`、`--radius-*`，改名直接打破主题替换。可以改「值」，不能改「名」。
     - **`dark` 变体固定为 `@custom-variant dark (&:is(.dark *))`**：不要「顺手优化」成官方文档示例的 `:where(.dark, .dark *)`。后者会新增 `.dark` 自匹配并把特异性从 (0,2,0) 降到 (0,1,0)，而本仓大量存在「组件类 + `dark:` 覆写」并存的写法，属真实行为变化。
     - **类名扫描范围用 `@source` 声明**（含 `src/**/*.html`）。删掉 `@source` 后 v4 的自动探测不保证覆盖模板里的动态类名。
+12. **主题 URL 参数的告警 / 调试句柄落库不落宿主**：`?th=` 拼错、`?device=` 未知 id、键重复这类**静默失败**的 console 警告与 `window.__MAUTH_STORE__` 探针，由 `skinsuite/vue` 的 `installThemeDebug` 提供（`createThemeState` 装配末尾自动接线，宿主零接线；dev 无门控警告，`?debug=theme` 才挂探针 + 角标）。判定知识（`pageOf(page).views.has()` / `registeredDevices()`）与被诊断的静默失败（`pick()` 回落、未知设备落兜底）**都是库的**——宿主再写一份就是「抄 N 份必然漂移」（params.ts / view-picker / registry 都因此沉过内核）。契约见 [docs/login-theme-routing.md](docs/login-theme-routing.md) §2.6；纯判定 `views/param-audit.ts` 可被 CI 直接调用做上线前链接体检。
 
 ## 三、提交与发版
 
