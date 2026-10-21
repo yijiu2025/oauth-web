@@ -68,6 +68,9 @@ const GROUPS = [
       // 2026-10-21：自检模块自身的行为测试（node --test）—— 防假绿/假红的第一道闸
       // 自己也要被验证，否则第一次真实触发可能就是误判
       { name: 'verify-env-guard', cmd: ['--test', join('lib', 'env-guard.test.mjs')], needs: {} },
+      // 2026-10-21：预检门诊 doctor 的判定函数测试（node --test）—— 判定写错比没有
+      // 预检更糟（会用自信的语气把人带偏），与 env-guard 同一思路
+      { name: 'verify-doctor', cmd: ['--test', join('..', 'scripts', 'doctor.test.mjs')], needs: {} },
       { name: 'verify-theme-dirs', cmd: ['verify-theme-dirs.mjs'], needs: {} },
       { name: 'verify-glob-device', cmd: ['verify-glob-device.mjs'], needs: {} },
       // 2026-09-28 新增：别名三处一致（aliases.ts ↔ tsconfig.app.json ↔ vite 实解析）

@@ -29,8 +29,11 @@ export default [
       // 不纳入 lint 范围（避免无关错误）
       'src/utils/md5.ts',
       // .tmp-probe 是 Playwright 关卡脚本（不在 git 跟踪）；里面用 process/console/document
-      // 等浏览器/node 全局，不该让 eslint 把它当成 src 当作正经代码扫
-      '.tmp-probe/**'
+      // 等浏览器/node 全局，不该让 eslint 把它当成 src 当作正经代码扫。
+      // ⚠️ 带 * ：有人 mv 出 .tmp-probe.bak / 复制出 .tmp-probe-2 时，精确名会把
+      //    这些「同族临时目录」扫进来报一片 no-undef（2026-10-21 实测踩到）——
+      //    与上面的 dist-*/** 同款放宽。
+      '.tmp-probe*/**'
     ]
   },
   // ⚠️ e2e/ 是**纳入版本控制**的验收关卡（2026-09-28 从 .tmp-probe 迁入）。

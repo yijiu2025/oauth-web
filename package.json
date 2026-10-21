@@ -4,6 +4,10 @@
   "description": "企业统一身份认证（OAuth 2.1）登录 / 授权前端 —— Enterprise identity frontend: login, registration and OAuth 2.1 authorization",
   "license": "GPL-3.0",
   "type": "module",
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/yijiu2025/oauth-web.git"
@@ -11,11 +15,18 @@
   "homepage": "https://github.com/yijiu2025/oauth-web",
   "scripts": {
     "dev": "vite",
+    "doctor": "node scripts/doctor.mjs",
     "build": "npm run type-check && vite build",
     "preview": "vite preview",
     "type-check": "vue-tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
+    "verify": "npm run lint && npm test && npm run build && npx vite build --outDir dist-nopwa && node e2e/verify-all.mjs --only static",
+    "verify:static": "node e2e/verify-all.mjs --only static",
+    "verify:all": "node e2e/verify-all.mjs",
+    "probe:up": "node scripts/probe.mjs up",
+    "probe:down": "node scripts/probe.mjs down",
+    "probe:status": "node scripts/probe.mjs status",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "audit": "npm audit --audit-level=moderate",

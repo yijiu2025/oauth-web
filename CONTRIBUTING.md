@@ -13,7 +13,7 @@
 
 ## 一、上手
 
-前置依赖：Node.js 18+（建议 20+）、npm 9+。
+前置依赖：Node.js 20+、npm 10+（CI 跑 Node 22；`package.json` 的 `engines` 是硬口径，`npm install` 时会以 EBADENGINE 警告提示，`npm run doctor` 会主动校验）。装完先跑 `npm run doctor` 做环境预检（版本 / 端口 / env 文件 / 依赖形态 / vite 缓存 / git 状态），再按本篇后续章节动手。
 
 ```bash
 git clone https://github.com/yijiu2025/oauth-web.git
@@ -38,15 +38,19 @@ npm run dev            # http://localhost:5174
 | 命令                                    | 作用                                                                                                |
 | --------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | `npm run dev`                           | 开发服务器（端口 5174，`strictPort`，被占直接报错，不静默换端口）                                   |
+| `npm run doctor`                        | **环境预检**（动手前的「门诊」：运行时版本 / 端口 / env 文件 / 依赖形态 / vite 缓存 / git 状态）      |
 | `npm run build`                         | 先 `vue-tsc -b` 类型检查，再 `vite build` 生产构建                                                  |
 | `npm run preview`                       | 本地预览构建产物                                                                                    |
 | `npm run type-check`                    | 仅类型检查（`vue-tsc -b`）                                                                          |
 | `npm test`                              | Vitest 跑单元测试（`__tests__/` 与 `e2e/`）                                                         |
 | `npm run lint` / `lint:fix`             | ESLint 检查 / 自动修复                                                                              |
+| `npm run verify`                        | CI 顺序本地复刻：lint → 单测 → 构建（含 dist-nopwa）→ 静态关卡                                       |
+| `npm run verify:all`                    | 全量关卡（先 `npm run probe:up` 起 dev 实例；生产组还要构建 + 5189 预览，见 [e2e/VERIFY.md](e2e/VERIFY.md)） |
+| `npm run probe:up` / `down` / `status`  | 一键起 / 全杀 / 探活四个 dev 实例（5174/5175/5177/5197，各独占 cacheDir）                           |
 | `npm run audit`                         | 依赖漏洞审查（`--audit-level=moderate`）                                                            |
-| `node e2e/verify-all.mjs --only static` | 静态关卡：主题目录形态 / 别名单一来源 / 内核零框架耦合 / console 剥离 / any 债务 / PWA / 包体积预算 |
+| `node e2e/verify-all.mjs --only static` | 静态关卡：主题目录形态 / 别名单一来源 / 内核零框架耦合 / console 剥离 / any 债务 / PWA / 包体积预算   |
 
-需要 dev server 的关卡组刻意不进 CI（起服务易 flake），本地用 `node e2e/verify-all.mjs` 全量跑。
+需要 dev server 的关卡组刻意不进 CI（起服务易 flake），本地用 `npm run verify:all`（或 `node e2e/verify-all.mjs`）全量跑。
 
 #### 本地多实例验收：每个实例必须独占 `cacheDir`
 
@@ -54,10 +58,19 @@ npm run dev            # http://localhost:5174
 
 症状极具误导性：e2e 里成片的**纯 DOM 断言**变红（等 `.mauth-page` / `[data-mauth-view]` 超时），看起来完全像业务代码坏了。**排查顺序固定：先看浏览器控制台有没有 504，再怀疑自己的改动。**
 
-给每个实例配独立缓存目录（`.tmp-probe/` 已 gitignore，探针配置不入库）：
+一条命令起齐（`scripts/probe.mjs`：生成探针配置 → 串行起实例 → 等每个 HTTP 200 再起下一个 → 记录 pid；实例 detached，命令返回后继续存活）：
+
+```bash
+npm run probe:up        # 5174 / 5175（link 模式）/ 5177（compact 版式）/ 5197（color-peer）
+npm run probe:status    # 复核（退出码 0 = 四个 dev 端口全就绪）
+npm run probe:down      # 收工全杀（幂等；只杀 probe:up 起过的，不碰外部进程）
+```
+
+`npm run doctor` 会顺带指出 `node_modules/.vite` 的 `deps_temp_*` 残留（只有临时目录没有 `deps/` = 预打包从未成功提交，同样是 504 白屏的已知成因）。
+
+探针配置由脚本生成到 `.tmp-probe/vite.probe.config.mjs`（gitignore，手改会在下次 `probe:up` 被覆盖），内容与判据：
 
 ```js
-// .tmp-probe/vite.probe.config.mjs
 // ⚠️ vite.config.ts 是**函数式**默认导出（defineConfig(({ mode }) => …)）：
 //    不能 import 后直接 `{ ...base }` —— 展开函数得到空对象，整个基础配置
 //    （plugins / alias / proxy）静默全丢，dev server 裸奔。必须把 ConfigEnv
@@ -67,13 +80,6 @@ export default (env) => ({
   ...(typeof base === 'function' ? base(env) : base),
   cacheDir: process.env.PROBE_CACHE_DIR || 'node_modules/.vite'
 });
-```
-
-```bash
-PROBE_CACHE_DIR=node_modules/.vite-p5174 npx vite --config .tmp-probe/vite.probe.config.mjs --port 5174 --strictPort
-PROBE_CACHE_DIR=node_modules/.vite-p5175 VITE_PASSWORD_RESET_MODE=link npx vite --config .tmp-probe/vite.probe.config.mjs --port 5175 --strictPort
-PROBE_CACHE_DIR=node_modules/.vite-p5177 npx vite --config .tmp-probe/vite.probe.config.mjs --port 5177 --strictPort
-PROBE_CACHE_DIR=node_modules/.vite-p5197 npx vite --config .tmp-probe/vite.probe.config.mjs --port 5197 --strictPort
 ```
 
 实测差距：同一份代码，共享缓存 **19/22**，隔离后 **22/22**。`main` 在该环境下同样只有 19/22 —— 所以这类失败基本与代码无关。
@@ -143,7 +149,7 @@ node scripts/release-web.mjs --npm      # 追加：发布 npm 包（默认不发
 ## 四、PR 流程
 
 1. **开分支**：有写权限直接从主仓开 `feat/xxx`、`fix/xxx`；外部贡献者先 fork。
-2. **本地全绿再推**：`npm run type-check && npm run lint && npm test && node e2e/verify-all.mjs --only static`。UI 改动请附截图 / 录屏（桌面 + 移动 + 深色三态）。
+2. **本地全绿再推**：`npm run verify`（lint → 单测 → 构建 → 静态关卡）。UI 改动请附截图 / 录屏（桌面 + 移动 + 深色三态）。
 3. **提交信息**遵循上面的 Conventional Commits。
 4. **开 PR 到 `main`**，按模板填写：改动类型、动机、主要改动、测试证据、自检清单。
 5. **CI 五环节全绿**且 review 通过后才合并；大改动建议先开 issue 讨论方案再动手。
