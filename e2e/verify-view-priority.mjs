@@ -2,8 +2,8 @@
  * 版式（UI）优先级验收 —— 四档链 + 设备维度键 + 三页同形
  *
  * === 四档（高 → 低，login / register / forgot-password 三页一致）===
- *   1. URL `?view.<设备>`   —— 设备专属（容器用 `readDeviceParam` 取，见 skinsuite 的 views/params.ts）
- *   2. URL `?view`          —— 通用键（三端共用）
+ *   1. URL `?th_<设备缩写>`   —— 设备专属（如 `th_mobile`；容器用 `readDeviceParam` 取，见 skinsuite 的 views/params.ts）
+ *   2. URL `?th`              —— 通用键（三端共用）
  *   3. 主题包 / 配色的 `views.<page>` 声明（`themeStore.viewFor(<page>)` 取出）
  *   4. 当前**包名**          —— 一个主题包 = 一种版式（`viewId ≡ pkg`，不再是 `'base'`）
  *

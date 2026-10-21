@@ -6,6 +6,17 @@
 > `skinsuite/vite`（构建器）。本目录只留「主题包 + 版式契约 + 文档 + 配置」四样，
 > 开发者只需写设备清单与主题包。设计、注入点契约、迁移分期见
 > CoreFlow `https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/theme-package-extraction.md`。
+>
+> ⚠️ **URL 参数命名以 [login-theme-routing.md](../../docs/login-theme-routing.md) 为准（2026-10-19 起）**：
+> 本文件部分段落仍写 2026-10-18 改名前的**点号旧名**（`?theme.<设备>` / `?view.<设备>` /
+> `?theme=` / `?view=` / `?skin.*`）与已取消的 `VITE_<PAGE>_VIEW` 部署级默认版式机制。
+> 现行键形：版式 `?th` / `?th_<urlKey>`、配色 `?th_color` / `?th_color_<urlKey>`、
+> 设备锁定 `?device=`、调试面板 `?debug=theme`；`?theme=dark|light` 明暗入口已废弃失效。
+> **拼链接 / 改代码前先读 login-theme-routing.md §2**。
+>
+> ⚠️ **关卡路径**：正文里残留的 `.tmp-probe/verify-*.mjs` 是 2026-09-28 关卡迁移前的旧路径，
+> 活跃关卡已全部迁入 `oauth21/e2e/`（纳入版本控制）—— 下文命令块已按新路径修正，
+> 活跃清单 / 端口约定 / 退役记录以 `e2e/VERIFY.md` 为权威索引。
 
 一个目录管三层，**层级即语义**（主题包 → 设备 → 页面 → 配色）：
 
@@ -496,7 +507,7 @@ store 用这个值决定
 `skinsuite/vue 的 view-registry.ts` 的 `load()` 返回 `null` 就是"**用你静态引入的那份**"这个语义。
 三个设备**各自静态引入自己设备的那份**（`view/app/<page>/` → `default/mobile`、
 `Standard*` → `default/standard`、`Mini*` → `default/mini`），所以"零请求"对三端都成立 ——
-这一点由 `.tmp-probe/verify-theme-dirs.mjs` 的 **8b 节**守着（断言每个容器静态引入的路径与
+这一点由 `e2e/verify-theme-dirs.mjs` 的 **8b 节**守着（断言每个容器静态引入的路径与
 `THEME_DEVICE` 常量都对得上）。
 
 ### 加一种版式
@@ -548,19 +559,19 @@ store 用这个值决定
 ## 关卡（改完必须跑的静态断言）
 
 ```bash
-node .tmp-probe/verify-theme-dirs.mjs         # 目录口径 + 无版式层目录 + 三设备静态引入 + store/路由接线 + 内核包契约（553 项）
-node .tmp-probe/verify-no-pwa.mjs             # PWA 已移除：产物无 manifest / 无 SW 注入，sw.js 只能是自毁迁移版（无浏览器）
-node .tmp-probe/verify-glob-device.mjs        # glob 真的扫到设备段、配色 glob 只有一套（需能起 Vite）
-node .tmp-probe/verify-first-paint-budget.mjs # 首屏请求清单：零个非内置包 chunk、零个 theme.scss（需 dev server）
-node .tmp-probe/verify-view-priority.mjs      # 版式优先级五档 + 设备维度键 + 空串/非法值规则（需 dev server）
-node .tmp-probe/verify-forgot-view.mjs        # 重置密码页版式 + 分发一致性（需 dev server）
-node .tmp-probe/verify-responsive-switch.mjs  # 窄→宽→窄：主题跟随形态、附加样式不残留、0 新请求（跑生产构建）
-node .tmp-probe/measure-load-budget.mjs       # 真实流量（生产构建，需先 vite build --outDir <全新目录> + vite preview）
+node e2e/verify-theme-dirs.mjs         # 目录口径 + 无版式层目录 + 三设备静态引入 + store/路由接线 + 内核包契约（621 项，以实跑输出为准）
+node e2e/verify-no-pwa.mjs             # PWA 已移除：产物无 manifest / 无 SW 注入，sw.js 只能是自毁迁移版（无浏览器）
+node e2e/verify-glob-device.mjs        # glob 真的扫到设备段、配色 glob 只有一套（需能起 Vite）
+node e2e/verify-first-paint-budget.mjs # 首屏请求清单：零个非内置包 chunk、零个 theme.scss（需 dev server）
+node e2e/verify-view-priority.mjs      # 版式优先级四档链 + 设备维度键 + 空串/非法值规则（需 dev server）
+node e2e/verify-forgot-view.mjs        # 重置密码页版式 + 分发一致性（需 dev server）
+node e2e/verify-responsive-switch.mjs  # 窄→宽→窄：主题跟随形态、附加样式不残留、0 新请求（跑生产构建）
+node e2e/measure-load-budget.mjs       # 真实流量（生产构建，需先 vite build --outDir <全新目录> + vite preview）
 ```
 
 - 后两条要**生产构建**：`npx vite build --outDir dist-measure-1` →
   `npx vite preview --outDir dist-measure-1 --port 5189 --strictPort`，然后
-  `node .tmp-probe/measure-load-budget.mjs http://127.0.0.1:5189 <abs dist 路径>`。
+  `node e2e/measure-load-budget.mjs http://127.0.0.1:5189 <abs dist 路径>`。
   ℹ️ `--block-sw` 参数仍在，但 **oauth21 已于 2026-09-27 移除 PWA**，屏蔽与否已无差别
   （dev server 下本来就没有 SW）。移除原因与必须留的自毁迁移见 CoreFlow `https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/pwa-guide.md` 第六节。
   ⚠️ outDir 每次用**全新目录名**（沙箱会拦已存在目录的清理）。
@@ -568,9 +579,10 @@ node .tmp-probe/measure-load-budget.mjs       # 真实流量（生产构建，�
 - ⚠️ 起多个实例时**串行启动**：几个 Vite 共用 `node_modules/.vite`，同时冷启会让各自的
   `optimizeDeps` 结果互相作废 → 页面白屏 + 控制台 `504 (Outdated Optimize Dep)`。
 - `verify-theme-dirs.mjs` / `verify-glob-device.mjs` 用**毒丸验证**过有效性
-  （`node .tmp-probe/poison-verify-theme-dirs.mjs`）：临时建一个 `<页面>/<版式>/` 目录、
+  （`node e2e/poison-verify-theme-dirs.mjs`）：临时建一个 `<页面>/<版式>/` 目录、
   把 6 段配色 glob 塞回去、给 `colorFromKey` 加第二个模式、把某份版式的
-  `data-mauth-view` 改回 `'base'`、或把默认配色常量改回 `black` —— **五枚毒丸**
+  `data-mauth-view` 改回 `'base'`、把默认配色常量改回 `black`、删预取守卫的声明档、
+  往内核塞 DOM 依赖、往壳里塞实现 —— **八枚毒丸**
   都必须让关卡变红，且还原后字节级一致。
 - `verify-forgot-view.mjs` 的 **I 段**用毒丸验证过：
   删掉分发器里的 `fromLogin === 'mini'` 分支后，I1 必须从"保持桌面版"变成"切成移动端"。

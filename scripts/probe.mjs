@@ -16,7 +16,9 @@
  * 端口 / 环境约定（与 e2e/verify-all.mjs 头部、VERIFY.md §二一致）：
  *   5174 = dev 默认实例
  *   5175 = link 模式实例（VITE_PASSWORD_RESET_MODE=link）
- *   5177 = compact 版式实例（VITE_REGISTER_VIEW=compact）
+ *   5177 = 首屏流量实例（给 verify-first-paint-budget 独占；compact 版式由关卡自己用
+ *          `?th=compact` URL 驱动，不靠环境变量——env 档 2026-10-20 已从 pick 链移除，
+ *          VITE_*_VIEW 全仓零消费，别再设）
  *   5197 = color-peer 专用
  * 生产预览 5189 不走这里（要先构建 dist-nopwa，且陈旧判定要人盯着，见 VERIFY.md §八）。
  *
@@ -50,7 +52,7 @@ const READY_BUDGET_MS = 120_000;
 const INSTANCES = [
   { port: 5174, label: 'dev 默认实例', env: {} },
   { port: 5175, label: 'link 模式实例', env: { VITE_PASSWORD_RESET_MODE: 'link' } },
-  { port: 5177, label: 'compact 版式实例', env: { VITE_REGISTER_VIEW: 'compact' } },
+  { port: 5177, label: '首屏流量实例', env: {} },
   { port: 5197, label: 'color-peer 专用', env: {} }
 ];
 

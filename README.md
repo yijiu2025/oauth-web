@@ -46,7 +46,7 @@
 
 ## 一、跑起来
 
-前置依赖：Node.js 18+（建议 20+）、npm 9+。后端服务（CoreFlow）另行启动，见
+前置依赖：Node.js 20+、npm 10+（`engines` 硬口径，见 `package.json`）。后端服务（CoreFlow）另行启动，见
 [四、与后端联调](#四与后端联调)。
 
 ```bash
@@ -80,7 +80,7 @@ npm run dev            # http://localhost:5174
 | `npm test` | Vitest 跑单元测试（`__tests__/` 与 `e2e/`） |
 | `npm run lint` / `lint:fix` | ESLint 检查 / 自动修复 |
 | `npm run type-check` | 仅类型检查（`vue-tsc -b`） |
-| `node e2e/verify-all.mjs --only static` | 静态关卡：主题目录形态 / 别名单一来源 / 内核零框架耦合 / console 剥离 / any 债务 / PWA / 包体积预算 |
+| `node e2e/verify-all.mjs --only static` | 静态关卡（12 项）：主题目录形态 / env 四文件一致性 / 别名单一来源 / 内核零框架耦合 / console 剥离 / any 债务 / PWA / 包体积预算 |
 
 **CI**：推送到 `main` 或开 PR 时，GitHub Actions 自动跑「类型检查 → ESLint →
 Vitest → 生产构建 → 静态关卡」（`.github/workflows/ci.yml`）。需要 dev server 的
@@ -103,9 +103,7 @@ dev / prod 关卡组刻意不进 CI（起服务易 flake），本地 `node e2e/v
 | 变量 | 说明 | 默认 |
 | --- | --- | --- |
 | `VITE_API_BASE_URL` | 后端 API 基地址；开发由 vite proxy 转发 `/api`，生产留空 = 同源部署 | 代码内兜底 `http://localhost:3000` |
-| `VITE_LOGIN_VIEW` | 登录页部署级默认版式（主题包目录名，如 `compact`）；URL `?view=` 可单次覆盖 | 空 = 基础版式 |
-| `VITE_REGISTER_VIEW` | 注册页默认版式（规则同上） | 空 |
-| `VITE_FORGOT_PASSWORD_VIEW` | 忘记密码页默认版式（规则同上） | 空 |
+| `VITE_THEME_DIR` | 主题根目录：`skinsuite/vite` 的 `themeAssets()` 插件扫它生成 `virtual:theme`（其下 `themes/` 固定为主题包目录） | `src/theme` |
 | `VITE_RECAPTCHA_ENABLED` | 启用人机验证 hCaptcha（与后端 `RECAPTCHA_ENABLED` 对应） | `false` |
 | `VITE_RECAPTCHA_SITE_KEY` | hCaptcha site key（公开值；secret 只放后端） | — |
 | `VITE_TURNSTILE_ENABLED` | 启用 Cloudflare Turnstile（与 hCaptcha 同时开启时优先） | `false` |
@@ -195,10 +193,11 @@ oauth-web/
 
 ## 五、主题 / 版式与多语言
 
-- **主题三段正交**：token 基线 → 皮肤包 → 版式，三者独立组合；目录名即 id，注册表自动发现；
-- **设备平级**：`mobile | standard | mini | tablet`，mini 是独立设备维度（不是 mobile 的缩写）；
-- **URL 参数**：`?theme=` / `?skin=` 设备无关；`?view=<page>` 覆盖版式声明，非法值不回退；
-- **深色模式**：`index.html` 内联预置主题，首屏无白闪；
+- **身份四维**：设备（`mobile | standard | mini | tablet` 平级，mini 是独立设备维度，不是 mobile 的缩写）× 页面 × 主题包（**≡ 一种版式**，目录名即 id）× 配色（只换颜色 / 圆角 / 背景，同 DOM）；注册表自动发现；
+- **URL 六键**：版式 `th` / `th_<urlKey>`，配色 `th_color` / `th_color_<urlKey>`，设备锁定 `device`，调试 `debug`；非法值落**当前包**、不回退（完整契约：[docs/login-theme-routing.md](docs/login-theme-routing.md)）；
+- **深色模式**：`index.html` 内联预置主题，首屏无白闪；明暗归主题状态机（localStorage 持久化），URL 不能指定（`?theme=dark|light` 已废弃）；
+- **演示 URL 速查表**（「能看到什么」，新人第一站）：[docs/README.md · 新人入口](docs/README.md)；
+- **术语表**（view ≡ pkg / urlKey / 四段键 / 容器 vs 分发器……一词一条）：[docs/glossary.md](docs/glossary.md)；
 - **国际化**：`src/i18n/index.ts`，默认 `zh_cn`，`en` 兜底；新增语言加一个 messages 对象即可。
 - **完整机制文档**：[docs/theme-replacement.md](docs/theme-replacement.md)（目录契约 / 替换入口 /
   优先级 / 安全边界 / 验收清单，总文档同步维护，别的项目可直接套用）。

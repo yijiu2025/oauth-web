@@ -49,7 +49,7 @@ via iframe (`/mini-login` compact login).
 
 ## 1. Getting Started
 
-Prerequisites: Node.js 18+ (20+ recommended), npm 9+. Start the backend service (CoreFlow)
+Prerequisites: Node.js 20+, npm 10+ (hard `engines` floor, see `package.json`). Start the backend service (CoreFlow)
 separately — see [4. Backend Integration](#4-backend-integration).
 
 ```bash
@@ -87,7 +87,7 @@ both modes.
 | `npm test` | Vitest unit tests (`__tests__/` and `e2e/`) |
 | `npm run lint` / `lint:fix` | ESLint check / auto-fix |
 | `npm run type-check` | Type-check only (`vue-tsc -b`) |
-| `node e2e/verify-all.mjs --only static` | Static gates: theme dir shape / alias single source / kernel zero-coupling / console strip / any debt / PWA / bundle budget |
+| `node e2e/verify-all.mjs --only static` | Static gates (12): theme dir shape / env four-file consistency / alias single source / kernel zero-coupling / console strip / any debt / PWA / bundle budget |
 
 **CI**: on push to `main` or PR, GitHub Actions runs type-check → ESLint → Vitest →
 production build → static gates (`.github/workflows/ci.yml`). The dev / prod gate groups
@@ -110,9 +110,7 @@ The comments inside each file are the full explanation (including failure sympto
 | Variable | Description | Default |
 | --- | --- | --- |
 | `VITE_API_BASE_URL` | Backend API base URL; in dev, `/api` is proxied by vite; empty in production = same-origin deploy | `http://localhost:3000` (code fallback) |
-| `VITE_LOGIN_VIEW` | Deploy-level default layout for the login page (theme package dir name, e.g. `compact`); a single visit can override via `?view=` | empty = base layout |
-| `VITE_REGISTER_VIEW` | Default layout for the register page (same rules) | empty |
-| `VITE_FORGOT_PASSWORD_VIEW` | Default layout for the forgot-password page (same rules) | empty |
+| `VITE_THEME_DIR` | Theme root directory: scanned by the `skinsuite/vite` `themeAssets()` plugin to generate `virtual:theme` (its `themes/` subdirectory is always the package dir) | `src/theme` |
 | `VITE_RECAPTCHA_ENABLED` | Enable hCaptcha (must match backend `RECAPTCHA_ENABLED`) | `false` |
 | `VITE_RECAPTCHA_SITE_KEY` | hCaptcha site key (public by design; the secret lives only on the backend) | — |
 | `VITE_TURNSTILE_ENABLED` | Enable Cloudflare Turnstile (takes precedence over hCaptcha when both are on) | `false` |
@@ -203,13 +201,16 @@ Host apps (same pattern as retroweb / posecraft / firewall) embed `/mini-login` 
 
 ## 5. Themes, Layouts & i18n
 
-- **Three orthogonal theme axes**: token baseline → skin package → layout; directory name is the
-  id, the registry discovers packages automatically;
-- **Peer-level devices**: `mobile | standard | mini | tablet` — mini is an independent device
-  dimension (not a shorthand for mobile);
-- **URL params**: `?theme=` / `?skin=` are device-independent; `?view=<page>` overrides the
-  declared layout, invalid values do not fall back;
-- **Dark mode**: theme is pre-applied inline in `index.html` — no first-paint flash;
+- **Four identity axes**: device (`mobile | standard | mini | tablet`, peer-level — mini is an
+  independent device, not a shorthand for mobile) × page × theme package (**≡ one layout**,
+  directory name is the id, discovered automatically) × palette (colors / radii / backgrounds
+  only, same DOM);
+- **Six URL keys**: layout `th` / `th_<urlKey>`, palette `th_color` / `th_color_<urlKey>`, device
+  lock `device`, debug `debug`; an invalid value falls back to the **current package** (never the
+  theme tier) — full contract: [docs/login-theme-routing.md](docs/login-theme-routing.md);
+- **Dark mode**: theme is pre-applied inline in `index.html` — no first-paint flash; light/dark
+  belongs to the theme state machine (localStorage-persisted), not the URL (`?theme=dark|light`
+  is deprecated);
 - **i18n**: `src/i18n/index.ts`, default `zh_cn`, `en` fallback; add a messages object for a new
   language.
 - **Full mechanism doc**: [docs/theme-replacement.md](docs/theme-replacement.md) (directory

@@ -24,7 +24,7 @@
  *
  * 端口约定（与 docs/multi-theme.md §十、MEMORY §9 一致）：
  *   5174 = dev（默认实例）  5175 = link 模式实例（VITE_PASSWORD_RESET_MODE=link）
- *   5177 = compact 版式实例  5197 = color-peer 专用
+ *   5177 = 首屏流量实例（verify-first-paint-budget 独占；compact 由 URL 驱动）  5197 = color-peer 专用
  *   5189 = dist 预览（生产构建，量流量/验 SW 用）
  *
  * 关卡清单（权威口径）与每个关卡的用途/环境见同目录 VERIFY.md。
@@ -105,7 +105,8 @@ const GROUPS = [
       // 只声明 5174 时缺 5175 会让关卡在 open() 硬崩（uncaught，exit 1 + 栈），
       // 违反本脚本「环境没就绪 → 跳过」的口径 —— 多端口一起声明。
       { name: 'verify-forgot-view', cmd: ['verify-forgot-view.mjs'], needs: { ports: [DEV, LINK] } },
-      { name: 'verify-view-priority', cmd: ['verify-view-priority.mjs', DEV, '--env-base', COMPACT], needs: { port: DEV } },
+      // 注：本关卡只用位置参数 baseUrl（URL 驱动验四档链），不再接收 --env-base（env 档 2026-10-18 已移除）
+      { name: 'verify-view-priority', cmd: ['verify-view-priority.mjs', DEV], needs: { port: DEV } },
       { name: 'verify-mobile-forgot', cmd: ['verify-mobile-forgot.mjs'], needs: { port: DEV } },
     ],
   },

@@ -1,7 +1,7 @@
 /**
  * 毒丸验证：证明 verify-theme-dirs.mjs 的断言真的会失败（恒绿的闸门等于没有闸门）
  *
- * 毒丸七枚：
+ * 毒丸八枚：
  *   ① 在页面下建一个「版式层目录」`themes/default/mobile/login/compact/`
  *      → 必须触发「页面目录下不存在多余子目录」失败
  *   ② 在 theme/index.ts 里塞回 6 段配色 glob
