@@ -11,6 +11,7 @@
 | --- | --- |
 | [frontend-generation-guide.md](./frontend-generation-guide.md) | 前端生成手册：从零生成同技术栈前端的完整步骤（目录约定 / 验证关卡 / 已知约束） |
 | [multi-theme.md](./multi-theme.md) | 多主题 / 多版式开发模式：本项目主题机制的全文与演进记录（强制规则，新增页面按第七节清单接入） |
+| [login-theme-routing.md](./login-theme-routing.md) | 登录链路主题路由契约：URL 参数键表（`th` / `th_<urlKey>` / `th_color` / `th_color_<urlKey>` / `device` / `debug`）、版式意图 store 化设计、`?theme=dark\|light` 废弃契约（**改登录链路 / 拼 SSO 链接前必读**） |
 | [theme-hot-update.md](./theme-hot-update.md) | 主题热更新部署设计：三层模型（token / 配色 / 主题包热更）、产物契约、加载器、部署拓扑与分期路线（**设计文档，尚未实现**） |
 | [frontend/performance-tuning.md](./frontend/performance-tuning.md) | 性能调优方案与指标：现状实测 → 已落地优化 → 指标守门 → 部署层，数字均可复现 |
 | [test-audit-2026-10-15.md](./test-audit-2026-10-15.md) | 2026-10-15 测试审计报告（历史快照，不再维护） |

@@ -11,6 +11,12 @@
 > 📖 只想把机制用到新项目、不看演进记录：读精简规范
 > [theme-replacement.md](./theme-replacement.md)（目录契约 / 优先级 / 安全边界 / 验收清单）。
 > 本文保留全部「为什么」与历史定案。
+>
+> ⚠️ **URL 参数命名以 [login-theme-routing.md](./login-theme-routing.md) 为准（2026-10-19）**：
+> 本文正文（含第六、七节）仍写 2026-10-18 改名前的**点号旧名**（`?theme.<设备>` / `?view.<设备>` /
+> `?theme=` / `?view=`）。现行键形已统一下划线：版式 `th` / `th_<urlKey>`、配色 `th_color` /
+> `th_color_<urlKey>`、设备锁定 `?device=`、调试面板 `?debug=theme`；`?theme=dark|light` 明暗入口已废弃失效。
+> 参数章节的全文修订排期中，**改代码 / 拼链接前先读 login-theme-routing.md**。
 
 ## 〇、一条原则
 
