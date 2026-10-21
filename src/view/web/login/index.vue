@@ -3,12 +3,15 @@
  * 登录页分发器（/login 与 /m/login 共用）
  *
  * 按「当前设备形态」挑渲染哪个容器：mobile → view/app/login、mini → MiniLogin、
- * standard → StandardLogin。设备形态**单一来源** = 设备域 `currentDevice()`（由
- * `app.use(theme, { router })` 装配，监听路由 + 视口判定）——分发器不再自己
- * `pickDeviceId`，也不碰主题（`setActiveDevice`/`setActivePageView` 是 theme-scope
- * 订阅设备域 + `<ThemeView>` 的职责）。
+ * standard/tablet → StandardLogin。设备判定是**宿主自己的模块**（2026-10-20）：
+ * `utils/device-resolve.ts`（视口 + URL 词汇，零主题依赖）经
+ * `composables/useRenderDevice` 接成响应式，本分发器据此选容器。
  *
- * 主题 / 语言等 query 参数（`?lang=` / `?theme=` / `?appName=` / `?qrCodeFirst=` …）
+ * 🔴 分发器**不碰主题**：不 import store、不 `setActiveDevice`。设备身份由被选中
+ *    容器内的 `<ThemeView page="login" device="mini">` props 告知主题 store ——
+ *    「选哪个容器」与「主题按哪台设备渲染」因此不会分家（同一个 props，同帧生效）。
+ *
+ * 主题 / 语言等 query 参数（`?lang=` / `?th_color=` / `?appName=` / `?qrCodeFirst=` …）
  * 由子容器（MiniLogin / StandardLogin）自己用 `useRoute().query` 读，本分发器不中转。
  */
 import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue';
@@ -16,7 +19,8 @@ import { useRoute } from 'vue-router';
 import { useAntiCache } from '@/composables/useAntiCache';
 import AntiCacheDebugPanel from '@/components/common/AntiCacheDebugPanel.vue';
 import { postToParent } from '@/utils/parent';
-import { currentDevice, deviceIds, resolveContainerOf } from 'skinsuite/vue';
+import { deviceIds, fallbackDevice, resolveContainerOf } from 'skinsuite/vue';
+import { useRenderDevice } from '@/composables/useRenderDevice';
 
 const route = useRoute();
 
@@ -43,16 +47,20 @@ watch(
   { immediate: true, deep: true }
 );
 
+// 设备判定（宿主口径：视口 + URL 词汇；null = 无显式倾向）
+const device = useRenderDevice();
+
 // 异步按需加载不同形态的登录组件
-// 🔴 数据化：设备 id → 该页容器 的映射从设备清单派生，不再写死三选一。
+// 🔴 数据化：设备 id → 该页容器 的映射从设备清单派生，不写死三选一
 const deviceComponents = new Map(
   deviceIds().map(id => [id, defineAsyncComponent(resolveContainerOf(id, 'login'))])
 );
 
-// 🔴 设备形态单一来源 = 设备域 currentDevice()：渲染哪个组件与主题设备作用域同源。
-const activeComponent = computed(() =>
-  deviceComponents.get(currentDevice().value) ?? deviceComponents.get('standard')!
-);
+// 判定 → 选容器：null（无显式倾向）或未知 id（`?device=` 写错）都落设备清单末条
+const activeComponent = computed(() => {
+  const fallback = fallbackDevice();
+  return deviceComponents.get(device.value ?? fallback) ?? deviceComponents.get(fallback)!;
+});
 
 // 组件挂载后执行
 onMounted(() => {

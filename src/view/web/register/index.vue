@@ -2,27 +2,36 @@
 /**
  * 注册页分发器（/register 与 /m/register 共用）
  *
- * 按「当前设备形态」挑渲染哪个容器（mobile / mini / standard）。设备形态**单一来源** =
- * 设备域 `currentDevice()`，分发器不再自己 `pickDeviceId`、也不碰主题。
+ * 按「当前设备形态」挑渲染哪个容器（mobile / mini / standard / tablet）。设备判定是
+ * **宿主自己的模块**（2026-10-20）：`utils/device-resolve.ts`（视口 + URL 词汇，零主题
+ * 依赖）经 `composables/useRenderDevice` 接成响应式，本分发器据此选容器。
+ *
+ * 🔴 分发器**不碰主题**：设备身份由被选中容器内的 `<ThemeView page="register"
+ *     device="…">` props 告知主题 store。
  *
  * 另外把父应用跳注册页携带的 OAuth 上下文（appName / client_id / redirect_uri / scope /
  * state / invite / lang）通过 `provide('registerContext')` 透传给子容器。
  */
 import { computed, defineAsyncComponent, onMounted, provide, reactive } from 'vue';
 import { useRoute } from 'vue-router';
-import { currentDevice, deviceIds, resolveContainerOf } from 'skinsuite/vue';
+import { deviceIds, fallbackDevice, resolveContainerOf } from 'skinsuite/vue';
+import { useRenderDevice } from '@/composables/useRenderDevice';
 
 const route = useRoute();
 
-// 异步按需加载不同形态的注册组件（设备 id → 容器，从设备清单派生）
+// 设备判定（宿主口径：视口 + URL 词汇；null = 无显式倾向）
+const device = useRenderDevice();
+
+// 异步按需加载不同形态的注册容器：设备 id → 容器，映射从设备清单派生
 const deviceComponents = new Map(
   deviceIds().map(id => [id, defineAsyncComponent(resolveContainerOf(id, 'register'))])
 );
 
-// 🔴 设备形态单一来源 = 设备域 currentDevice()
-const activeComponent = computed(() =>
-  deviceComponents.get(currentDevice().value) ?? deviceComponents.get('standard')!
-);
+// 判定 → 选容器：null / 未知 id 都落设备清单末条（主题由容器内 ThemeView 告知）
+const activeComponent = computed(() => {
+  const fallback = fallbackDevice();
+  return deviceComponents.get(device.value ?? fallback) ?? deviceComponents.get(fallback)!;
+});
 
 // 透传 OAuth 注册上下文给子组件（子组件用 inject('registerContext') 获取）
 const q = route.query;
@@ -46,9 +55,13 @@ const registerContext = reactive({
 provide('registerContext', registerContext);
 
 /**
- * 挂载后立即预热各形态组件 —— activeForm 在运行时才能确定（视口/UA/iframe 来源），
- * dispatcher 自身 prefetch 之后，它内部 defineAsyncComponent 还要再走一次 chunk 下载。
- * 全部预热避免「切换闪屏」。
+ * 挂载后立即预热所有设备的注册容器：
+ *   ① 避免「切换闪屏」—— 设备形态在运行时才能确定（视口 / `?device=` 锁定），
+ *      dispatcher 自身 prefetch 之后，defineAsyncComponent 还要再走一次 chunk 下载；
+ *   ② 宽 → 窄 / 窄 → 宽切换**零新请求**（`verify-responsive-switch` C4 守这条）——
+ *      拉宽时桌面容器必须已经在缓存里，不能等那一刻才去下载。
+ * 🔴 这条预热在 0.5.0 设备判定归宿主的改写中曾被误删（只留下 login 的），
+ *     C4 当场红 —— 四个分发器必须同构，别只改一个。
  */
 onMounted(() => {
   for (const id of deviceIds()) {

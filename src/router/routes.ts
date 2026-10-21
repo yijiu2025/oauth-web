@@ -91,8 +91,9 @@ export const errorRoutes: RouteRecordRaw[] = [
   {
     path: ':pathMatch(.*)*',
     name: 'NotFound',
-    // 404 也走「设备分发器 + 多主题」：分发器按设备域 currentDevice() 选
-    // standard / mini / mobile / tablet 容器，容器再 <ThemeView> 落到各设备版式。
+    // 404 也走「设备分发器 + 多主题」：分发器用宿主设备模块判设备，
+    // 选 standard / mini / mobile / tablet 容器，容器再 <ThemeView>（device prop
+    // 告知主题）落到各设备版式。
     component: () => import('@/view/web/not-found/index.vue'),
     meta: { title: '页面未找到' },
     beforeEnter: to => {

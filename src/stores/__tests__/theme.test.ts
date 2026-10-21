@@ -21,6 +21,7 @@
  */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
+import { reactive } from 'vue';
 
 /** 默认包 / 设备 / 页面（与 skinsuite 的 constants 同口径） */
 const DEFAULT_PKG = 'default';
@@ -36,6 +37,34 @@ async function freshStore(search = '') {
   vi.resetModules();
   window.history.replaceState({}, '', search || '/');
   const { useThemeStore } = await import('@/stores/theme');
+  return useThemeStore();
+}
+
+/**
+ * 装一个**假 router** 再建 store（版式意图 store 化后的读取入口是设备域
+ * `currentQuery()`，不再是 `location.search`）
+ *
+ * 🔴 顺序：`vi.resetModules()` → import store 定义（拿到**新**的 skinsuite/vue
+ *    模块实例）→ `installThemeDomain` → `useThemeStore()`。装早了作用在旧实例上，
+ *    store 创建时 `currentQuery()` 仍返回 `{}`。
+ * 🔴 `query` 是 reactive 的：用例通过 `lastFakeRoute.query = {...}` 改它来模拟
+ *    "跨页带不同 th"（会触发编排层的 watch currentQuery）。
+ */
+let lastFakeRoute: { query: Record<string, string> } | null = null;
+
+async function freshStoreWithRouter(
+  search = '',
+  query: Record<string, string> = {}
+): Promise<Awaited<ReturnType<typeof freshStore>>> {
+  vi.resetModules();
+  window.history.replaceState({}, '', search || '/');
+  const { useThemeStore } = await import('@/stores/theme');
+  const { installThemeDomain } = await import('skinsuite/vue');
+  const route = reactive({ query: { ...query }, path: '/login', fullPath: '/login' });
+  lastFakeRoute = route;
+  installThemeDomain({
+    router: { currentRoute: reactive({ value: route }) } as never
+  });
   return useThemeStore();
 }
 
@@ -247,6 +276,84 @@ describe('theme store 行为守卫', () => {
     });
   });
 
+  describe('版式意图 store 化（2026-10-20：URL 一次读入，debug 只写 store）', () => {
+    it('?th_std=compact 只进 standard 那条；其它设备无显式意图', async () => {
+      const store = await freshStoreWithRouter('?th_std=compact', { th_std: 'compact' });
+      expect(store.deviceViewOf('standard')).toBe('compact');
+      expect(store.deviceViewOf('mobile')).toBeNull();
+    });
+
+    it('?th=base 通用键：所有设备都拿到它（viewIntent 承载，不下发副本）', async () => {
+      const store = await freshStoreWithRouter('?th=base', { th: 'base' });
+      expect(store.deviceViewOf('standard')).toBe('base');
+      expect(store.deviceViewOf('mobile')).toBe('base');
+      expect(store.viewIntent).toBe('base');
+    });
+
+    it('设备专属优先于通用：?th_std=compact&th=base', async () => {
+      const store = await freshStoreWithRouter('?th_std=compact&th=base', {
+        th_std: 'compact',
+        th: 'base'
+      });
+      expect(store.deviceViewOf('standard')).toBe('compact');
+      expect(store.deviceViewOf('mobile')).toBe('base');
+    });
+
+    it('空串 = 未指定：?th_std= 不吞掉通用键 ?th=base', async () => {
+      const store = await freshStoreWithRouter('?th_std=&th=base', { th_std: '', th: 'base' });
+      expect(store.deviceViewOf('standard')).toBe('base');
+    });
+
+    it('锁定边界（Spec ⑧）：mobile 锁定时只用自己那条意图，th_std 不影响它', async () => {
+      // 注意：这里是"设备身份 = mobile"，而 th_std 是 standard 的专属键 ——
+      // mobile 无显式意图 → 落声明档/当前包（与 ThemeView 的 pick 链一致）。
+      const store = await freshStoreWithRouter('?th_std=compact', { th_std: 'compact' });
+      store.setActiveDevice(MOBILE);
+      expect(store.deviceViewOf(MOBILE)).toBeNull();
+      expect(store.deviceViewOf('standard')).toBe('compact');
+    });
+
+    it('setDeviceView 只写 store、不改 URL（debug 换版式零路由变化）', async () => {
+      const store = await freshStoreWithRouter();
+      const before = window.location.search;
+      store.setDeviceView('standard', 'compact');
+      expect(window.location.search).toBe(before);
+      expect(store.deviceViewOf('standard')).toBe('compact');
+    });
+
+    it('clearDeviceViewOverride 清掉显式意图，回到无意图态', async () => {
+      const store = await freshStoreWithRouter('?th_std=compact', { th_std: 'compact' });
+      expect(store.deviceViewOf('standard')).toBe('compact');
+      store.clearDeviceViewOverride('standard');
+      expect(store.deviceViewOf('standard')).toBeNull();
+    });
+
+    it('URL 上 th* 原始值变化 → 同步进 store（watch currentQuery，跨页带不同 th）', async () => {
+      const store = await freshStoreWithRouter('?th=base', { th: 'base' });
+      expect(store.deviceViewOf('standard')).toBe('base');
+      // 模拟 /login → /register：fake router 的 query 变了（th 消失、th_std 出现）
+      lastFakeRoute!.query = { th_std: 'compact' };
+      await flush();
+      expect(store.deviceViewOf('standard')).toBe('compact');
+      expect(store.deviceViewOf('mobile')).toBeNull(); // 通用键没了，不再三端共用
+    });
+
+    it('非 th* 键变化不触发同步：debug 写进 store 的值不会被冲掉', async () => {
+      const store = await freshStoreWithRouter('', {});
+      store.setDeviceView('standard', 'compact');
+      // 链接里加了别的参数（如 appName）—— th* 快照没变，不应重新读入
+      lastFakeRoute!.query = { appName: 'x' };
+      await flush();
+      expect(store.deviceViewOf('standard')).toBe('compact');
+    });
+
+    it('?theme=dark 被忽略（明暗 URL 入口已废弃失效，docs/login-theme-routing.md §5）', async () => {
+      const store = await freshStore('?theme=dark');
+      expect(store.mode).toBe('system');
+      expect(store.isDark).toBe(false);
+    });
+  });
+
   describe('导出面完整（拆分不得缩水公开 API）', () => {
     it('对外方法/状态一个不少', async () => {
       const store = await freshStore();
@@ -256,7 +363,9 @@ describe('theme store 行为守卫', () => {
         'themeTokens', 'externalTokens', 'lightColor', 'darkColor',
         'themeRecordFor', 'setActiveDevice', 'setActivePageView', 'setMode',
         'cycleMode', 'toggleTheme', 'setTheme', 'viewFor', 'applyThemeConfig',
-        'applyTheme', 'dispose'
+        'applyTheme', 'dispose',
+        // 版式意图 store 化（2026-10-20）
+        'viewIntent', 'deviceViewOf', 'setDeviceView', 'clearDeviceViewOverride'
       ];
       for (const key of api) {
         expect(store, `store 缺少导出：${key}`).toHaveProperty(key);

@@ -40,8 +40,7 @@ const appConfig = computed(() => ({
   lang: (route.query.lang as string) || 'zh_cn',
   qrCodeFirst: route.query.qrCodeFirst === 'true',
   isMobile: route.query.isMobile === 'true',
-  notKeepLogin: route.query.notKeepLogin === 'true',
-  theme: (route.query.theme as string) || ''
+  notKeepLogin: route.query.notKeepLogin === 'true'
 }));
 
 const showQR = ref(false);
@@ -136,9 +135,8 @@ const { qrDataUrl, qrStatus, generate: generateQR, reset: resetQR } = useQrLogin
 );
 
 onMounted(() => {
-  if (appConfig.value.theme === 'dark' || appConfig.value.theme === 'light') {
-    themeStore.applyTheme(appConfig.value.theme === 'dark');
-  }
+  // 明暗入口 `?theme=dark|light` 已废弃失效（2026-10-20，见 docs/login-theme-routing.md §5）：
+  // 明暗归主题状态机（localStorage 持久化的 mode / 调试面板 / 页面内切换），URL 不再覆写。
   showQR.value = appConfig.value.qrCodeFirst;
   if (appConfig.value.notKeepLogin) keepLogin.value = false;
   if (showQR.value) generateQR(() => showError(t('login.qr_generate_failed') || '二维码生成失败'));

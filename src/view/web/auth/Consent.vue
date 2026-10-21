@@ -21,7 +21,6 @@ import { postToParent } from '@/utils/parent';
 import { sanitizeLocalRedirect } from '@/utils/redirect';
 import { useDeviceDetect } from '@/composables/useDeviceDetect';
 import { useMessage } from '@/composables/useMessage';
-import { useThemeStore } from '@/stores/theme';
 import { pickRedirectUrl } from '@/types/external';
 import ConsentPanel from '@/components/auth/ConsentPanel.vue';
 import MessageToast from '@/components/common/MessageToast.vue';
@@ -30,7 +29,6 @@ const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
 const { error: showError } = useMessage();
-const themeStore = useThemeStore();
 
 // 响应式设备形态：窄屏压缩间距
 const { isMobileDevice } = useDeviceDetect();
@@ -167,13 +165,10 @@ const deny = async () => {
 };
 
 onMounted(() => {
-  // 语言 / 主题跟随父应用透传
+  // 语言跟随父应用透传。明暗入口 `?theme=dark|light` 已废弃失效（2026-10-20，
+  // 见 docs/login-theme-routing.md §5）：明暗归主题状态机，URL 不再覆写。
   const lang = route.query.lang as string;
   if (lang) locale.value = lang;
-  const theme = route.query.theme as string;
-  if (theme === 'dark' || theme === 'light') {
-    themeStore.applyTheme(theme === 'dark');
-  }
   if (shouldSendSSOMessage.value) {
     postToParent({ type: 'SSO_READY' });
   }
