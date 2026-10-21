@@ -51,6 +51,7 @@ import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { requireDist } from './lib/env-guard.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OA = resolve(HERE, '..');
@@ -104,10 +105,8 @@ function treeBytes(dir) {
 }
 
 /* ============================ 主流程 ============================ */
-if (!existsSync(DIST)) {
-  console.error(`产物目录不存在：${DIST}\n先跑 npm run build（或 --dir 指定其它产物目录）。`);
-  process.exit(3); // 3 = 环境未就绪（与 verify-all.mjs 的跳过语义区分：这里是显式报错）
-}
+// 环境自检（2026-10-21）：产物不存在 / 旧于最新源码 → 红（陈旧产物 = 拿旧代码换绿灯）
+requireDist(DIST, join(OA, 'src'));
 
 const html = readFileSync(join(DIST, 'index.html'), 'utf8');
 const htmlBytes = Buffer.byteLength(html, 'utf8');

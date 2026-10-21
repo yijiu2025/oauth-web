@@ -6,8 +6,10 @@
  * 退出码 0 = 全过。
  */
 import { chromium } from 'playwright-core';
+import { requirePort } from './lib/env-guard.mjs';
 
 const BASE = process.argv[2] || 'http://127.0.0.1:5174';
+await requirePort(BASE); // 环境自检：端口没起 / 5xx 时在此红（退出码 2），不进 Playwright 超时地狱
 const browser = await chromium.launch({
   executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
   headless: true,

@@ -14,8 +14,10 @@
  * 用法: node verify-responsive-switch.mjs [baseUrl]
  */
 import { chromium } from 'playwright-core';
+import { requirePort } from './lib/env-guard.mjs';
 
 const BASE = process.argv[2] || 'http://127.0.0.1:5189';
+await requirePort(BASE); // 环境自检：端口没起 / 5xx 时在此红（退出码 2），不进 Playwright 超时地狱
 const QS = '?appName=posecraft&client_id=demo-client-001';
 const NARROW = { width: 390, height: 844 };
 const WIDE = { width: 1280, height: 900 };
@@ -138,16 +140,19 @@ async function responsive(browser, title, path, opts = {}) {
 
 // ── A. `?theme.mobile=blue`：手机端有 blue，电脑端没有 → 拉宽应同系别下沉到 white
 {
-  const r = await responsive(browser, 'A. /login?theme.mobile=blue', `/login${QS}&theme.mobile=blue`);
+  const r = await responsive(browser, 'A. /login?th_color_mobile=blue', `/login${QS}&th_color_mobile=blue`);
   check('A1 窄屏渲染手机端版式', r.before.mobileLayout, `mauth-page=${r.before.mobileLayout}`);
   check('A2 窄屏生效 blue（主色 #2f7fd6）', r.before.primary === BLUE, `--mauth-primary=${r.before.primary}`);
   check('A3 窄屏 data-mauth-theme=blue', r.before.themeAttr === 'blue', `attr=${r.before.themeAttr}`);
   check('A4 窄屏挂了 blue 的附加样式（背景图）', r.before.styleLen > 0, `style 长度=${r.before.styleLen}`);
   check('A5 拉宽后渲染桌面版式', r.wide.standardLayout, `standard=${r.wide.standardLayout}`);
   check('A6 拉宽后同系别下沉到 white（主色 #1e293b）', r.wide.primary === WHITE, `--mauth-primary=${r.wide.primary}`);
+  // `view ≡ pkg` 改革后：white 在 default/standard/login **命中登记** → attr 写上 white
+  // （与 B3 无参数对照同口径；"没命中登记配色就不许写"的规则由 runtime 的 else 分支守，
+  //  本场景已从"没命中"变成"命中"，期望值随语义更新）
   check(
-    'A7 拉宽后摘掉 data-mauth-theme（没命中登记配色就不许写）',
-    r.wide.themeAttr === null,
+    'A7 拉宽后 data-mauth-theme=white（standard 命中 white 登记 → 写 attr）',
+    r.wide.themeAttr === 'white',
     `attr=${r.wide.themeAttr}`
   );
   check('A8 拉宽后摘掉手机端的 theme.scss（白系标准端没有附加样式）', r.wide.styleLen === 0, `style 长度=${r.wide.styleLen}`);
@@ -171,8 +176,8 @@ async function responsive(browser, title, path, opts = {}) {
 {
   const r = await responsive(
     browser,
-    'C. /m/register?view=compact',
-    `/m/register${QS}&view=compact`
+    'C. /m/register?th=compact',
+    `/m/register${QS}&th=compact`
   );
   check('C1 窄屏用 compact 版式', r.before.compactLayout, `.mreg=${r.before.compactLayout}`);
   check('C2 拉宽后换成桌面版式（compact 无 standard 端）', r.wide.standardLayout, `standard=${r.wide.standardLayout}`);

@@ -12,9 +12,11 @@
  *      因此这里验的是验证码重置链路；邮件链接模式另由 --mode link 的临时 server 验。
  */
 import { chromium } from 'playwright-core';
+import { requirePort } from './lib/env-guard.mjs';
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const BASE = process.env.VF_BASE || 'http://127.0.0.1:5174';
+await requirePort(BASE); // 环境自检：端口没起 / 5xx 时在此红（退出码 2），不进 Playwright 超时地狱
 const QS = '?appName=posecraft&client_id=demo-client-001';
 const PHONE = { width: 390, height: 844 };
 

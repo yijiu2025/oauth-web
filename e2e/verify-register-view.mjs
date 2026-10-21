@@ -3,8 +3,8 @@
  *
  * 覆盖：
  *   A 默认无参数 → 基础版式
- *   B ?view=base  → 基础版式
- *   C ?view=compact → 变体（动态 chunk）真的被加载并渲染
+ *   B ?th=base  → 基础版式
+ *   C ?th=compact → 变体（动态 chunk）真的被加载并渲染
  *   D 非法 / 未登记 id → 回退基础版式（不回退到别的变体）
  *   E 变体下业务仍然完整：校验 / 发码 / 图形码 / 提交请求体 / 成功后跳转
  *   F 分层体检：主题包内的版式没有业务依赖；容器里业务齐备
@@ -16,11 +16,15 @@ import { generateKeyPairSync } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { requirePort, requireScanDir } from './lib/env-guard.mjs';
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const BASE = 'http://127.0.0.1:5174';
 const QS = '?appName=posecraft&client_id=demo-client-001';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+// 环境自检（2026-10-21）：扫描目录空 = 期望集 0 = 断言恒红/假绿，先红自己
+requireScanDir(join(ROOT, 'src', 'theme', 'themes'), '主题包目录');
+await requirePort(BASE); // 端口没起 / 5xx 时在此红（退出码 2），不进 Playwright 超时地狱
 
 let pass = 0;
 const fails = [];
@@ -80,16 +84,16 @@ console.log('\n=== A/B/C/D 版式选择 ===');
   check('A 默认无参数 → 基础版式', (await viewOf(page)) === 'default', `view=${await viewOf(page)}`);
   check('A 基础版式无变体痕迹（无 .mreg-dots）', (await page.$('.mreg-dots')) === null);
 
-  await open(page, '/m/register' + QS + '&view=base');
-  check('B ?view=base → 基础版式', (await viewOf(page)) === 'default');
+  await open(page, '/m/register' + QS + '&th=base');
+  check('B ?th=base → 基础版式', (await viewOf(page)) === 'default');
 
-  await open(page, '/m/register' + QS + '&view=compact');
-  check('C ?view=compact → 变体被动态加载', (await viewOf(page)) === 'compact', `view=${await viewOf(page)}`);
+  await open(page, '/m/register' + QS + '&th=compact');
+  check('C ?th=compact → 变体被动态加载', (await viewOf(page)) === 'compact', `view=${await viewOf(page)}`);
   check('C 变体结构生效（步骤点 + 卡片）', (await page.$('.mreg-dots')) !== null && (await page.$('.mreg-card')) !== null);
   check('C 变体展示 appName（基础版式不展示）', (await page.textContent('.mreg-app'))?.includes('posecraft') === true);
 
   for (const bad of ['../evil', 'NOPE', 'nope-xyz', '%2e%2e%2fevil', 'base%20']) {
-    await open(page, `/m/register${QS}&view=${bad}`);
+    await open(page, `/m/register${QS}&th=${bad}`);
     const v = await viewOf(page);
     check(`D 非法 id "${bad}" → 回退基础版式`, v === 'default', `view=${v}`);
   }
@@ -100,7 +104,7 @@ console.log('\n=== E 变体下业务完整性（走通三步 + 断言请求体�
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   const page = await ctx.newPage();
-  await open(page, '/m/register' + QS + '&view=compact');
+  await open(page, '/m/register' + QS + '&th=compact');
 
   // 1) 未发码前：验证码框禁用 + 主按钮禁用（状态来自容器）
   check('E1 未发码 → 验证码框 disabled', await page.isDisabled('.mauth-input >> nth=2'));
@@ -214,11 +218,11 @@ console.log('\n=== G/H 变体复用同一套样式 + 交互细节 ===');
     const f = getComputedStyle(el.closest('.mauth-field'));
     return { h: el.getBoundingClientRect().height, font: s.fontSize, family: s.fontFamily, fieldH: f.height, radius: f.borderRadius, bg: f.backgroundColor };
   });
-  await open(page, '/m/register' + QS + '&theme=white');
+  await open(page, '/m/register' + QS + '&th_color=white');
   const baseStyle = await readField();
-  // 🔴 钉住 &theme=white：跨包切版式会按设计自动重置配色到新包默认色（v2.18.5，
+  // 🔴 钉住 &th_color=white：跨包切版式会按设计自动重置配色到新包默认色（v2.18.5，
   //    字母序 black）——不钉住的话 compact 侧按 black 渲染，比的是"配色差异"而不是"样式源"。
-  await open(page, '/m/register' + QS + '&view=compact&theme=white');
+  await open(page, '/m/register' + QS + '&th=compact&th_color=white');
   const compactStyle = await readField();
   check('G 同一配色下，跨包版式的字段计算样式一致（同一套 mauth-* 样式表）', JSON.stringify(baseStyle) === JSON.stringify(compactStyle), JSON.stringify(compactStyle));
 
@@ -236,7 +240,7 @@ console.log('\n=== G/H 变体复用同一套样式 + 交互细节 ===');
     userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
   });
   const landPage = await landCtx.newPage();
-  await open(landPage, '/m/register' + QS + '&view=compact', { w: 844, h: 390 });
+  await open(landPage, '/m/register' + QS + '&th=compact', { w: 844, h: 390 });
   const scroll = await landPage.evaluate(() => {
     const el = document.querySelector('.mauth-page');
     el.scrollTop = 9999;

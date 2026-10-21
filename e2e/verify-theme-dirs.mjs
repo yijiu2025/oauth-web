@@ -49,6 +49,7 @@
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { requireScanDir } from './lib/env-guard.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // 关卡所在目录 = oauth21/e2e/，oauth21 就是上一级
@@ -56,6 +57,8 @@ const ROOT = join(HERE, '..', 'src');
 const THEME = join(ROOT, 'theme');
 const VIEWS = join(THEME, 'views');
 const PKGS = join(THEME, 'themes');
+// 环境自检（2026-10-21）：扫描目录空 = 期望集 0 = 断言恒红/假绿，先红自己
+requireScanDir(PKGS, '主题包目录');
 
 /** 目录名白名单（与 theme/index.ts 的 THEME_ID_RE 逐字一致） */
 const ID_RE = /^[a-z0-9-]+$/;
@@ -106,7 +109,8 @@ function isReexport(src) {
  *   A. 「每页版式注册表 + 容器手写加载」→ 已被 `<ThemeView page device :ctx>` 取代
  *      （版式表由内核从 `virtual:theme` 惰性解析，容器不再 glob、不再 `THEME_DEVICE`）。
  *   B. 「setupTheme + 守卫预取 + RouteMeta.device + 写 store.activeDevice」→ 已被
- *      `app.use(theme, { router })` + 设备域 `currentDevice()` 取代。
+ *      `app.use(theme, { router })` + 宿主设备模块（`useRenderDevice`）+ `<ThemeView>`
+ *      device prop 告知 store 取代。
  *
  * 为什么不直接删代码：同一段落里混着**仍然有效**的项（目录结构、配色 token 等），
  * 逐条删容易连坐。用「显式退役 + 记原因」保住可追溯性 —— 也让后来者一眼看出
@@ -145,6 +149,17 @@ const RETIRED = [
 ];
 
 const isRetired = label => RETIRED.some(word => label.includes(word));
+
+/**
+ * 剥掉行注释与块注释后的「纯代码」文本
+ *
+ * 断言「代码里不许出现 X」时必须先剥注释：docstring 里**提到**某个词
+ * （如「不 import store、不 setActiveDevice」）不等于代码里有它。
+ * `//` 前的 `[^:]` 守卫是放过字符串里的 `https://`。
+ */
+function codeOnly(src) {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
 
 function check(label, ok, detail = '') {
   if (isRetired(label)) {
@@ -764,18 +779,36 @@ check(
   '设备清单由 defineThemeDevice 声明（自动注册设备域），id 清单与兜底设备从声明派生，不再手写 DEVICE_IDS/THEME_DEVICES/ThemeDevice/DEFAULT_THEME_DEVICE'
 );
 
-// ---- 🔴 判定归宿主（2026-10-19 定稿）----
+// ---- 🔴 判定归宿主（2026-10-19 定稿，2026-10-20 改 ThemeView props 告知）----
 // 「当前是哪台设备」是业务口径：视口阈值 / UA / ?isMobile / ?from= / ?device= 都是本产品
-// 的词汇。库只收 `resolveDevice` 注入；库一旦自己判，别的项目复用机制就被绑死了。
+// 的词汇。库只经 <ThemeView> 的 device prop 接收判定结果；库一旦自己 watch / 判定，
+// 别的项目复用机制就被绑死了。
 const deviceDomainSrc = implText(['vue/device-domain.ts']);
 check(
-  '设备判定归宿主：库的设备域只收 resolveDevice 注入（不认视口 / UA / ?isMobile）',
-  /resolveDevice/.test(deviceDomainSrc) &&
+  '设备判定归宿主：库的设备域只剩 URL 通道（不判设备、不 watch 任何东西）',
+  /currentQuery/.test(deviceDomainSrc) &&
+    !/export\s+function\s+currentPath/.test(deviceDomainSrc) &&
     !/matchMedia\s*\(/.test(deviceDomainSrc) &&
     !/detectMobileUA/.test(deviceDomainSrc) &&
     !/viewportIsMobile/.test(deviceDomainSrc) &&
-    !/'isMobile'/.test(deviceDomainSrc),
-  '库内出现视口 / UA 判定 = 判定又下沉了（宿主的口径被写进通用机制）'
+    !/'isMobile'/.test(deviceDomainSrc) &&
+    !/watch\s*\(/.test(deviceDomainSrc),
+  '库内出现视口 / UA 判定或 watch 订阅 = 判定又下沉了（宿主的口径被写进通用机制）'
+);
+// 设备身份的**唯一告知入口** = <ThemeView> 的 device prop（分发器选容器、容器内告知，
+// 两件事不会分家）；库不提供任何判定 composable / 注册槽。
+const themeViewSrc = implText(['vue/ThemeView.vue']);
+check(
+  '<ThemeView> 用 device prop 告知主题 store（setActiveDevice，immediate）',
+  /watch\(\s*\(\)\s*=>\s*props\.device/.test(themeViewSrc) &&
+    /store\.setActiveDevice/.test(themeViewSrc) &&
+    /immediate:\s*true/.test(themeViewSrc),
+  'page/device props 即告知：分发器不碰主题，设备身份随容器渲染同帧进 store'
+);
+check(
+  '<ThemeView> 不含判定词汇（不认视口 / UA / ?device=，只收 props）',
+  !/matchMedia/.test(themeViewSrc) && !/detectMobileUA/.test(themeViewSrc),
+  'ThemeView 只消费 props + store；任何判定词进库 = 宿主口径被写进通用机制'
 );
 // 🔴 theme/views 是**可整体迁移的纯声明目录**：只有 defineThemeDevice / defineThemePage。
 //    判定（URL 词汇 / 视口 / UA）一旦写进去，就会被 virtual:theme 当声明副作用拉进包，
@@ -783,25 +816,63 @@ check(
 const resolverFile = join(ROOT, 'utils', 'device-resolve.ts');
 const resolverSrc = existsSync(resolverFile) ? read(resolverFile) : '';
 check(
-  '宿主侧确有判定实现（utils/device-resolve.ts 的 resolveCurrentDevice）',
-  /export\s+function\s+resolveCurrentDevice/.test(resolverSrc),
-  '判定搬回宿主后必须有一个明确入口，否则设备域永远落兜底设备'
+  '宿主侧确有判定模块（utils/device-resolve.ts 的 resolveRenderDevice 纯函数）',
+  /export\s+function\s+resolveRenderDevice\s*\(/.test(resolverSrc) &&
+    !/from\s+'skinsuite/.test(resolverSrc),
+  '判定是纯函数（query/path/mobile 显式入参）：零主题库 import、零闭包状态'
 );
 check(
   'theme/views/devices.ts 保持纯声明（不含判定实现与 URL 词汇）',
-  !/resolveCurrentDevice/.test(devicesSrc) &&
+  !/resolveRenderDevice/.test(devicesSrc) &&
     !/isMobileViewport/.test(devicesSrc) &&
     !/'isMobile'/.test(devicesSrc) &&
     !/function\s+pathHasSegment/.test(devicesSrc),
   'theme/views 只放声明（defineThemeDevice）；判定要住 utils —— 主题域才可整体迁移'
 );
+// useRenderDevice = 薄封装（route + 视口信号 → 判定纯函数），同样零主题 import
+const useRenderDeviceFile = join(ROOT, 'composables', 'useRenderDevice.ts');
+const useRenderDeviceSrc = existsSync(useRenderDeviceFile) ? read(useRenderDeviceFile) : '';
+const useRenderDeviceCode = codeOnly(useRenderDeviceSrc);
+check(
+  'useRenderDevice 是薄封装（接线 route / 视口信号，不 import 主题库）',
+  /export\s+function\s+useRenderDevice/.test(useRenderDeviceCode) &&
+    /resolveRenderDevice/.test(useRenderDeviceCode) &&
+    /mobileViewport/.test(useRenderDeviceCode) &&
+    !/from\s+'skinsuite/.test(useRenderDeviceCode) &&
+    !/setActiveDevice/.test(useRenderDeviceCode),
+  '接线只做「把 route/视口接进纯函数」；告知主题是 ThemeView 的职责，不在这里'
+);
+// 装配层只传 router：判定不在 app.use(theme) 上注册（没有注册槽，也不需要）
+const bootstrapFile = join(ROOT, 'bootstrap.ts');
+const bootstrapSrc = existsSync(bootstrapFile) ? read(bootstrapFile) : '';
+check(
+  'bootstrap 主题装配只传 router（无判定注册槽）',
+  /app\.use\(theme,\s*\{\s*router\s*\}\)/.test(bootstrapSrc) && !/deviceResolver/.test(bootstrapSrc),
+  '设备判定不在装配层：宿主设备模块自管，主题 store 只经 ThemeView props 接收'
+);
+// 四个页面分发器：用宿主设备模块选容器（Map + 末条兜底），**不碰主题**
+const dispatcherPages = ['login', 'register', 'forgot-password', 'not-found'];
+for (const page of dispatcherPages) {
+  const file = join(ROOT, 'view', 'web', page, 'index.vue');
+  const src = existsSync(file) ? read(file) : '';
+  const code = codeOnly(src);
+  check(
+    `分发器 view/web/${page}/index.vue 用 useRenderDevice 选容器（不碰主题）`,
+    /useRenderDevice\(\s*\)/.test(code) &&
+      /deviceComponents/.test(code) &&
+      /fallbackDevice\(\)/.test(code) &&
+      !/setActiveDevice/.test(code) &&
+      !/useThemeStore/.test(code),
+    '分发器只判设备选容器（Map + 末条兜底）；设备身份由容器内 <ThemeView device="…"> 告知 store'
+  );
+}
 const kernelDeviceSrc = implText(['views/device.ts']);
 check(
   '内核 views/device.ts 只剩清单与查询（无 match / pickDeviceId / deviceContext 实现）',
   !/export\s+function\s+pickDeviceId/.test(kernelDeviceSrc) &&
     !/export\s+function\s+deviceContext/.test(kernelDeviceSrc) &&
     !/match\s*\(ctx/.test(kernelDeviceSrc),
-  '判定实现残留在内核 = 两套判定并存，宿主的 resolveDevice 会被绕过'
+  '判定实现残留在内核 = 两套判定并存，ThemeView props 告知会被绕过'
 );
 
 // ---- 默认版式 / 默认配色（2026-09-26 用户定：default + white）----

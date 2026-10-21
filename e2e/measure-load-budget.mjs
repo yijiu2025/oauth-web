@@ -15,8 +15,8 @@
  *   ② 同一页面**拉宽**到 1280×900 的增量 —— 用户最关心的那一步
  *   ③ 再缩回 390 的增量（应为 0，chunk 已缓存）
  *   ④ 宽屏首屏（1280×900）单独跑 —— 与 ① 对比，验证"三形态预热"的真实代价
- *   ⑤ 窄屏 /m/register?view=compact —— 非内置包版式的惰性 chunk
- *   ⑥ 窄屏 /m/login?theme=cyan —— 配色附加样式 theme.scss 的惰性 chunk
+ *   ⑤ 窄屏 /m/register?th=compact —— 非内置包版式的惰性 chunk
+ *   ⑥ 窄屏 /m/login?th_color=cyan —— 配色附加样式 theme.scss 的惰性 chunk
  *
  * === 统计口径 ===
  * `Network.loadingFinished.encodedDataLength` = **实际过线字节（含响应头）**，即"流量"。
@@ -200,18 +200,18 @@ try {
   );
   all.push(await scenario(browser, '④ 宽屏首屏 /login', { viewport: WIDE, path: `/login${QS}` }));
   all.push(
-    await scenario(browser, '⑤ 窄屏 /m/register?view=compact', {
+    await scenario(browser, '⑤ 窄屏 /m/register?th=compact', {
       viewport: NARROW,
-      path: `/m/register${QS}&view=compact`,
+      path: `/m/register${QS}&th=compact`,
       then: [
         { label: '⑤b 拉宽到 1280 的增量', run: p => p.setViewportSize(WIDE), waitMs: 2500 }
       ]
     })
   );
   all.push(
-    await scenario(browser, '⑥ 窄屏 /m/login?theme=cyan', {
+    await scenario(browser, '⑥ 窄屏 /m/login?th_color=cyan', {
       viewport: NARROW,
-      path: `/m/login${QS}&theme=cyan`
+      path: `/m/login${QS}&th_color=cyan`
     })
   );
   all.push(

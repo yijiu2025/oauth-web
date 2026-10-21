@@ -19,11 +19,17 @@ import { generateKeyPairSync } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { requirePort, requireScanDir } from './lib/env-guard.mjs';
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const CODE = 'http://127.0.0.1:5174';
 const LINK = 'http://127.0.0.1:5175';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+// 环境自检（2026-10-21）：扫描目录空 = 期望集 0 = 断言恒红/假绿，先红自己；
+// 双端口（5174 code 模式 + 5175 link 模式）缺一即红，不让关卡带着缺失环境硬崩
+requireScanDir(join(ROOT, 'src', 'theme', 'themes'), '主题包目录');
+await requirePort(CODE);
+await requirePort(LINK);
 const PATH = '/m/forgot-password';
 
 let pass = 0;
@@ -119,11 +125,11 @@ console.log('\n=== A/B/D 版式选择 ===');
   check('A 默认无参数 → 基础版式', (await viewOf(page)) === 'default', `view=${await viewOf(page)}`);
   check('A 第 1 步已渲染（邮箱输入 + 提交按钮）', (await page.$$('.mauth-input')).length === 1 && (await page.$('.mauth-submit')) !== null);
 
-  await open(page, CODE, PATH + '?view=base');
-  check('B ?view=base → 基础版式', (await viewOf(page)) === 'default');
+  await open(page, CODE, PATH + '?th=base');
+  check('B ?th=base → 基础版式', (await viewOf(page)) === 'default');
 
   for (const bad of ['../evil', 'NOPE', 'nope-xyz', '%2e%2e%2fevil', 'base%20']) {
-    await open(page, CODE, `${PATH}?view=${bad}`);
+    await open(page, CODE, `${PATH}?th=${bad}`);
     const v = await viewOf(page);
     check(`D 非法 id "${bad}" → 回退基础版式`, v === 'default', `view=${v}`);
   }

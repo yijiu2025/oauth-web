@@ -15,12 +15,16 @@ import { generateKeyPairSync } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { requirePort, requireScanDir } from './lib/env-guard.mjs';
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const BASE = 'http://127.0.0.1:5174';
 const QS = '?appName=posecraft&client_id=demo-client-001';
 // 关卡所在目录 = oauth21/e2e/，oauth21 就是上一级（跨机器可移植，不再写死本机绝对路径）
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+// 环境自检（2026-10-21）：扫描目录空 = 期望集 0 = 断言恒红/假绿，先红自己
+requireScanDir(join(ROOT, 'src', 'theme', 'themes'), '主题包目录');
+await requirePort(BASE); // 端口没起 / 5xx 时在此红（退出码 2），不进 Playwright 超时地狱
 
 let pass = 0;
 const fails = [];
@@ -91,11 +95,11 @@ console.log('\n=== A/B/D 版式选择 ===');
   check('A 默认无参数 → 基础版式', (await viewOf(page)) === 'default', `view=${await viewOf(page)}`);
   check('A 登录表单已渲染（tabs + 提交按钮）', (await page.$$('.mauth-tab')).length === 2 && (await page.$('.mauth-submit')) !== null);
 
-  await open(page, '/m/login' + QS + '&view=base');
-  check('B ?view=base → 基础版式', (await viewOf(page)) === 'default');
+  await open(page, '/m/login' + QS + '&th=base');
+  check('B ?th=base → 基础版式', (await viewOf(page)) === 'default');
 
   for (const bad of ['../evil', 'NOPE', 'nope-xyz', '%2e%2e%2fevil', 'base%20']) {
-    await open(page, `/m/login${QS}&view=${bad}`);
+    await open(page, `/m/login${QS}&th=${bad}`);
     const v = await viewOf(page);
     check(`D 非法 id "${bad}" → 回退基础版式`, v === 'default', `view=${v}`);
   }
@@ -149,7 +153,7 @@ console.log('\n=== E 业务完整性（容器侧）===');
   check('E3 请求带 captchaKey', (capturedLogin || {}).captchaKey === 'mock-captcha-key', `captchaKey=${(capturedLogin || {}).captchaKey}`);
 
   // E4 密码校验：太短的密码被拦在请求之前
-  await open(page, '/m/login' + QS + '&view=base');
+  await open(page, '/m/login' + QS + '&th=base');
   capturedLogin = null;
   await page.click('.mauth-tab >> nth=1');
   await page.waitForTimeout(400);

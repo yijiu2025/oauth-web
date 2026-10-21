@@ -26,8 +26,10 @@
  * 用法：node verify-panel-v3.mjs [baseUrl]
  */
 import { chromium } from 'playwright-core';
+import { requirePort } from './lib/env-guard.mjs';
 
 const BASE = process.argv[2] || 'http://127.0.0.1:5174';
+await requirePort(BASE); // 环境自检：端口没起 / 5xx 时在此红（退出码 2），不进 Playwright 超时地狱
 const QS = 'appName=posecraft&client_id=demo-client-001';
 
 let pass = 0;
@@ -146,10 +148,12 @@ check('D5 点「青」→ theme=cyan', st.theme === 'cyan', `theme=${st.theme}`)
 check('D6 点「青」→ 注入青主色', st.primary === '#0e7490', `primary=${st.primary}`);
 check('D7 点「青」→ 明暗保持 light', st.dark === false, `dark=${st.dark}`);
 
-/* ===== E. 切版式：只改 query、path 不动 =====
+/* ===== E. 切版式：只写 store、URL 一个字符都不动（2026-10-20 store 化）=====
  * ⚠️ 这一段必须跑在 **register** 上，不能跑 login —— login 目前只有 default 一个包
  *    （没有第二个覆盖 login 的包），面板上只有一个按钮，没有可切的第二项。
  *    register 有 `compact` 包。
+ * 🔴 store 化前的旧契约是"切版式 → view 写入 query"；现在 URL 只负责**初始化播种**，
+ *    调试面板的显式操作只写 store（`setDeviceView`）—— 换版式零路由变化。
  */
 const ctxReg = await browser.newContext({ viewport: { width: 420, height: 900 } });
 const pReg = await ctxReg.newPage();
@@ -161,17 +165,23 @@ const regColorsBase = await colorsNow(pReg);
 check('E0 register 列出 default + compact', regViews.length === 2, regViews.join(', '));
 
 const beforePath = new URL(pReg.url()).pathname;
+const beforeSearch = new URL(pReg.url()).search;
 const clicked = await clickIfAny(pReg, '[data-view-id="compact"]');
 check('E0b 面板上有 compact 按钮可点', clicked, '缺了会让下面的断言全部失去意义');
 await pReg.waitForTimeout(1800);
 if (clicked) {
   const after = await pReg.evaluate(() => ({
     path: location.pathname,
+    search: location.search,
     view: new URLSearchParams(location.search).get('view'),
-    clientId: new URLSearchParams(location.search).get('client_id')
+    th: new URLSearchParams(location.search).get('th'),
+    clientId: new URLSearchParams(location.search).get('client_id'),
+    // `?debug=theme` 下 store 会挂这个口子（见 skinsuite create-theme-state），读的是真实生效值
+    activeView: window.__MAUTH_STORE__?.activeView
   }));
   check('E1 切版式 → path 不变（不跨页）', after.path === beforePath, `${beforePath} → ${after.path}`);
-  check('E2 切版式 → view 写入 query', after.view === 'compact', `view=${after.view}`);
+  check('E2 切版式 → search 完全不变（只写 store，不碰路由）', after.search === beforeSearch, `${beforeSearch} → ${after.search}`);
+  check('E2b 生效版式切到 compact（store 侧生效）', after.activeView === 'compact', `activeView=${after.activeView}`);
   check('E3 授权上下文 client_id 仍在', after.clientId === 'demo-client-001', `client_id=${after.clientId}`);
 
   const regColorsCompact = await colorsNow(pReg);
@@ -182,16 +192,16 @@ if (clicked) {
   );
 
   /*
-   * 切回默认包 —— 分两步，因为"点按钮"的语义是**选中它**，不是"清空"：
-   *   ① 从 compact 点回 default：default ≠ 当前生效项 → 显式写 `view=default`
-   *   ② 已经是 default 了再点一次：这一项就是当前生效项 → 把参数**删掉**（URL 干净）
-   * 旧关卡只断言 ① 的结果是"没有 view 参数"，把 ① 和 ② 混成一条了 —— 那是错的期望值。
+   * 切回默认包 —— 两步语义（点按钮 = 选中/取消选中，不碰 URL）：
+   *   ① 从 compact 点回 default：default ≠ 当前生效项 → store 显式写 default
+   *   ② 已经是 default 了再点一次：这一项就是当前生效项 → 清掉 store 里的覆盖
+   * store 化后 URL 全程不动，断言全部落在 `__MAUTH_STORE__` 的真实生效值上。
    */
   const readState = () =>
     pReg.evaluate(() => ({
-      view: new URLSearchParams(location.search).get('view'),
-      // `?debug=theme` 下 store 会挂这个口子（见 stores/theme.ts 末尾），读的是真实生效值
-      activeView: window.__MAUTH_STORE__?.activeView
+      search: location.search,
+      activeView: window.__MAUTH_STORE__?.activeView,
+      deviceView: window.__MAUTH_STORE__?.deviceView
     }));
 
   const backClicked = await clickIfAny(pReg, '[data-view-id="default"]');
@@ -201,16 +211,16 @@ if (clicked) {
   check(
     'E5 切回默认包 → 生效版式回到 default',
     s1.activeView === 'default',
-    `view=${s1.view} activeView=${s1.activeView}`
+    `activeView=${s1.activeView}`
   );
 
   const againClicked = await clickIfAny(pReg, '[data-view-id="default"]');
   await pReg.waitForTimeout(1200);
   const s2 = await readState();
   check(
-    'E6 再点当前生效项 → view 参数被删（URL 干净）',
-    againClicked && s2.view === null,
-    `view=${s2.view}`
+    'E6 再点当前生效项 → store 覆盖被清（回到 URL/声明档）',
+    againClicked && s2.activeView === 'default' && !(s2.deviceView && s2.deviceView.mobile),
+    `activeView=${s2.activeView} deviceView=${JSON.stringify(s2.deviceView)}`
   );
 }
 await ctxReg.close();

@@ -16,7 +16,9 @@ node oauth21/e2e/verify-all.mjs --skip-prod    # 跳过需要生产构建的关�
 node oauth21/e2e/verify-all.mjs --dev http://127.0.0.1:5174   # 覆盖端口
 ```
 
-**退出码**：`0` 全绿 / `1` 有断言失败 / `3` 环境未就绪（全跳过）。
+**退出码**：`0` 全绿 / `1` 有断言失败 / `3` 环境未就绪（全跳过）/ `4` 有跳过（**没验 ≠ 通过**，`--allow-skip` 回到旧语义）。
+
+**环境自检（2026-10-21 新增，防假绿/假红）**：每个关卡开跑前先验证自身环境假设——扫描目录非空（期望集为 0 直接判红而非放行）、端口返回 HTTP 200（不是 TCP 连通）、产物目录存在且不旧于最新源码（陈旧产物 = 拿旧代码换绿灯）。自检失败 = 退出码 2 + 一行原因。自检模块 `lib/env-guard.mjs` 自身也有行为测试（静态组第一项 `verify-env-guard`）。escape 通道：`GUARD_ALLOW_STALE=1`（仅陈旧判定）。
 **环境预检**：某关卡的端口没起、或产物目录不存在，会标「⏭️ 跳过」而非「❌ 失败」——
 避免"没起环境"被误读成"代码红了"。
 
@@ -34,11 +36,12 @@ node oauth21/e2e/verify-all.mjs --dev http://127.0.0.1:5174   # 覆盖端口
 ⚠️ 起多个实例**必须串行**（前一个 curl 到 200 再起下一个）：几个 Vite 共用
 `node_modules/.vite`，同时冷启会互相废掉 optimizeDeps → 白屏 + `504 (Outdated Optimize Dep)`。
 
-## 三、活跃关卡（22 个，分四组）
+## 三、活跃关卡（23 个，分四组）
 
 ### ① 静态关卡（无浏览器 / 无服务器）
 | 关卡 | 守什么 |
 | --- | --- |
+| `verify-env-guard.mjs` | **自检模块自身的行为测试**（`lib/env-guard.mjs` 的 node --test）：扫描目录空 / 端口 5xx / 产物陈旧三条失败路径 + 仓根推导，防「守卫本身误判」（10 项） |
 | `verify-theme-dirs.mjs` | **核心静态关卡**：四级目录口径 + 无版式层 + 四段键 + `data-mauth-view`=包名 + 三设备静态引入 + 内核包契约（589 项） |
 | `verify-glob-device.mjs` | glob 真的扫到设备段、配色 glob 只有一套（26 项） |
 | `verify-alias-single-source.mjs` | **别名三处一致**：`config/aliases.ts` ↔ `tsconfig.app.json` paths ↔ 实解析探针。双形态分流：monorepo（上级有 `packages/`）下 `skinsuite`/`stable-deviceid` 必须解析到 `packages/*/src/index.ts`（源码直供，不是 node_modules dist）；standalone（单仓 checkout / CI / 开源用户）下两键按设计不注册，探针用 node `import.meta.resolve` 确认裸说明符命中 `node_modules/<pkg>/dist`（21/15 项） |
@@ -46,7 +49,7 @@ node oauth21/e2e/verify-all.mjs --dev http://127.0.0.1:5174   # 覆盖端口
 | `verify-console-strip.mjs` | **生产构建真的删了 console**（自建一次构建扫产物计数为 0，并对照源码确实有 console 待删）（6 项） |
 | `verify-no-any-debt.mjs` | **类型逃逸清零**：`src/` 业务代码无 `any`/`@ts-ignore`/`@ts-expect-error`（剥注释后统计），且外部边界单一入口 `src/types/external.ts` 存在并导出关键收口件（11 项） |
 | `verify-no-pwa.mjs` | PWA 已移除：产物无 manifest/SW 注入，`sw.js` 只能是自毁迁移版（`--dir dist-nopwa`） |
-| `verify-bundle-budget.mjs` | **包体积预算**：首屏静态集（index.html 引用的 assets）gzip 总量 / 文件数 / 单 chunk gz+raw / dist 总量 / index.html 体积，全部对**落盘真实字节**自算（2026-10-15 钉线：135.3 KB gz / 8 files / 51.2 KB / 160.0 KB / 0.79 MB / 2.5 KB）。产物目录不存在时 exit 3（先 `npm run build`） |
+| `verify-bundle-budget.mjs` | **包体积预算**：首屏静态集（index.html 引用的 assets）gzip 总量 / 文件数 / 单 chunk gz+raw / dist 总量 / index.html 体积，全部对**落盘真实字节**自算（2026-10-15 钉线：135.3 KB gz / 8 files / 51.2 KB / 160.0 KB / 0.79 MB / 2.5 KB）。产物不存在 / 旧于源码 → 自检红（先 `npm run build`；`GUARD_ALLOW_STALE=1` escape） |
 
 ### ② dev 实例关卡（默认 5174）
 | 关卡 | 守什么 |
@@ -133,15 +136,22 @@ node oauth21/e2e/verify-all.mjs --dev http://127.0.0.1:5174   # 覆盖端口
 # 1. 静态关卡（最快，先跑）
 node oauth21/e2e/verify-all.mjs --only static
 
-# 2. 起 dev 实例（串行！）
-cd oauth21 && npx vite --port 5174 --strictPort   # 后台
-# 等 5174 就绪后再起 compact 实例（如需）
-VITE_REGISTER_VIEW=compact npx vite --port 5177 --strictPort  # 后台
+# 2. 起 dev 实例（串行！前一个 curl 到 200 再起下一个）
+#    每个实例必须独占 cacheDir（PROBE_CACHE_DIR + 探针配置）—— 共享 node_modules/.vite
+#    会互判依赖过期（504 → 白屏 → DOM 断言假红）。探针配置内容与判据见 CONTRIBUTING.md
+#    §「本地多实例验收：每个实例必须独占 cacheDir」。
+cd oauth21
+PROBE_CACHE_DIR=node_modules/.vite-p5174 npx vite --config .tmp-probe/vite.probe.config.mjs --port 5174 --strictPort   # 后台
+VITE_PASSWORD_RESET_MODE=link PROBE_CACHE_DIR=node_modules/.vite-p5175 npx vite --config .tmp-probe/vite.probe.config.mjs --port 5175 --strictPort  # 后台
+VITE_REGISTER_VIEW=compact PROBE_CACHE_DIR=node_modules/.vite-p5177 npx vite --config .tmp-probe/vite.probe.config.mjs --port 5177 --strictPort  # 后台
+PROBE_CACHE_DIR=node_modules/.vite-p5197 npx vite --config .tmp-probe/vite.probe.config.mjs --port 5197 --strictPort  # 后台
 
 # 3. dev + 特殊端口关卡
+#    （5175 没起时 verify-forgot-view 整条跳过；有跳过时 verify-all 退出码 4 ——
+#     「没验 ≠ 通过」，要旧语义加 --allow-skip）
 node oauth21/e2e/verify-all.mjs
 
-# 4. 生产构建关卡（先构建）
+# 4. 生产构建关卡（先构建；产物旧于源码会被守卫拦下并要求重建）
 cd oauth21 && npx vite build --outDir dist-nopwa
 npx vite preview --outDir dist-nopwa --port 5189 --strictPort  # 后台
 node oauth21/e2e/verify-all.mjs --only prod

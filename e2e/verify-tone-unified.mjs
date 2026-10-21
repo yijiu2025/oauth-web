@@ -7,8 +7,10 @@
  * 退出码 0 = 全过。
  */
 import { chromium } from 'playwright-core';
+import { requirePort } from './lib/env-guard.mjs';
 
 const BASE = process.argv[2] || 'http://127.0.0.1:5174';
+await requirePort(BASE); // 环境自检：端口没起 / 5xx 时在此红（退出码 2），不进 Playwright 超时地狱
 const browser = await chromium.launch({
   executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
   headless: true,
@@ -38,8 +40,9 @@ const grab = () =>
       htmlBg: getComputedStyle(root).backgroundColor,
       shellBg: shell ? getComputedStyle(shell).backgroundColor : '(no shell)',
       fieldBg: field ? getComputedStyle(field).backgroundColor : '(no field)',
-      modeIsDark: !!modeDark && modeDark.className.includes('bg-sky-400/20'),
-      modeIsLight: !!modeLight && modeLight.className.includes('bg-sky-400/20'),
+      // 面板重构为语义类后（tdp-seg-item + is-on），高亮判定跟类名走
+      modeIsDark: !!modeDark && modeDark.className.includes('is-on'),
+      modeIsLight: !!modeLight && modeLight.className.includes('is-on'),
     };
   });
 

@@ -8,8 +8,8 @@
  *   4. 当前**包名**          —— 一个主题包 = 一种版式（`viewId ≡ pkg`，不再是 `'base'`）
  *
  * === 两条硬规则 ===
- *   🔴 空串 / 纯空白 = **未指定**：`?view.mobile=` 不能把 `?view=compact` 顶掉。
- *   🔴 URL 显式非法值**不回退**到第 3 档：落**当前包**（`?view=typo` → 当前包），
+ *   🔴 空串 / 纯空白 = **未指定**：`?th_mobile=` 不能把 `?th=compact` 顶掉。
+ *   🔴 URL 显式非法值**不回退**到第 3 档：落**当前包**（`?th=typo` → 当前包），
  *      否则"参数写错"会静默换成另一套 UI，比看到当前包的版式难排查得多。
  *
  * === 本脚本能控制什么、不能控制什么（别装作验过）===
@@ -26,9 +26,11 @@
  * 用法: node verify-view-priority.mjs [baseUrl]
  */
 import { chromium } from 'playwright-core';
+import { requirePort } from './lib/env-guard.mjs';
 
 const argv = process.argv.slice(2);
 const BASE = argv.find(a => !a.startsWith('--')) || 'http://127.0.0.1:5174';
+await requirePort(BASE); // 环境自检：端口没起 / 5xx 时在此红（退出码 2），不进 Playwright 超时地狱
 const QS = '?appName=posecraft&client_id=demo-client-001&debug=theme';
 
 /** 三个设备的视口（判定：宽(≥1024) ＞ 窄(<768) ＞ UA —— 必须**先造视口再导航**） */
@@ -112,55 +114,55 @@ try {
   check('A6 /m/forgot-password（手机）→ default', a6.view === 'default' && a6.device === 'mobile', `view=${a6.view} device=${a6.device}`);
 
   console.log('\n===== B. 第 2 档：URL 通用键（跨包 = 切包；本页无此包 = 安静下沉）=====');
-  const b1 = await viewOf(`/m/register${QS}&view=compact`, { viewport: PHONE });
-  check('B1 /m/register?view=compact（手机）→ compact（命中另一包 ⇒ 切包）', b1.view === 'compact', `view=${b1.view}`);
-  const b2 = await viewOf(`/register${QS}&view=compact`, { viewport: DESKTOP });
+  const b1 = await viewOf(`/m/register${QS}&th=compact`, { viewport: PHONE });
+  check('B1 /m/register?th=compact（手机）→ compact（命中另一包 ⇒ 切包）', b1.view === 'compact', `view=${b1.view}`);
+  const b2 = await viewOf(`/register${QS}&th=compact`, { viewport: DESKTOP });
   check('B2 同一链接（桌面）→ default（compact 包没有 standard/register ⇒ 下沉当前包）', b2.view === 'default' && b2.device === 'standard', `view=${b2.view} device=${b2.device}`);
-  const b3 = await viewOf(`/m/login${QS}&view=compact`, { viewport: PHONE });
-  check('B3 /m/login?view=compact → default（compact 包没有 login 版式）', b3.view === 'default', `view=${b3.view}`);
-  const b4 = await viewOf(`/m/forgot-password${QS}&view=compact`, { viewport: PHONE });
-  check('B4 /m/forgot-password?view=compact → default（compact 包没有该页版式）', b4.view === 'default', `view=${b4.view}`);
-  const b5 = await viewOf(`/m/register${QS}&view=default`, { viewport: PHONE });
-  check('B5 ?view=当前包名 等价于"用当前包"（不算非法）', b5.view === 'default', `view=${b5.view}`);
+  const b3 = await viewOf(`/m/login${QS}&th=compact`, { viewport: PHONE });
+  check('B3 /m/login?th=compact → default（compact 包没有 login 版式）', b3.view === 'default', `view=${b3.view}`);
+  const b4 = await viewOf(`/m/forgot-password${QS}&th=compact`, { viewport: PHONE });
+  check('B4 /m/forgot-password?th=compact → default（compact 包没有该页版式）', b4.view === 'default', `view=${b4.view}`);
+  const b5 = await viewOf(`/m/register${QS}&th=default`, { viewport: PHONE });
+  check('B5 ?th=当前包名 等价于"用当前包"（不算非法）', b5.view === 'default', `view=${b5.view}`);
 
   console.log('\n===== C. 第 1 档：设备维度键 + 两条硬规则 =====');
-  const c1 = await viewOf(`/m/register${QS}&view=default&view.mobile=compact`, { viewport: PHONE });
-  check('C1 `view.mobile` 优先于通用 `view`（同一链接里两把键都给）', c1.view === 'compact', `view=${c1.view}（通用键是 default，落 compact 才说明设备键赢了）`);
-  const c2 = await viewOf(`/register${QS}&view=default&view.mobile=compact`, { viewport: DESKTOP });
-  check('C2 同一条链接在桌面：`view.mobile` 对他端无效，落通用 `view=default`', c2.view === 'default' && c2.device === 'standard', `view=${c2.view} device=${c2.device}`);
-  const c3 = await viewOf(`/m/register${QS}&view=compact&view.mobile=`, { viewport: PHONE });
+  const c1 = await viewOf(`/m/register${QS}&th=default&th_mobile=compact`, { viewport: PHONE });
+  check('C1 `th_mobile` 优先于通用 `view`（同一链接里两把键都给）', c1.view === 'compact', `view=${c1.view}（通用键是 default，落 compact 才说明设备键赢了）`);
+  const c2 = await viewOf(`/register${QS}&th=default&th_mobile=compact`, { viewport: DESKTOP });
+  check('C2 同一条链接在桌面：`th_mobile` 对他端无效，落通用 `view=default`', c2.view === 'default' && c2.device === 'standard', `view=${c2.view} device=${c2.device}`);
+  const c3 = await viewOf(`/m/register${QS}&th=compact&th_mobile=`, { viewport: PHONE });
   check('C3 设备键留空 = 未指定 ⇒ 回落到通用 `view=compact`（空串不吞掉回退链）', c3.view === 'compact', `view=${c3.view}`);
-  const c4 = await viewOf(`/m/register${QS}&view=compact&view.mobile=%20`, { viewport: PHONE });
+  const c4 = await viewOf(`/m/register${QS}&th=compact&th_mobile=%20`, { viewport: PHONE });
   check('C4 设备键只有空白同上（纯空白也算未指定）', c4.view === 'compact', `view=${c4.view}`);
-  const c5 = await viewOf(`/m/register${QS}&view=compact&view.mobile=typo`, { viewport: PHONE });
+  const c5 = await viewOf(`/m/register${QS}&th=compact&th_mobile=typo`, { viewport: PHONE });
   check('C5 设备键是非法值 ⇒ 落**当前包**（不回退到通用键的 compact）', c5.view === 'default', `view=${c5.view} —— 显式写错不静默换 UI`);
-  const c6 = await viewOf(`/m/register${QS}&view=typo`, { viewport: PHONE });
-  check('C6 通用键非法（?view=typo）⇒ 落当前包', c6.view === 'default', `view=${c6.view}`);
-  const c7 = await viewOf(`/m/register${QS}&view=base`, { viewport: PHONE });
-  check('C7 `?view=base` 归一到**包名**（不是把已废弃的 `base` 当 id 传下去）', c7.view === 'default' && c7.activeView === 'default', `DOM=${c7.view} activeView=${c7.activeView}`);
+  const c6 = await viewOf(`/m/register${QS}&th=typo`, { viewport: PHONE });
+  check('C6 通用键非法（?th=typo）⇒ 落当前包', c6.view === 'default', `view=${c6.view}`);
+  const c7 = await viewOf(`/m/register${QS}&th=base`, { viewport: PHONE });
+  check('C7 `?th=base` 归一到**包名**（不是把已废弃的 `base` 当 id 传下去）', c7.view === 'default' && c7.activeView === 'default', `DOM=${c7.view} activeView=${c7.activeView}`);
   for (const bad of ['../evil', 'A B', 'x'.repeat(40), 'default%2F..']) {
-    const r = await viewOf(`/m/register${QS}&view=${bad}`, { viewport: PHONE });
+    const r = await viewOf(`/m/register${QS}&th=${bad}`, { viewport: PHONE });
     check(`C8 非法/超长 id "${bad.slice(0, 12)}" ⇒ 落当前包、不白屏`, r.view === 'default', `view=${r.view}`);
   }
-  const c9 = await viewOf(`/m/register${QS}&view=compact&view=bogus`, { viewport: PHONE });
+  const c9 = await viewOf(`/m/register${QS}&th=compact&th=bogus`, { viewport: PHONE });
   check('C9 同名键给两次（数组形态）⇒ 当作没给，落当前包', c9.view === 'default', `view=${c9.view}`);
 
   console.log('\n===== D. 同一链接、不同设备 → 各自解析（不串台）=====');
-  const d1 = await viewOf(`/register${QS}&view.mobile=compact`, { viewport: PHONE });
-  check('D1 `?view.mobile=compact` 在手机上生效', d1.view === 'compact' && d1.device === 'mobile', `view=${d1.view} device=${d1.device}`);
-  const d2 = await viewOf(`/register${QS}&view.mobile=compact`, { viewport: DESKTOP });
-  check('D2 同一条链接在桌面：`view.mobile` 不串到 standard，落当前包', d2.view === 'default' && d2.device === 'standard', `view=${d2.view} device=${d2.device}`);
-  const d3 = await viewOf(`/register${QS}&view.standard=compact`, { viewport: PHONE });
-  check('D3 `view.standard=compact` 在手机上不生效（compact 也没有 standard 版式）', d3.view === 'default', `view=${d3.view}`);
-  const d4 = await viewOf(`/mini-login${QS}&view=compact&view.mini=default`, { viewport: COMPACT });
-  check('D4 mini 也有自己的设备键（`view.mini` 生效）', d4.view === 'default' && d4.device === 'mini', `view=${d4.view} device=${d4.device}`);
+  const d1 = await viewOf(`/register${QS}&th_mobile=compact`, { viewport: PHONE });
+  check('D1 `?th_mobile=compact` 在手机上生效', d1.view === 'compact' && d1.device === 'mobile', `view=${d1.view} device=${d1.device}`);
+  const d2 = await viewOf(`/register${QS}&th_mobile=compact`, { viewport: DESKTOP });
+  check('D2 同一条链接在桌面：`th_mobile` 不串到 standard，落当前包', d2.view === 'default' && d2.device === 'standard', `view=${d2.view} device=${d2.device}`);
+  const d3 = await viewOf(`/register${QS}&th_std=compact`, { viewport: PHONE });
+  check('D3 `th_std=compact` 在手机上不生效（compact 也没有 standard 版式）', d3.view === 'default', `view=${d3.view}`);
+  const d4 = await viewOf(`/mini-login${QS}&th=compact&th_mini=default`, { viewport: COMPACT });
+  check('D4 mini 也有自己的设备键（`th_mini` 生效）', d4.view === 'default' && d4.device === 'mini', `view=${d4.view} device=${d4.device}`);
 
   console.log('\n===== E. 版式选择不破坏配色（token 不许静默丢失）=====');
-  const e0 = await viewOf(`/m/login${QS}&theme=blue`, { viewport: PHONE });
-  const E_CASES = ['view=typo', 'view=base', 'view=default', 'view.mobile=default'];
+  const e0 = await viewOf(`/m/login${QS}&th_color=blue`, { viewport: PHONE });
+  const E_CASES = ['th=typo', 'th=base', 'th=default', 'th_mobile=default'];
   for (let i = 0; i < E_CASES.length; i += 1) {
     const q = E_CASES[i];
-    const r = await viewOf(`/m/login${QS}&theme=blue&${q}`, { viewport: PHONE });
+    const r = await viewOf(`/m/login${QS}&th_color=blue&${q}`, { viewport: PHONE });
     check(
       `E${i + 1} 「${q}」与不带 view 时配色逐项一致（配色 id + 主色）`,
       r.activeThemeId === e0.activeThemeId && r.primary === e0.primary && Boolean(r.primary),

@@ -29,6 +29,7 @@
 import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { requireDist } from './lib/env-guard.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OA = join(HERE, '..');
@@ -48,10 +49,8 @@ const check = (ok, name, detail) => {
   }
 };
 
-if (!existsSync(DIST)) {
-  console.error(`找不到产物目录 ${DIST} —— 先构建：cd oauth21 && npx vite build --outDir ${dirArg}`);
-  process.exit(1);
-}
+// 环境自检（2026-10-21）：产物不存在 / 旧于最新源码 → 红（陈旧产物 = 拿旧代码换绿灯）
+requireDist(DIST, join(OA, 'src'));
 
 /** 产物内全部文件（相对 DIST 的正斜杠路径） */
 function walk(dir, out = []) {

@@ -22,6 +22,7 @@
  *   distDir 默认 <repo>/oauth21/dist-nopwa
  */
 import { chromium } from 'playwright-core';
+import { requireDist, requirePort } from './lib/env-guard.mjs';
 import { writeFileSync, unlinkSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,6 +30,9 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BASE = process.argv[2] || 'http://127.0.0.1:5189';
 const DIST = process.argv[3] || join(HERE, '..', 'dist-nopwa');
+// 环境自检（2026-10-21）：端口 + 产物（不存在 / 旧于源码都红；escape：GUARD_ALLOW_STALE=1）
+await requirePort(BASE);
+requireDist(DIST, join(HERE, '..', 'src'));
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const HIJACK_MARK = 'LEGACY-SW-HIJACKED-NAV-7f3a';
 const QS = '?appName=posecraft&client_id=demo-client-001';

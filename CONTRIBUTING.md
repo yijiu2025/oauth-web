@@ -58,8 +58,15 @@ npm run dev            # http://localhost:5174
 
 ```js
 // .tmp-probe/vite.probe.config.mjs
+// ⚠️ vite.config.ts 是**函数式**默认导出（defineConfig(({ mode }) => …)）：
+//    不能 import 后直接 `{ ...base }` —— 展开函数得到空对象，整个基础配置
+//    （plugins / alias / proxy）静默全丢，dev server 裸奔。必须把 ConfigEnv
+//    透传进函数再展开（对象式导出也兼容）：
 import base from '../vite.config.ts';
-export default { ...base, cacheDir: process.env.PROBE_CACHE_DIR || 'node_modules/.vite' };
+export default (env) => ({
+  ...(typeof base === 'function' ? base(env) : base),
+  cacheDir: process.env.PROBE_CACHE_DIR || 'node_modules/.vite'
+});
 ```
 
 ```bash
