@@ -30,8 +30,9 @@ function tmp() {
 
 test('assertRepoRoot：从 e2e/lib/ 推出含 oauth package.json 的仓根', () => {
   const root = assertRepoRoot(import.meta.url);
-  assert.match(root, /oauth21$/);
-  // 与被测函数同源：仓根必须有 package.json 且 name 命中 oauth
+  // 被测契约是「靠 package.json 的 name 命中 oauth 推导仓根」，**不是目录名**：
+  // CI checkout 目录 = repo 名（oauth-web），本地目录 = oauth21 —— 断言目录名
+  // 会把测试绑死在本机路径上（2026-10-22 实测 CI 因此红，本地却绿）。
   const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
   assert.match(pkg.name, /oauth/i);
 });

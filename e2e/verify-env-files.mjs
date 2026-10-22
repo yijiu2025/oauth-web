@@ -136,11 +136,19 @@ function main() {
     exitGuard(err.message);
   }
 
-  // 文件存在性 = 环境自检（入库文件缺失是仓状态坏了，不是断言红）
+  // 文件存在性 = 环境自检（入库文件缺失是仓状态坏了，不是断言红）。
+  // 🔴 例外：`.env` 是**不入库的本地覆盖文件**（.gitignore:17 排除它），CI checkout 里
+  //    必然没有 —— 把它当必检 = CI 恒红（2026-10-22 实测）。缺失时跳过、按其余三个
+  //    入库文件比对；本地存在时照常纳入四文件比对，红线不缩水。
+  const OPTIONAL = new Set(['.env']);
   const files = [];
   for (const name of ENV_FILES) {
     const path = join(root, name);
     if (!existsSync(path)) {
+      if (OPTIONAL.has(name)) {
+        console.log(`  ⚠️ ${name} 不存在（本地覆盖文件，未入库）—— 本轮按其余 ${ENV_FILES.length - 1} 个入库文件比对`);
+        continue;
+      }
       exitGuard(`${name} 不存在（${path}）—— 入库文件缺失？git checkout -- ${name}`);
     }
     const content = readFileSync(path, 'utf8');
@@ -166,7 +174,7 @@ function main() {
     console.log(`\n  ${problems.length} 个问题 —— 新增变量时四个文件同时加、注释写全（CONTRIBUTING 红线 #2）`);
     process.exit(1);
   }
-  console.log('  四文件同键同序、键形合规、模板注释齐全 ✅');
+  console.log(`  ${files.length} 文件同键同序、键形合规、模板注释齐全 ✅`);
   process.exit(0);
 }
 
