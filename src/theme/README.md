@@ -7,9 +7,7 @@
 > 开发者只需写设备清单与主题包。设计、注入点契约、迁移分期见
 > CoreFlow `https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/theme-package-extraction.md`。
 >
-> ⚠️ **URL 参数命名以 [login-theme-routing.md](../../docs/login-theme-routing.md) 为准（2026-10-19 起）**：
-> 本文件部分段落仍写 2026-10-18 改名前的**点号旧名**（`?theme.<设备>` / `?view.<设备>` /
-> `?theme=` / `?view=` / `?skin.*`）与已取消的 `VITE_<PAGE>_VIEW` 部署级默认版式机制。
+> ⚠️ **URL 参数命名以 [login-theme-routing.md](../../docs/login-theme-routing.md) 为准（2026-10-19 起）**。
 > 现行键形：版式 `?th` / `?th_<urlKey>`、配色 `?th_color` / `?th_color_<urlKey>`、
 > 设备锁定 `?device=`、调试面板 `?debug=theme`；`?theme=dark|light` 明暗入口已废弃失效。
 > **拼链接 / 改代码前先读 login-theme-routing.md §2**。
@@ -93,9 +91,9 @@ src/theme/
 ```
 ① 设备判定   pickDeviceId      route.query + route.path + viewport → 设备 id
         ↓
-② 页面投影 + 版式选择           resolveThemePage(路径) → page；pickView(URL > 包声明 > env > 包名)
+② 页面投影 + 版式选择           resolveThemePage(路径) → page；pickView(URL > 包声明 > 包名)
         ↓
-③ 配色解析   themeRecordFor    ?theme.<设备> ?? themeId，按 包×设备×页面 查四段键
+③ 配色解析   themeRecordFor    ?th_color_<urlKey> ?? themeId，按 包×设备×页面 查四段键
         ↓
 ④ token 注入 + 附加样式         applyThemeLayers → html 变量；loadThemeStyle → theme.scss；.dark 类
         ↓
@@ -153,23 +151,23 @@ themes/<包>/<设备>/<页面>/colors/<配色>/      ← 该页的配色
 
 | 想要的效果 | 写法 |
 | --- | --- |
-| 三端（或所有端）**同一个**配色 + **同一个**版式 | `/login?theme=blue&view=compact` |
-| 每端**各自**的配色 **与** 版式 | `/login?theme.mobile=blue&theme.standard=black&view.mobile=default&view.standard=compact` |
-| 每端**各自**的配色，版式**共用**一个 | `/login?theme.mobile=blue&theme.standard=black&view=default` |
+| 三端（或所有端）**同一个**配色 + **同一个**版式 | `/login?th_color=blue&th=compact` |
+| 每端**各自**的配色 **与** 版式 | `/login?th_color_mobile=blue&th_color_std=black&th_mobile=default&th_std=compact` |
+| 每端**各自**的配色，版式**共用**一个 | `/login?th_color_mobile=blue&th_color_std=black&th=default` |
 
-`mini` 与 `mobile` / `standard` 完全同权：`?theme.mini=...` / `?view.mini=...` 随时可加。
+`mini` 与 `mobile` / `standard` 完全同权：`?th_color_mini=...` / `?th_mini=...` 随时可加。
 
 **取值链（逐级下沉，高 → 低）**
 
 | 维度 | 链路 |
 | --- | --- |
-| 配色 | `?theme.<设备>`（`?skin.<设备>` 同义）→ `?theme` / `?skin` → localStorage 上次选择 → 该范围兜底配色 |
-| 版式 | `?view.<设备>` → `?view` → 包声明的 `views.<页面>` → `VITE_<PAGE>_VIEW` → 该包该设备的唯一版式（`pkg`） |
+| 配色 | `?th_color_<urlKey>` → `?th_color` → localStorage 上次选择 → 该范围兜底配色 |
+| 版式 | `?th_<urlKey>` → `?th` → 包声明的 `views.<页面>` → 该包该设备的唯一版式（`pkg`） |
 
 - 设备维度参数**不写 localStorage**：它是"这次访问的意图"，不是"用户的选择"。
   用户手动点色卡（`setTheme` / `cycleMode` / `toggleTheme`）会**清掉该设备的 URL 覆盖**，
   让显式操作优先；但 `setMode`（后端/父应用下发）不会 —— 它必须留在 URL 之下。
-- **"没有就自动下沉"**：`?theme=blue&view=compact` 在三端同时生效，某端没有
+- **"没有就自动下沉"**：`?th_color=blue&th=compact` 在三端同时生效，某端没有
   `compact` 包或没有 `blue` 配色时，按上表逐级回落到该端**已有**的那一套，
   不报错、不白屏。回落口径见下节。
 - 读取入口只有一个：`skinsuite` 的 `readDeviceParam()`（版式）与
@@ -201,7 +199,7 @@ themes/<包>/<设备>/<页面>/colors/<配色>/      ← 该页的配色
    各端各页放 **`<设备>/<页面>/index.vue`**（**该端该页的唯一版式**，也是兜底）。
 3. 各页面下建 `colors/<配色>/index.ts`（**每页至少一套**，否则该范围没有任何配色可注入）。
 4. （可选）加 `theme.scss` 放背景图 / `@font-face` / 伪元素装饰。
-5. 访问 `?theme=<配色 id>` 看效果。
+5. 访问 `?th_color=<配色 id>` 看效果。
 
 > 🔴 **只覆盖部分设备 / 页面时，在包定义里声明 `coverage`**（2026-09-27 起）：
 > `compact` 包只覆盖 `mobile × register`，就在 `index.ts` 里写
@@ -216,7 +214,7 @@ themes/<包>/<设备>/<页面>/colors/<配色>/      ← 该页的配色
    想复用内置包的样式基线时，从 `default/<设备>/<页面>/index.vue` 照抄起步。
 3. 建 `<新包>/<设备>/<页面>/colors/<配色>/index.ts`。
    ⚠️ 配色是**按包**查的，新包必须自带一份 —— 不想要多的就只建 `{black,white}`。
-4. 访问 `?view=<新包名>` 切换（也支持 `?view.<设备>=<新包名>` 只换某端）。
+4. 访问 `?th=<新包名>` 切换（也支持 `?th_<urlKey>=<新包名>` 只换某端）。
 
 > 「换版式要复制配色」是这条口径的**已知代价**，也是刻意的：两套 DOM 的 token 集合
 > 本来就不同，共享一份文件只会让配色里堆满"只对某版式有意义"的条目。
@@ -245,9 +243,9 @@ export default {
 > 想要"深色版品牌色"？**另建一个颜色目录**（如 `navy`，`tone: 'dark'`），别往同一套里塞暗档。
 
 2. （可选）同目录加 `theme.scss` + `assets/`。
-3. 访问 `?theme=brand` 看效果。
+3. 访问 `?th_color=brand` 看效果。
 
-> ⚠️ 要给**每个设备**都配上就用设备维度参数分别验：`?theme.mobile=brand`
+> ⚠️ 要给**每个设备**都配上就用设备维度参数分别验：`?th_color_mobile=brand`
 > 加了新配色记得跑一次 `verify-theme-dirs.mjs` 看有没有撞名（同范围重名会告警）。
 
 **两种都要**：重启 dev server（`import.meta.glob` 在启动时静态扫描，新目录不会被热更新发现）。
@@ -368,8 +366,8 @@ html[data-mauth-theme='<id>'] {
 
 优先级（高 → 低）：
 
-1. URL 参数 `?theme.<当前设备>=<配色 id>`（`?skin.<设备>` 同义）
-2. URL 参数 `?theme=<配色 id>`（`?skin=` 同义；所有设备共用同一个 id）
+1. URL 参数 `?th_color_<urlKey>=<配色 id>`
+2. URL 参数 `?th_color=<配色 id>`（所有设备共用同一个 id）
 3. 后端下发 `{ "theme": "<配色 id>" }`（见 `composables/remote-theme.ts`）
 4. localStorage 里用户上次的选择
 5. 该**包 × 设备 × 页面**下的兜底配色 —— **`DEFAULT_THEME_COLOR` = `white`**（2026-09-26 定）；
@@ -395,7 +393,7 @@ html[data-mauth-theme='<id>'] {
 
 ### 显式操作 > URL > 后端 > 记忆
 
-`?theme.<设备>` / `?theme` 是**这次访问的意图**，优先级最高，会被记成该设备的 URL 锁
+`?th_color_<urlKey>` / `?th_color` 是**这次访问的意图**，优先级最高，会被记成该设备的 URL 锁
 （`urlLockedThemeOf(device)`），锁住该设备的自动写入：首屏 tone 同步、切版式时的配色重置、
 后端配置下发。**用户手动点色卡 / 切明暗**（`setTheme` / `cycleMode` / `toggleTheme`）会
 **清掉该设备的锁**——显式操作永远压过 URL。
@@ -416,7 +414,7 @@ export default {
   （推荐：版式属于包）。
 - 写在**配色里**（`<设备>/<页面>/colors/<配色>/index.ts`）→ 只覆盖这一套配色。
 
-优先级：`?view.<设备>` > `?view=` > `views` > `VITE_<PAGE>_VIEW` > 当前包（自带版式）。
+优先级：`?th_<urlKey>` > `?th` > `views` > 当前包（自带版式）。
 写错 / 未登记的版式名一律**回退当前包当前设备的版式**，不会因为写错而白屏
 （合法性由 `views/<page>.ts` 判定）。版式的分工与红线见 `skinsuite/vue 的 view-registry.ts` 的文件头。
 
@@ -468,41 +466,41 @@ store 用这个值决定
 - **版式** = `<包>/<设备>/<页面>/index.vue`，**没有**版式名这一层目录：
   一页只有一个版式，版式的"名字"就是**包名**。`base` 只是一个**逻辑 id**
   （`BASE_VIEW_ID`），不是目录名，也不再是配色注册表的 `view` 取值。
-- **换版式 = 换包**：`?view=compact` 把 `compact` 当**目标包名**解析；
+- **换版式 = 换包**：`?th=compact` 把 `compact` 当**目标包名**解析；
   跨包引用只在"该包 × 该设备内已登记"时成立，否则回退当前包的版式。
-- 版式 id 来自 URL / 主题包 / 环境变量，都属**外部输入**：只做「当前包 × 当前设备内已登记」
+- 版式 id 来自 URL / 主题包，都属**外部输入**：只做「当前包 × 当前设备内已登记」
   白名单匹配，未登记一律回退该范围自带版式（见 `skinsuite/vue 的 view-registry.ts` 的 `resolve`）。
 
 ### 选择优先级（高 → 低）
 
-1. URL `?view.<当前设备>=<id>`
-2. URL `?view=<id>`
+1. URL `?th_<urlKey>=<id>`
+2. URL `?th=<id>`
 3. 声明（包根 `themes/<包>/index.ts` 或配色 `<设备>/<页面>/colors/<配色>/index.ts` 的 `views[page]`）
 4. 当前包（`pkg`）自带的那套版式
 
 第 1/2 档都在**当前主题包 × 当前设备内**查找，找不到就回退**该包该设备自己的**版式
 （不跨设备借别人的版式）。
 🔴 **URL 只要给了值就不再往下走**：非法值落**当前包**，不会被第 3 档接管
-（`?view=typo` → 当前包）—— 显式写错时静默换 UI 更难排查。
-🔴 **设备键留空 = 未指定**：`?view.mobile=`（或纯空白）视为没给，继续落通用的 `?view`，
+（`?th=typo` → 当前包）—— 显式写错时静默换 UI 更难排查。
+🔴 **设备键留空 = 未指定**：`?th_mobile=`（或纯空白）视为没给，继续落通用的 `?th`，
 再往下才是第 3/4 档。参数留空是部署方常用的"这台设备不特殊指定"。
 三页（login / register / forgot-password）**同一套规则、同一份形状**：
 `pick*ViewId` 都接收 `source.theme`，URL 分支都是 `resolve(url, pkg, device) ?? pkg` ——
-`verify-theme-dirs.mjs` §12 守这条（register 曾缺第 3 档、还多一条会把 `?view=base`
+`verify-theme-dirs.mjs` §12 守这条（register 曾缺第 3 档、还多一条会把当时的键 `?view=base`
 漏成 `'base'` 的重复分支）。
 > 部署级默认版式（`VITE_<PAGE>_VIEW`）机制已取消（2026-10-18）：换 UI 只靠「换主题包」或
 > 「URL 显式指定」，不再通过 env 变量整站切换默认版式。
 
-⚠️ 第 2 档**非法值不回退**：`?view=typo` 直接落当前包自带版式，而不是被第 3/4 档接管 ——
+⚠️ 第 2 档**非法值不回退**：`?th=typo` 直接落当前包自带版式，而不是被第 3/4 档接管 ——
 显式参数写错时静默换成另一套 UI，比看到默认版式更难排查。
 
 ### 版式怎么加载（按需加载是硬要求）
 
 | 情形 | 来源 | 代价 |
 | --- | --- | --- |
-| **不带任何 `view` 参数**（绝大多数访问） | 容器**静态 import** 自己设备内置包的那份 | **零请求**，首帧即正确 |
-| `?view=<当前包名>` 或 `?view=base` | 同上（`load()` 返回 `null`） | **零请求** |
-| `?view=<其它包名>`（且该包该设备有实现） | `import.meta.glob` 惰性 | 一个 chunk 请求；路由守卫会提前预热 |
+| **不带任何 `?th` 参数**（绝大多数访问） | 容器**静态 import** 自己设备内置包的那份 | **零请求**，首帧即正确 |
+| `?th=<当前包名>` | 同上（`load()` 返回 `null`） | **零请求** |
+| `?th=<其它包名>`（且该包该设备有实现） | `import.meta.glob` 惰性 | 一个 chunk 请求；路由守卫会提前预热 |
 
 `skinsuite/vue 的 view-registry.ts` 的 `load()` 返回 `null` 就是"**用你静态引入的那份**"这个语义。
 三个设备**各自静态引入自己设备的那份**（`view/app/<page>/` → `default/mobile`、
@@ -526,7 +524,7 @@ store 用这个值决定
    （裸色值会在换配色 / 切深色时漏色）；能复用的（字段、按钮、摘要、协议、页脚）
    直接复用 `assets/styles/mobile-auth.scss` 的 `mauth-*` 类。
 4. **重启 dev server**（`import.meta.glob` 在启动时静态扫描，新目录热更新发现不了）。
-5. 访问 `?view=<新包名>` 看效果（组合验证：`?theme=cyan&view=<新包名>`）。
+5. 访问 `?th=<新包名>` 看效果（组合验证：`?th_color=cyan&th=<新包名>`）。
 
 ## 五条容易踩的线
 

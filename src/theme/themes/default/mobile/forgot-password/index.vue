@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * 重置密码页 · 基础版式（`theme/themes/default/forgot-password/`）
+ * 重置密码页 · 基础版式（`theme/themes/default/mobile/forgot-password/`）
  *
- * 这是**默认版式**：没有任何 `?view=` / 主题包声明 / 环境变量指定时用它。
+ * 这是**默认版式**：没有任何 `?th=` / 主题包声明指定时用它。
  * 由容器**静态引入**（不在 registry 的惰性表里），所以默认路径上零额外请求、零闪烁。
  *
  * === 这个文件里应该有什么 / 不该有什么 ===

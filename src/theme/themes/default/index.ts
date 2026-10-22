@@ -26,7 +26,7 @@
  *    本包的 `mobile/login/colors/black` 与 `standard/login/colors/black` 就是两份
  *    独立文件（各写各的 tokens），这正是"两端各配一套色值"的落点。
  *    两端要用**不同的配色 id**（手机 `blue`、电脑 `black`）时用**设备维度参数**
- *    `?theme.mobile=blue&theme.standard=black`（见 `stores/theme.ts`）。
+ *    `?th_color_mobile=blue&th_color_std=black`（键表见 `docs/login-theme-routing.md` §2.1）。
  *
  * @author yijiu2025
  */

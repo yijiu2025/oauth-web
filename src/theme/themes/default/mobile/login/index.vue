@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * 登录页 · 基础版式（`theme/themes/default/login/`）
+ * 登录页 · 基础版式（`theme/themes/default/mobile/login/`）
  *
- * 这是**默认版式**：没有任何 `?view=` / 主题包声明 / 环境变量指定时用它。
+ * 这是**默认版式**：没有任何 `?th=` / 主题包声明指定时用它。
  * 由容器**静态引入**（不在 registry 的惰性表里），所以默认路径上零额外请求、零闪烁。
  *
  * === 这个文件里应该有什么 / 不该有什么 ===
@@ -14,7 +14,7 @@
  * 本组件**不自带 `<style>`**：移动端认证页的样式单一来源是
  * `assets/styles/mobile-auth.scss`（`mauth-*` 体系，登录/注册/重置密码三页共用），
  * 自带样式块会让三页各自漂移 —— 历史上"两页看起来不一样"都源于此。
- * 特殊版式（`theme/themes/default/login/<变体>/`）需要自己那套结构样式时可以写 `<style scoped>`，
+ * 其它主题包的同页版式（`theme/themes/<包>/mobile/login/`）需要自己那套结构样式时可以写 `<style scoped>`，
  * 但取值一律引用 `--mauth-*` token，别写裸色值，否则换配色/换明暗时会漏。
  *
  * === 三块面板 ===

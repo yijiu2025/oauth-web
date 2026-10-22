@@ -10,13 +10,13 @@
  * 本文件只负责"重置密码这件事"：校验、发码 / 发链接、RSA 加密提交、步骤流转、路由。
  * **页面长什么样不在这里**，而在**当前主题包**里的版式组件里：
  *
- *    本容器 ──传 ctx──▶ theme/themes/<包>/forgot-password/<版式>/index.vue
+ *    本容器 ──传 ctx──▶ theme/themes/<包>/<设备>/forgot-password/index.vue
  *                 ▲
  *                 └── 契约定在 theme/views/forgot-password.ts（各包共用这一份）
  *
  * 选择优先级见 `theme/views/forgot-password.ts`
- * （`?view=` > 主题包声明 > 环境变量 > 基础版式）。
- * **内置包**（`default`）的 base 由本文件**静态引入**：正常访问不产生额外请求，首帧即正确；
+ * （`?th_<urlKey>` > `?th` > 主题包声明 > 当前包）。
+ * **内置包**（`default`）的版式由本文件**静态引入**：正常访问不产生额外请求，首帧即正确；
  * 其它包 / 其它版式都是惰性 chunk，由路由守卫提前预热。
  *
  * 两种重置方式（由 VITE_PASSWORD_RESET_MODE 决定，与后端 PASSWORD_RESET_MODE 对应，

@@ -47,10 +47,10 @@
  * （表面/文字/边框/间距）与明暗两档。
  *
  * 加一个主题包 / 加一套配色（全部在 src/theme/themes/ 内完成，不动本文件、不动 store、不动组件）：
- *   ① 建包目录 `src/theme/themes/<包>/`，写根 `index.ts`：meta + tokens.light / tokens.dark
- *      （包根既是包定义，也是该包的默认配色；版式实现也放这个包根下）
- *   ② 只想给已有包再加一套颜色：建 `src/theme/themes/<包>/colors/<配色>/index.ts`
- *   ③ 需要背景图 / webfont / 伪元素装饰时，再加一个 `theme.scss`
+ *   ① 建包目录 `src/theme/themes/<包>/`，写根 `index.ts`：meta（+ 可选 views 版式声明）；
+ *      版式实现在 `<包>/<设备>/<页面>/index.vue`，配色在 `<包>/<设备>/<页面>/colors/<配色>/`
+ *   ② 只想给已有包再加一套颜色：建在该页 `colors/<配色>/index.ts`（按「包 × 设备 × 页面」各一份）
+ *   ③ 需要背景图 / webfont / 伪元素装饰时，在同目录再加一个 `theme.scss`
  *   详见 `src/theme/README.md`。运行时会做白名单校验后再注入（防 CSS 注入）。
  *
  * 「对每个组件做 UI 定制」= 覆写 ② 层的组件级 token，例如只把登录按钮改成方形：
@@ -305,11 +305,12 @@ html.dark {
 
 /* --- 0.4 换配色挂载点（已外置）---
 
-   配色不再写在本文件里，而是每套一个文件夹：`src/theme/themes/<包>/` 的包根
-   （该包默认配色）或包内 `src/theme/themes/<包>/colors/<配色>/`。
-   原先这里的 `html[data-mauth-skin='ocean']` 两个块已迁到
-   `src/theme/themes/default/colors/ocean/index.ts` 的 tokens（值逐条照搬，渲染结果不变），
-   背景图等额外样式在 `src/theme/themes/default/colors/ocean/theme.scss`。
+   配色不再写在本文件里，而是每套一个文件夹：`src/theme/themes/<包>/<设备>/<页面>/colors/<配色>/`
+   （按「包 × 设备 × 页面」各一份；该范围没有配色就没有可注入的 token）。
+   原先这里的 `html[data-mauth-skin='ocean']` 两个块已迁到主题包的配色目录
+   （值逐条照搬，渲染结果不变；`ocean` 后改名 `cyan`，按「包 × 设备 × 页面」各自成套，
+   如 `src/theme/themes/default/mobile/login/colors/cyan/index.ts`），
+   背景图等额外样式在同目录 `theme.scss`。
 
    为什么搬走：配色声明留在共享样式表里，每套配色都会在这份文件里留下痕迹，
    加配色要改共享文件、删配色不敢删，最后没人说得清哪块属于谁。

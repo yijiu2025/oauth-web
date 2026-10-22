@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * 注册页 · 轻版式（`theme/themes/default/register/compact/`）—— **参考实现 / 变体模板**
+ * 注册页 · 轻版式（`theme/themes/compact/mobile/register/`）—— **参考实现 / 变体模板**
  *
  * 存在的意义有两个：
- *   1. 证明机制跑得通：`?view=compact` 或主题包声明 `views.register: 'compact'` 时，
+ *   1. 证明机制跑得通：`?th=compact` 或主题包声明 `views.register: 'compact'` 时，
  *      这个 chunk 才会被动态加载（基础版式不在其中）。
  *   2. 给后续版式一个可照抄的骨架 —— 复制这个目录、改结构即可，业务一行都不用碰。
  *

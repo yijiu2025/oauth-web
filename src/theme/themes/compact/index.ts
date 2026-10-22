@@ -7,7 +7,7 @@
  *   • 本包只覆盖 register 页面的紧凑版式
  *   • login / forgot-password 在本包里没有实现 → 回退到 default 包
  *
- * 切换版式 = 切换主题包：用 `?view=compact`（`?view` 的值就是**目标包名**），
+ * 切换版式 = 切换主题包：用 `?th=compact`（`th` 的值就是**目标包名**），
  * 或在某个包的 `index.ts` 里写 `views: { register: 'compact' }`。
  *
  * === 与 default 包的关系 ===
