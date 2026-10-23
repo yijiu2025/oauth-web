@@ -21,7 +21,7 @@ import { computed, defineAsyncComponent, onMounted } from 'vue';
 import { deviceIds, fallbackDevice, resolveContainerOf } from 'skinsuite/vue';
 import { useRenderDevice } from '@/composables/useRenderDevice';
 
-// 设备判定（宿主口径：视口 + URL 词汇；null = 无显式倾向）
+// 设备判定（宿主口径：视口 + URL 词汇；兜底显式落 standard）
 const device = useRenderDevice();
 
 // 异步按需加载不同形态的容器：设备 id → 容器，映射从设备清单派生
@@ -29,10 +29,10 @@ const deviceComponents = new Map(
   deviceIds().map(id => [id, defineAsyncComponent(resolveContainerOf(id, 'not-found'))])
 );
 
-// 判定 → 选容器：null / 未知 id 都落设备清单末条（主题由容器内 ThemeView 告知）
+// 判定 → 选容器：未知 id（`?device=` 写错）才落设备清单末条；兜底已在判定里显式落 standard（主题由容器内 ThemeView 告知）
 const activeComponent = computed(() => {
   const fallback = fallbackDevice();
-  return deviceComponents.get(device.value ?? fallback) ?? deviceComponents.get(fallback)!;
+  return deviceComponents.get(device.value) ?? deviceComponents.get(fallback)!;
 });
 
 // 挂载后立即预热所有设备的 404 容器：理由同 login / register 分发器 ——

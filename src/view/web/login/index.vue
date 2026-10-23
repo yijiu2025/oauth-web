@@ -47,7 +47,7 @@ watch(
   { immediate: true, deep: true }
 );
 
-// 设备判定（宿主口径：视口 + URL 词汇；null = 无显式倾向）
+// 设备判定（宿主口径：视口 + URL 词汇；兜底显式落 standard）
 const device = useRenderDevice();
 
 // 异步按需加载不同形态的登录组件
@@ -56,10 +56,10 @@ const deviceComponents = new Map(
   deviceIds().map(id => [id, defineAsyncComponent(resolveContainerOf(id, 'login'))])
 );
 
-// 判定 → 选容器：null（无显式倾向）或未知 id（`?device=` 写错）都落设备清单末条
+// 判定 → 选容器：未知 id（`?device=` 写错）才落设备清单末条；兜底已在判定里显式落 standard
 const activeComponent = computed(() => {
   const fallback = fallbackDevice();
-  return deviceComponents.get(device.value ?? fallback) ?? deviceComponents.get(fallback)!;
+  return deviceComponents.get(device.value) ?? deviceComponents.get(fallback)!;
 });
 
 // 组件挂载后执行
