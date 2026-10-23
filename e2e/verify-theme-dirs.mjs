@@ -830,6 +830,9 @@ check(
   'theme/views 只放声明（defineThemeDevice）；判定要住 utils —— 主题域才可整体迁移'
 );
 // useRenderDevice = 薄封装（route + 视口信号 → 判定纯函数），同样零主题 import
+// 🔴 视口信号名是**手抄判据**：信号升级必须同步这里（2026-10-24 mobileViewport 布尔
+//    → viewportDevice 设备代码，平板三态）。判据红时先问「是信号改名了，还是接线真坏了」——
+//    前者同步判据，后者修实现。手抄名不可怕，可怕的是落后了没人知道为什么红。
 const useRenderDeviceFile = join(ROOT, 'composables', 'useRenderDevice.ts');
 const useRenderDeviceSrc = existsSync(useRenderDeviceFile) ? read(useRenderDeviceFile) : '';
 const useRenderDeviceCode = codeOnly(useRenderDeviceSrc);
@@ -837,7 +840,7 @@ check(
   'useRenderDevice 是薄封装（接线 route / 视口信号，不 import 主题库）',
   /export\s+function\s+useRenderDevice/.test(useRenderDeviceCode) &&
     /resolveRenderDevice/.test(useRenderDeviceCode) &&
-    /mobileViewport/.test(useRenderDeviceCode) &&
+    /viewportDevice/.test(useRenderDeviceCode) &&
     !/from\s+'skinsuite/.test(useRenderDeviceCode) &&
     !/setActiveDevice/.test(useRenderDeviceCode),
   '接线只做「把 route/视口接进纯函数」；告知主题是 ThemeView 的职责，不在这里'
