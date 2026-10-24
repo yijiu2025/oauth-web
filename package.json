@@ -57,7 +57,7 @@
     "eslint-plugin-vue": "^10.10.0",
     "fast-glob": "^3.3.3",
     "globals": "^17.11.0",
-    "happy-dom": "^20.13.1",
+    "happy-dom": "^21.0.4",
     "postcss": "^8.5.14",
     "sass": "^1.99.0",
     "tailwindcss": "^4.3.3",
