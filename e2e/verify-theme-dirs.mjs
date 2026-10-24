@@ -47,7 +47,7 @@
  * 退出码：0 通过 / 1 断言失败
  */
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireScanDir } from './lib/env-guard.mjs';
 import { resolveThemeDir } from './lib/theme-dir.mjs';
