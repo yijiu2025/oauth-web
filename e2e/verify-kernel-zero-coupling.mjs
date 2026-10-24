@@ -297,7 +297,7 @@ if (MONOREPO_FORM) {
     );
     check(
       'aliases.ts 保留 existsSync 条件注册（源码在才注册，绝不指向不存在的路径）',
-      /if\s*\(existsSync\(monorepo\)\)/.test(text),
+      /if\s*\(existsSync\(monorepo\)(\s*&&\s*!process\.env\.VITEST_FORCE_STANDALONE)?\)/.test(text),
       '找不到条件注册门'
     );
     check(
