@@ -10,9 +10,9 @@
 
 | 术语 | 是什么 | 不是什么 | 在哪定义 |
 | --- | --- | --- | --- |
-| **设备 device** | 页面身份维度，四台平级：`mobile` / `standard` / `mini` / `tablet` | mini **不是** mobile 的缩写（独立设备，有自己的容器与目录） | `src/theme/views/devices.ts` 清单 |
-| **urlKey** | 设备在 URL 参数里的缩写名：`mini` / `tab` / `mobile` / `std`（standard 的缩写是 `std` 不是 `web`，历史约定不改） | 不是设备 id 本身（id 是 `standard`，urlKey 是 `std`）；未声明缩写的设备回落 id | 同左（`defineThemeDevice` 的 `urlKey` 字段） |
-| **页面 page** | 配色 / 版式的查找范围之一：`login` / `register` / `forgot-password` … | 不是路由 path（`/login` 投影成 `login`） | `src/theme/views/pages.ts` + `theme.config.ts` 路由映射 |
+| **设备 device** | 页面身份维度，四台平级：`mobile` / `standard` / `mini` / `tablet` | mini **不是** mobile 的缩写（独立设备，有自己的容器与目录） | `src/view/devices.ts` 清单（词汇经 `createThemeState({ devices })` 注入 store） |
+| **urlKey** | 设备在 URL 参数里的缩写名：`mini` / `tab` / `mobile` / `std`（standard 的缩写是 `std` 不是 `web`，历史约定不改） | 不是设备 id 本身（id 是 `standard`，urlKey 是 `std`）；未声明缩写的设备回落 id | 同左（`DEVICES` 声明的 `urlKey` 字段） |
+| **页面 page** | 配色 / 版式的查找范围之一：`login` / `register` / `forgot-password` … | 不是路由 path（`/login` 投影成 `login`） | `src/theme/views/<page>.ts`（`defineThemePage` 声明） |
 | **主题包 pkg** | 一套完整设计，**一种版式**：目录名即 id（`default` / `compact`） | 不是「配色集合」（配色住在包的页面下）；版式 id ≡ 包名（`view ≡ pkg`） | `src/theme/themes/<包>/` |
 | **四段键** | 注册表键结构 `包/设备/页面/配色` —— 一个主题记录由这四段定位 | 不是 URL 参数（URL 只有六键，见下） | `buildRegistry()`（内核 `skinsuite`） |
 

@@ -36,7 +36,13 @@ async function freshWorld(query: Record<string, string> = {}, url = '/login') {
   skinsuite.installThemeDomain({
     router: { currentRoute: reactive({ value: route }) } as never
   });
-  return { store: useThemeStore(), route };
+  const store = useThemeStore();
+  // 0.9.0 起页面上下文由 <ThemeView> 挂载告知（无页面时页面域为空、URL 审计的
+  // pageRegistered=false）。装置模拟 ThemeView 挂载：告知页 + 冲刷一轮，让调试
+  // 句柄的 store 六值 watch 跑一遍 refresh（探针挂载 / 警告判定都在那之后）。
+  store.setActivePageView('login', 'default');
+  await flush();
+  return { store, route };
 }
 
 /** 让 store / 调试句柄里的 watch 冲刷一轮（Vue 的 watch 默认异步批处理） */

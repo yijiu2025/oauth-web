@@ -26,8 +26,8 @@
 | `th_web=ccc` / `th_app=bbb` 按设备换包 | 词汇映射：`th_web ≡ th_std`、`th_app ≡ th_mobile`；「导航」实为**同路由换容器 + 按设备取 store 意图** | 🔧 词汇映射 + store 化后天然成立 |
 | `th_web_color=blue` | 键形 `th_color_std`（配色键 `th_color_<urlKey>`，顺序与版式相反） | ✅ 键形不变 |
 | `device=mobile` 锁死 ⇒ `th_web*` 无效 | per-device 意图只对**生效设备**生效 | ✅ 天然成立，用例钉死（§6） |
-| web/app 词汇在 `devices.ts` 设置 | urlKey 在 `devices.ts` 声明（`mini`/`tab`/`mobile`/`std`） | ✅ 不改（`std`/`mobile` 即 Spec 的 web/app） |
-| `<ThemeView page="login" device="mini">` 的 login/mini 在 `login.ts`/`devices.ts` 设置 | `defineThemePage` + `defineThemeDevice` 纯声明 | ✅ 不动 |
+| web/app 词汇在 `devices.ts` 设置 | urlKey 在 `view/devices.ts` 声明（`mini`/`tab`/`mobile`/`std`） | ✅ 不改（`std`/`mobile` 即 Spec 的 web/app） |
+| `<ThemeView page="login" device="mini">` 的 login/mini 在 `login.ts`/`devices.ts` 设置 | `defineThemePage`（views/login.ts）+ 设备清单（view/devices.ts）纯声明 | ✅ 不动 |
 | 全部 store 化，debug 实时替换不改路由 | 配色已如此；**版式 debug 今天写 URL**（`replaceQuery`） | 🔧 §3 改造 |
 
 ## 2. 参数契约（唯一真源）
@@ -46,17 +46,17 @@
 Spec 词汇 → 实现词汇：`th_web` → `th_std`、`th_app` → `th_mobile`、`th_web_color` → `th_color_std`。
 （standard 的 urlKey 是 `std` 不是 `web`，mobile 的是 `mobile` 不是 `app`——2026-10-19 与需求方确认**不改缩写**，继续使用 `mini`/`tab`/`mobile`/`std`。）
 
-### 2.2 urlKey 词汇表（宿主 `src/theme/views/devices.ts` 声明，纯声明）
+### 2.2 设备词汇表（宿主 `src/view/devices.ts` 一份声明：词汇 + 布线）
 
-| 设备 id | label | urlKey | 容器（login 页） | routePath |
+| 设备 id | label | urlKey | 容器（login 页） | routePath（归宿主路由表） |
 |---|---|---|---|---|
 | mini | 紧凑版 | `mini` | `view/web/login/MiniLogin.vue` | `mini/<page>` |
 | tablet | 平板 | `tab` | `view/tablet/login/index.vue` | `tablet/<page>` |
 | mobile | 手机端 | `mobile` | `view/app/login/index.vue` | `m/<page>` |
 | standard | 桌面端 | `std` | `view/web/login/StandardLogin.vue` | `<page>` |
 
-🔴 **urlKey ≠ 设备 id**：id 管 `?device=`、容器 glob、routePath；urlKey 只是 URL 参数后缀。两者已在 `defineThemeDevice` 分离，改缩写不动 id。
-声明顺序 = 优先级，**末条（standard）是兜底**。
+🔴 **urlKey ≠ 设备 id**：id 管 `?device=` 与主题包目录段；urlKey 只是 URL 参数后缀。同一份声明里两者并排（`HostDeviceInput`），改缩写不动 id。
+声明顺序 = 优先级，**末条（standard）是兜底**。词汇经 `createThemeState({ devices })` 注入主题 store，容器布线由页面分发器经 `device` 模块消费。
 
 ### 2.3 取值链与兜底（每台设备各一条）
 

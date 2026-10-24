@@ -37,7 +37,13 @@ async function freshStore(search = '') {
   vi.resetModules();
   window.history.replaceState({}, '', search || '/');
   const { useThemeStore } = await import('@/stores/theme');
-  return useThemeStore();
+  const store = useThemeStore();
+  // 0.9.0 起配色解析严格按「包 × 设备 × 页面」作用域：页面上下文由 <ThemeView>
+  // 挂载告知，无页面时一切走空兜底（themeId 停在占位 'default'）。装置模拟
+  // ThemeView 挂载后的状态，并冲刷一轮让 intent 的首屏对齐把占位 id 校正到位。
+  store.setActivePageView('login', 'default');
+  await new Promise<void>(resolve => setTimeout(resolve, 0));
+  return store;
 }
 
 /**
@@ -65,7 +71,11 @@ async function freshStoreWithRouter(
   installThemeDomain({
     router: { currentRoute: reactive({ value: route }) } as never
   });
-  return useThemeStore();
+  const store = useThemeStore();
+  // 同 freshStore：模拟 ThemeView 挂载告知页面 + 冲刷首屏对齐（0.9.0 作用域语义）
+  store.setActivePageView('login', 'default');
+  await new Promise<void>(resolve => setTimeout(resolve, 0));
+  return store;
 }
 
 /** 让 store 内的 watch 冲刷一轮（Vue 的 watch 默认异步批处理） */
@@ -102,10 +112,14 @@ describe('theme store 行为守卫', () => {
       expect(store.themeId).toBe('white');
     });
 
-    it('旧键 theme-skin 作为迁移兜底被读取', async () => {
+    it('0.6.x 的 theme-skin 键不再迁移（迁移键只有 theme / theme-id），回落默认色', async () => {
+      // 0.7.0 起迁移链只认裸键 theme / theme-id（LEGACY_STORAGE_KEYS）；
+      // theme-skin 是更早时代的键，库不再读它 —— 落盘值被忽略，走占位 + 首屏对齐回落 white。
       localStorage.setItem('theme-skin', 'cyan');
       const store = await freshStore();
-      expect(store.themeId).toBe('cyan');
+      expect(store.themeId).toBe('white');
+      // 负向对照：真正的迁移键 theme-id 依然生效（见上一个用例）
+      expect(localStorage.getItem('theme-id')).toBeNull();
     });
   });
 
@@ -231,14 +245,18 @@ describe('theme store 行为守卫', () => {
       expect(store.themeId).toBe('white');
     });
 
-    it('切版式重置**不落盘**（切回旧版式应恢复用户上次自选色）', async () => {
+    it('切版式重置**不落盘**（重置产物只进内存，落盘仍是用户上次自选色）', async () => {
       const store = await freshStore();
       store.setActiveDevice(MOBILE);
       store.setActivePageView('register', DEFAULT_PKG);
       store.setTheme('cyan');
+      // 0.9.0 起写入只落新键 mauth:theme（旧键 theme-id 保留给迁移读，不再写）
+      expect(localStorage.getItem('mauth:theme')).toBe('cyan');
       store.setActivePageView('register', 'compact');
       await flush();
-      expect(localStorage.getItem('theme-id')).toBe('cyan');
+      // 重置到 compact/mobile/register 的默认色（white）只改内存；落盘键保持用户自选
+      expect(store.themeId).toBe('white');
+      expect(localStorage.getItem('mauth:theme')).toBe('cyan');
     });
   });
 
