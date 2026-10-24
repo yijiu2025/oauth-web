@@ -19,7 +19,7 @@ import { useI18n } from 'vue-i18n';
 import { authApi } from '@/api/auth';
 import { postToParent } from '@/utils/parent';
 import { sanitizeLocalRedirect } from '@/utils/redirect';
-import { useDeviceDetect } from '@/composables/useDeviceDetect';
+import { useDeviceDetect } from '@/device';
 import { useMessage } from '@/composables/useMessage';
 import { pickRedirectUrl } from '@/types/external';
 import ConsentPanel from '@/components/auth/ConsentPanel.vue';

@@ -17,33 +17,11 @@
  * @since 2026-10-19
  * @since 2026-10-20（设备判定归宿主设备模块；主题经 ThemeView props 接收）
  */
-import { computed, defineAsyncComponent, onMounted } from 'vue';
-import { deviceIds, fallbackDevice, resolveContainerOf } from 'skinsuite/vue';
-import { useRenderDevice } from '@/composables/useRenderDevice';
+import { device } from '@/view/devices';
 
-// 设备判定（宿主口径：视口 + URL 词汇；兜底显式落 standard）
-const device = useRenderDevice();
-
-// 异步按需加载不同形态的容器：设备 id → 容器，映射从设备清单派生
-const deviceComponents = new Map(
-  deviceIds().map(id => [id, defineAsyncComponent(resolveContainerOf(id, 'not-found'))])
-);
-
-// 判定 → 选容器：未知 id（`?device=` 写错）才落设备清单末条；兜底已在判定里显式落 standard（主题由容器内 ThemeView 告知）
-const activeComponent = computed(() => {
-  const fallback = fallbackDevice();
-  return deviceComponents.get(device.value) ?? deviceComponents.get(fallback)!;
-});
-
-// 挂载后立即预热所有设备的 404 容器：理由同 login / register 分发器 ——
-// ① 运行时才能定设备形态，预热避免「切换闪屏」；
-// ② 宽窄切换零新请求（拉宽时桌面容器必须已缓存，verify-responsive-switch C4 守这条）。
-// 🔴 四个分发器必须同构：0.5.0 改写曾误删后三个的预热，只有 login 保留，C4 当场红。
-onMounted(() => {
-  for (const id of deviceIds()) {
-    void resolveContainerOf(id, 'not-found')().catch(() => {});
-  }
-});
+// 设备页装配（判定 + 容器 Map + 末条兜底 + 挂载预热，四页共用，见 useDevicePage）；
+// 预热保证宽窄切换零新请求（verify-responsive-switch C4 守这条，四页同构由单点保证）。
+const activeComponent = device.useDevicePage('not-found');
 </script>
 
 <template>

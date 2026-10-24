@@ -50,11 +50,18 @@ import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireScanDir } from './lib/env-guard.mjs';
+import { resolveThemeDir } from './lib/theme-dir.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-// 关卡所在目录 = oauth21/e2e/，oauth21 就是上一级
-const ROOT = join(HERE, '..', 'src');
-const THEME = join(ROOT, 'theme');
+// 关卡所在目录 = <仓>/e2e/，仓根就是上一级（不信 cwd，见 lib/env-guard 的 assertRepoRoot）
+const REPO_ROOT = join(HERE, '..');
+const ROOT = join(REPO_ROOT, 'src');
+// 🔴 主题目录位置是**可配的**（env `VITE_THEME_DIR`），不再写死 `<仓根>/src/theme`：
+//    构建期 `skinsuite/vite` 的 themeAssets 读的是同一个变量，两边必须同源 ——
+//    否则谁按 env 把目录挪走，本关卡就会扫到 0 个文件（requireScanDir 会红，
+//    但那是假红：目录是真的，只是位置换了）。
+//    换前端时，新前端只要放同样的 env（或传 --dir <路径>），本关卡可直接复用。
+const THEME = resolveThemeDir({ repoRoot: REPO_ROOT });
 const VIEWS = join(THEME, 'views');
 const PKGS = join(THEME, 'themes');
 // 环境自检（2026-10-21）：扫描目录空 = 期望集 0 = 断言恒红/假绿，先红自己
@@ -62,10 +69,10 @@ requireScanDir(PKGS, '主题包目录');
 
 /** 目录名白名单（与 theme/index.ts 的 THEME_ID_RE 逐字一致） */
 const ID_RE = /^[a-z0-9-]+$/;
-/** 设备清单文件（设备维度取值集合的**唯一来源**，见 oauth21/src/theme/views/devices.ts） */
-const DEVICES_FILE = join(VIEWS, 'devices.ts');
+/** 设备事实文件（设备清单**单一来源**，2026-10-24 起住 oauth21/src/view/devices.ts：一份声明 = 词汇 + 布线 + 模块装配） */
+const DEVICES_FILE = join(ROOT, 'view', 'devices.ts');
 /**
- * 设备白名单 —— 从宿主设备清单 `theme/devices.ts` 派生，**不再硬编码**
+ * 设备白名单 —— 从宿主设备清单 `view/devices.ts` 派生，**不再硬编码**
  *
  * 清单里每个设备是一条 `{ id: 'mobile', … }`；本关卡读 `id:` 字段取取值集合。
  * 加一种设备 = 改 devices.ts 一条声明，本关卡自动跟上（与主题包目录的口径同源）。
@@ -203,13 +210,53 @@ const INSTALLED_CORE = [
   join(ROOT, 'node_modules', 'skinsuite', 'src'),
   join(ROOT, '..', 'node_modules', 'skinsuite', 'src')
 ].find(dir => existsSync(dir));
-const CORE = MONOREPO_FORM ? join(HERE, '..', '..', 'packages', 'theme-core', 'src') : INSTALLED_CORE || '';
+/**
+ * 🔴 `VERIFY_CORE_DIR` env 覆盖 CORE（调试/换版本验证用）：
+ * 本地 monorepo 形态下 CORE 恒等于 packages/theme-core/src（可能是未提交的在途态），
+ * 想按**某个已发布版本**验关卡（CI 验的就是 node_modules 里的那份），
+ * `VERIFY_CORE_DIR=<包 src 绝对路径> node e2e/verify-theme-dirs.mjs` 即可，
+  不必动文件系统、也不必等 packages 里的在途改动落地。
+ */
+const CORE = process.env.VERIFY_CORE_DIR
+  ? resolve(process.env.VERIFY_CORE_DIR)
+  : MONOREPO_FORM
+    ? join(HERE, '..', '..', 'packages', 'theme-core', 'src')
+    : INSTALLED_CORE || '';
+/**
+ * 🔴 库内布局映射（skinsuite 0.10.0 起 `src/vue/` 按类型分层）：
+ * 0.10.0 把 29 个平铺文件分进 components/composables/store/runtime/registry/
+ * debug/device，根只留 plugin/types/shims —— 断言的 rel 是旧扁平形态，
+ * 直接读会扫到空（本地在途态同样读空，红得没道理）。
+ * 每加一条 = 库又搬了一次家；找不到时回落原路径（0.9.x 及更早读扁平路径，
+ * 双版本兼容）。⚠️ 含**改名**（runtime.ts → runtime/theme-runtime.ts）——
+ * 不只是搬家，别只套目录前缀。
+ */
+const CORE_RELOCATE = {
+  'vue/theme-scope.ts': ['vue/store/theme-scope.ts'],
+  'vue/theme-intent.ts': ['vue/store/theme-intent.ts'],
+  'vue/theme-runtime.ts': ['vue/runtime/theme-runtime.ts'],
+  'vue/view-registry.ts': ['vue/registry/view-registry.ts'],
+  'vue/device-domain.ts': ['vue/device/device-domain.ts'],
+  'vue/ThemeView.vue': ['vue/components/ThemeView.vue'],
+  'runtime.ts': ['vue/runtime/theme-runtime.ts']
+};
+/** CORE 侧候选：原 rel 优先还是新布局优先？—— 新布局优先（旧的已删，回落只为兼容旧版本） */
+function coreCandidates(rel) {
+  return [...(CORE_RELOCATE[rel] || []), rel];
+}
 function implText(relPaths) {
   const chunks = [];
   for (const rel of relPaths) {
     for (const base of [THEME, CORE]) {
-      const p = join(base, rel);
-      if (existsSync(p)) chunks.push(read(p));
+      // 宿主 THEME 的布局自己控制，不走映射；只有库侧 CORE 需要
+      const cands = base === CORE ? coreCandidates(rel) : [rel];
+      for (const cand of cands) {
+        const p = join(base, cand);
+        if (existsSync(p)) {
+          chunks.push(read(p));
+          break;
+        }
+      }
     }
   }
   return chunks.join('\n');
@@ -763,20 +810,31 @@ const themeIndexSrc = implText(['index.ts', 'registry.ts', 'constants.ts']);
 const builtinPkg = /DEFAULT_THEME_PACKAGE\s*=\s*'([a-z0-9-]+)'/.exec(themeIndexSrc)?.[1];
 check('DEFAULT_THEME_PACKAGE 常量存在（内核 skinsuite）', Boolean(builtinPkg), `值 = ${builtinPkg}`);
 check(
-  'theme/views/devices.ts 是设备取值集合的唯一来源（不再写死在常量里）',
+  'src/view/devices.ts 是设备事实的唯一来源（数据 + 布线 + 装配，不再写死在常量里）',
   existsSync(DEVICES_FILE) && DEVICES.length > 0,
   `本关卡从 ${DEVICES_FILE} 读到设备：${DEVICES.join(' / ')}`
 );
 const devicesSrc = existsSync(DEVICES_FILE) ? read(DEVICES_FILE) : '';
+const devicesCode = codeOnly(devicesSrc);
 check(
-  'theme/views/devices.ts 用 defineThemeDevice 声明 + 从设备域派生（不再手写词汇表）',
-  /defineThemeDevice/.test(devicesSrc) &&
-    /fallbackDevice/.test(devicesSrc) &&
-    !/const\s+DEVICE_IDS/.test(devicesSrc) &&
-    !/export\s+const\s+THEME_DEVICES/.test(devicesSrc) &&
-    !/export\s+type\s+ThemeDevice/.test(devicesSrc) &&
-    !/DEFAULT_THEME_DEVICE\s*:/.test(devicesSrc),
-  '设备清单由 defineThemeDevice 声明（自动注册设备域），id 清单与兜底设备从声明派生，不再手写 DEVICE_IDS/THEME_DEVICES/ThemeDevice/DEFAULT_THEME_DEVICE'
+  'view/devices.ts 是宿主事实装配（一份声明 = 词汇 + 容器布线 + createDeviceModule 实例），不碰主题 store',
+  /export const DEVICES/.test(devicesCode) &&
+    /id\s*:\s*['"]/.test(devicesCode) &&
+    /import\.meta\.glob/.test(devicesCode) &&
+    /containers:\s*\(\)/.test(devicesCode) &&
+    /createDeviceModule/.test(devicesCode) &&
+    /from\s+'@\/device'/.test(devicesCode) &&
+    !/defineThemeDevice/.test(devicesCode) &&
+    !/from\s+'skinsuite/.test(devicesCode) &&
+    !/setActiveDevice/.test(devicesCode) &&
+    !/useThemeStore/.test(devicesCode) &&
+    !/const\s+DEVICE_IDS/.test(devicesCode) &&
+    !/export\s+const\s+THEME_DEVICES/.test(devicesCode) &&
+    !/export\s+type\s+ThemeDevice/.test(devicesCode) &&
+    !/DEFAULT_THEME_DEVICE\s*:/.test(devicesCode),
+  '设备事实（词汇/顺序/容器布线）全部是宿主决定，住 view/ 装配文件；src/device 是库级别机制'
+    + '（类型/纯工具/判定/工厂，零宿主数据），事实经 createDeviceModule({ devices, wiring }) 注入 —— '
+    + '与 createThemeState({ devices }) 同一注入语言'
 );
 
 // ---- 🔴 判定归宿主（2026-10-19 定稿，2026-10-20 改 ThemeView props 告知）----
@@ -810,40 +868,46 @@ check(
   !/matchMedia/.test(themeViewSrc) && !/detectMobileUA/.test(themeViewSrc),
   'ThemeView 只消费 props + store；任何判定词进库 = 宿主口径被写进通用机制'
 );
-// 🔴 theme/views 是**可整体迁移的纯声明目录**：只有 defineThemeDevice / defineThemePage。
+// 🔴 theme/views 是**可整体迁移的纯声明目录**：只有 defineThemePage（页面契约）。
 //    判定（URL 词汇 / 视口 / UA）一旦写进去，就会被 virtual:theme 当声明副作用拉进包，
-//    而且「主题域换个应用照搬」不再成立。
-const resolverFile = join(ROOT, 'utils', 'device-resolve.ts');
+//    而且「主题域换个应用照搬」不再成立。设备清单已归位宿主装配文件（view/devices.ts，2026-10-24）。
+const resolverFile = join(ROOT, 'device', 'resolve', 'render-device.ts');
 const resolverSrc = existsSync(resolverFile) ? read(resolverFile) : '';
 check(
-  '宿主侧确有判定模块（utils/device-resolve.ts 的 resolveRenderDevice 纯函数）',
+  '宿主侧确有判定模块（device/resolve/render-device.ts 的 resolveRenderDevice 纯函数）',
   /export\s+function\s+resolveRenderDevice\s*\(/.test(resolverSrc) &&
     !/from\s+'skinsuite/.test(resolverSrc),
   '判定是纯函数（query/path/mobile 显式入参）：零主题库 import、零闭包状态'
 );
 check(
-  'theme/views/devices.ts 保持纯声明（不含判定实现与 URL 词汇）',
+  'view/devices.ts 保持声明（不含判定实现与 URL 判定词汇）',
   !/resolveRenderDevice/.test(devicesSrc) &&
     !/isMobileViewport/.test(devicesSrc) &&
     !/'isMobile'/.test(devicesSrc) &&
     !/function\s+pathHasSegment/.test(devicesSrc),
-  'theme/views 只放声明（defineThemeDevice）；判定要住 utils —— 主题域才可整体迁移'
+  '宿主清单只放事实；判定住 device/resolve —— 事实与判定互不认识'
 );
-// useRenderDevice = 薄封装（route + 视口信号 → 判定纯函数），同样零主题 import
-// 🔴 视口信号名是**手抄判据**：信号升级必须同步这里（2026-10-24 mobileViewport 布尔
-//    → viewportDevice 设备代码，平板三态）。判据红时先问「是信号改名了，还是接线真坏了」——
-//    前者同步判据，后者修实现。手抄名不可怕，可怕的是落后了没人知道为什么红。
-const useRenderDeviceFile = join(ROOT, 'composables', 'useRenderDevice.ts');
-const useRenderDeviceSrc = existsSync(useRenderDeviceFile) ? read(useRenderDeviceFile) : '';
-const useRenderDeviceCode = codeOnly(useRenderDeviceSrc);
+// device/runtime.ts = 机制工厂：判定接线 + 词汇校验收口 + 页面装配（宿主事实全部注入）
+const runtimeFile = join(ROOT, 'device', 'runtime.ts');
+const runtimeSrc = existsSync(runtimeFile) ? read(runtimeFile) : '';
+const runtimeCode = codeOnly(runtimeSrc);
 check(
-  'useRenderDevice 是薄封装（接线 route / 视口信号，不 import 主题库）',
-  /export\s+function\s+useRenderDevice/.test(useRenderDeviceCode) &&
-    /resolveRenderDevice/.test(useRenderDeviceCode) &&
-    /viewportDevice/.test(useRenderDeviceCode) &&
-    !/from\s+'skinsuite/.test(useRenderDeviceCode) &&
-    !/setActiveDevice/.test(useRenderDeviceCode),
-  '接线只做「把 route/视口接进纯函数」；告知主题是 ThemeView 的职责，不在这里'
+  'device/runtime.ts 是装配工厂（createDeviceModule：词汇校验收口 + 页面装配），零 skinsuite、零宿主事实',
+  /export\s+function\s+createDeviceModule/.test(runtimeCode) &&
+    /resolveRenderDevice/.test(runtimeCode) &&
+    /viewportDevice\(\)/.test(runtimeCode) &&
+    /KNOWN_IDS/.test(runtimeCode) &&
+    /FALLBACK_ID/.test(runtimeCode) &&
+    /lookupContainer/.test(runtimeCode) &&
+    /onMounted/.test(runtimeCode) &&
+    /devices\.map/.test(runtimeCode) &&
+    !/import\.meta\.glob/.test(runtimeCode) &&
+    !/from\s+'skinsuite/.test(runtimeCode) &&
+    !/setActiveDevice/.test(runtimeCode) &&
+    !/useThemeStore/.test(runtimeCode),
+  '判定纯函数原样穿透 ?device=，词汇合法性在工厂内收口（非法值落清单末条 + dev 警告一次）—— '
+    + '消费侧拿到的 id 必在词汇表内，无需各自兜底；宿主事实（数据/布线/glob）经 options 注入，'
+    + '机制层零宿主数据、零构建器专有调用'
 );
 // 装配层只传 router：判定不在 app.use(theme) 上注册（没有注册槽，也不需要）
 const bootstrapFile = join(ROOT, 'bootstrap.ts');
@@ -853,22 +917,22 @@ check(
   /app\.use\(theme,\s*\{\s*router\s*\}\)/.test(bootstrapSrc) && !/deviceResolver/.test(bootstrapSrc),
   '设备判定不在装配层：宿主设备模块自管，主题 store 只经 ThemeView props 接收'
 );
-// 四个页面分发器：用宿主设备模块选容器（Map + 末条兜底），**不碰主题**
+// 四个页面分发器：一行接 useDevicePage（共用装配），**不碰主题**
 const dispatcherPages = ['login', 'register', 'forgot-password', 'not-found'];
 for (const page of dispatcherPages) {
   const file = join(ROOT, 'view', 'web', page, 'index.vue');
   const src = existsSync(file) ? read(file) : '';
   const code = codeOnly(src);
   check(
-    `分发器 view/web/${page}/index.vue 用 useRenderDevice 选容器（不碰主题）`,
-    /useRenderDevice\(\s*\)/.test(code) &&
-      /deviceComponents/.test(code) &&
-      /fallbackDevice\(\)/.test(code) &&
+    `分发器 view/web/${page}/index.vue 用 useDevicePage('${page}') 选容器（不碰主题）`,
+    new RegExp(`useDevicePage\\(\\s*['"]${page}['"]\\s*\\)`).test(code) &&
       !/setActiveDevice/.test(code) &&
-      !/useThemeStore/.test(code),
-    '分发器只判设备选容器（Map + 末条兜底）；设备身份由容器内 <ThemeView device="…"> 告知 store'
+      !/useThemeStore/.test(code) &&
+      !/from\s+'skinsuite/.test(code),
+    '分发器一行接设备页（判定/容器 Map/末条兜底/预热全在 useDevicePage 单点）；设备身份由容器内 <ThemeView device="…"> 告知 store'
   );
 }
+// （页面装配的机制检查已并入上方 device/runtime.ts 工厂检查 —— useDevicePage 是工厂产物）
 const kernelDeviceSrc = implText(['views/device.ts']);
 check(
   '内核 views/device.ts 只剩清单与查询（无 match / pickDeviceId / deviceContext 实现）',
@@ -983,8 +1047,12 @@ console.log(`\n=== 9. 主题状态机接线（scope/intent/runtime，2026-10-19 
   // 🔴 2026-10-19 状态机 composable 下沉进 skinsuite/vue，宿主题 theme.ts 退化为壳，
   //    断言读库内三个文件拼接（内容不变，只是搬家）。
   const readVue = rel => {
-    const p = join(CORE, 'vue', rel);
-    return existsSync(p) ? read(p) : '';
+    // rel 是裸文件名（'theme-scope.ts'）→ 拼 'vue/' 前缀后进 CORE_RELOCATE 映射
+    for (const cand of coreCandidates(`vue/${rel}`)) {
+      const p = join(CORE, cand);
+      if (existsSync(p)) return read(p);
+    }
+    return '';
   };
   const store = [readVue('theme-scope.ts'), readVue('theme-intent.ts'), readVue('theme-runtime.ts')].join('\n');
   const scopeSrc = readVue('theme-scope.ts');
@@ -1117,7 +1185,7 @@ console.log(`\n=== 10. 注册表实现与文档口径一致（已退役）===`);
   console.log('  ⊘ 第 10 节整体退役：装配已迁到 skinsuite/vite + virtual:theme（见上）');
 }
 
-console.log('\n=== 11. 设备维度 URL 参数（theme.<设备> / view.<设备>）===');
+console.log('\n=== 11. 设备维度 URL 参数（th_<urlKey> / th_color_<urlKey>，2026-10-18 起下划线键形）===');
 {
   const params = implText(['views/params.ts']);
   check(
@@ -1274,7 +1342,7 @@ console.log('\n=== 13. theme-core 包契约（依赖方向 + 公开面 + 壳无�
     check(
       '内核不再导出设备取值集合（THEME_DEVICES / DEFAULT_THEME_DEVICE / asThemeDevice）',
       leaked.length === 0,
-      `泄漏：${leaked.join(', ')} —— 设备清单随应用走（oauth21/src/theme/devices.ts），内核只认"设备名是个字符串"这条形态`
+      `泄漏：${leaked.join(', ')} —— 设备清单随应用走（oauth21/src/view/devices.ts），内核只认"设备名是个字符串"这条形态`
     );
     const missing = REQUIRED.filter(n => !new RegExp(`\\b${n}\\b`).test(barrel));
     check(
