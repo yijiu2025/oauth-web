@@ -10,7 +10,7 @@
     "strict": true,
     "noEmit": true
   },
-  /* include 的是构建期脚本（vite/vitest 两个 config + config/*.ts 适配器）。
+  /* include 的是构建期脚本（vite/vitest 两个 config + config/aliases.ts 适配器）。
      2026-09-28 起 vite.config 由 .js 改 .ts（与 vitest.config 统一语言、共用 alias 单一来源），
      因此这里 include 随之改为 .ts。2026-10-17 tailwind.config.js 整体迁入
      src/assets/styles/main.scss（Tailwind v4 @theme 化）后已删除，include 不再含 .js 文件，
@@ -22,16 +22,17 @@
      那两个文件的类型检查由 `tsconfig.app.json` 里 include 的
      `../packages/theme-core/src` 全量源码一并覆盖，无需在此重复 include。
 
+     2026-10-24（共享插件退役）：`config/plugins.ts` 删除 —— themeAssets() 零参内联进
+     vite.config.ts，vitest.config 改 mergeConfig 继承 vite.config（插件只声明一次）。
+     `config/` 下只剩 `aliases.ts`（vite.config 消费；tsconfig paths 因静态 JSON 无法
+     import 仍手写，由 e2e/verify-alias-single-source.mjs 守一致）。
+
      🔴 主题域清单 `<VITE_THEME_DIR>/theme.config.ts` **不在**这里：它由虚拟模块
         在运行期（浏览器）加载，属于 `tsconfig.app.json` 的 include 范围（src 全量）。
-        放进来会让它同时被两套 lib 检查，而它的 `skinsuite` 导入在 node 侧没有 DOM 语境。
-
-     `config/plugins.ts`（共享插件单一来源）与 `config/aliases.ts` 同理，是被两个
-     config 在 node 侧 import 的构建期适配器，故一并 include。 */
+        放进来会让它同时被两套 lib 检查，而它的 `skinsuite` 导入在 node 侧没有 DOM 语境。 */
   "include": [
     "vite.config.ts",
     "vitest.config.ts",
-    "config/aliases.ts",
-    "config/plugins.ts"
+    "config/aliases.ts"
   ]
 }
