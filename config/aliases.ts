@@ -81,7 +81,7 @@ export const MONOREPO_ROOT = path.resolve(OAUTH21_ROOT, '..');
 const LOCAL_PKG_ENTRIES: ReadonlyArray<{ readonly spec: string; readonly dir: string; readonly rel: string }> = [
   // Vue 绑定层的**独立面板入口**：宿主用 `defineAsyncComponent` 加载它，
   // 单独一条子路径才能让打包器切出独立 chunk（否则面板会并回主包）。
-  { spec: 'skinsuite/vue/panel', dir: 'theme-core', rel: 'src/vue/panel.ts' },
+  { spec: 'skinsuite/vue/panel', dir: 'theme-core', rel: 'src/vue/debug/panel.ts' },
   // Vue 绑定层的**同步入口**（composable / 类型）：与纯内核分开，
   // 这样"只要机制不要 Vue"的消费者不会被迫装 UI 层。
   { spec: 'skinsuite/vue', dir: 'theme-core', rel: 'src/vue/index.ts' },
@@ -125,7 +125,7 @@ export const aliases: Record<string, string> = {
 
 for (const { spec, dir, rel } of LOCAL_PKG_ENTRIES) {
   const monorepo = path.resolve(MONOREPO_ROOT, 'packages', dir, rel);
-  if (existsSync(monorepo)) {
+  if (existsSync(monorepo) && !process.env.VITEST_FORCE_STANDALONE) {
     aliases[spec] = monorepo;
     continue;
   }
@@ -150,7 +150,7 @@ export const tsconfigPaths: Record<string, string[]> = {
   'stable-deviceid/*': ['../packages/shared-device/src/*'],
   skinsuite: ['../packages/theme-core/src/index.ts'],
   'skinsuite/vue': ['../packages/theme-core/src/vue/index.ts'],
-  'skinsuite/vue/panel': ['../packages/theme-core/src/vue/panel.ts'],
+  'skinsuite/vue/panel': ['../packages/theme-core/src/vue/debug/panel.ts'],
   'skinsuite/vite': ['../packages/theme-core/src/vite/index.ts']
 };
 

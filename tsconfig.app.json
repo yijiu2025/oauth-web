@@ -34,7 +34,7 @@
       "stable-deviceid/*": ["../packages/shared-device/src/*"],
       "skinsuite": ["../packages/theme-core/src/index.ts"],
       "skinsuite/vue": ["../packages/theme-core/src/vue/index.ts"],
-      "skinsuite/vue/panel": ["../packages/theme-core/src/vue/panel.ts"],
+      "skinsuite/vue/panel": ["../packages/theme-core/src/vue/debug/panel.ts"],
       "skinsuite/vite": ["../packages/theme-core/src/vite/index.ts"]
     }
   },
