@@ -22,10 +22,13 @@
  */
 import { defineStore } from 'pinia';
 import { createThemeState } from 'skinsuite/vue';
+// 设备词汇清单（id / label / urlKey / 顺序 / 兜底）——宿主单一来源在 `@/view/devices`，
+// 装配期注入 store（2026-10-24 起库不自持设备注册表，只读取渲染）。
+import { DEVICES } from '@/view/devices';
 // 🔴 副作用 import：import 虚拟模块即自动完成三件装配 —— 装版式加载表（installThemeViews）、
-//    装配色注册表、解析清单单例，并以副作用 import 拉齐 `views/*.ts`（设备声明 devices.ts +
-//    页面契约 login/register/forgot-password 的 defineThemeDevice / defineThemePage 注册）。
+//    装配色注册表、解析清单单例，并以副作用 import 拉齐 `views/*.ts` 页面契约注册。
+//    （设备声明已随注册表退役迁往 `@/view/devices`，经上方注入，不再走这里的副作用。）
 //    宿主不再手动 import 任何 `@/theme/views/*`（bootstrap 也不），机制全由内核构建插件拉齐。
 import 'virtual:theme';
 
-export const useThemeStore = defineStore('theme', () => createThemeState());
+export const useThemeStore = defineStore('theme', () => createThemeState({ devices: DEVICES }));

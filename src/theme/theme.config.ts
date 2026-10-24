@@ -10,7 +10,8 @@
  *
  * 其余全部由机制推导：
  *   · 主题根目录在哪 → `.env` 的 `VITE_THEME_DIR`（根目录下 `themes/` 固定为主题包目录）
- *   · 有哪些设备     → `src/theme/views/devices.ts`（`defineThemeDevice` 声明，自动注册设备域）
+ *   · 有哪些设备     → `src/view/devices.ts`（宿主清单：词汇经 `createThemeState({ devices })`
+ *                      装配期注入 store，布线由分发器直接读 —— 库不自持注册表）
  *   · 有哪些页面     → `src/theme/views/<page>.ts`（`defineThemePage` 声明，自动注册页面域）
  *   · 有哪些配色     → 主题包目录结构（扫出来的，不在这里声明）
  *

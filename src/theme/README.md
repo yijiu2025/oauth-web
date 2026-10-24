@@ -22,12 +22,13 @@
 src/theme/
 ├── README.md           本文件
 ├── theme.config.ts     主题域清单（调试开关，`virtual:theme` 扫进内核）
-├── views/              版式信息（**契约 + 声明**；机制全部下沉到 `skinsuite`）
-│   ├── devices.ts      设备清单声明（**唯一声明处**：id / label / urlKey / routePath / match /
-│   │                   containers glob）。机制由 `defineThemeDevice` 自动注册进设备域
+├── views/              版式信息（**页面契约 + 声明**；机制全部下沉到 `skinsuite`）
 │   ├── login.ts        login 页的契约 + 注册表（`defineThemePage` 声明）
 │   ├── register.ts     register 页的契约 + 注册表
 │   └── forgot-password.ts  forgot-password 页的契约 + 注册表
+│                       （设备清单已迁宿主 `src/view/devices.ts`，2026-10-24：词汇经
+│                         createThemeState({ devices }) 注入 store、布线分发器直接读，
+│                         defineThemeDevice 注册表退役 —— 主题域回归纯主题事实）
 └── themes/             **主题包**：一套完整设计，各端都住这里
     ├── default/        包根：只有包定义（meta / views）
     │   ├── index.ts
