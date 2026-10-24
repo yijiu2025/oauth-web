@@ -15,7 +15,7 @@ const service = axios.create({
 import { getDeviceFingerprint, isDeviceFingerprintEnabled, getStableDeviceId, handleDeviceSyncInResponse } from 'stable-deviceid';
 import { generateNonce } from './crypto';
 import { generateSignWithKey, serializeParamsForSign, getAppKey } from './sign';
-import { isMobileViewport } from '@/device';
+import { isMobileViewport } from './device';
 import { reportError } from '../composables/useErrorReporter';
 
 service.interceptors.request.use(

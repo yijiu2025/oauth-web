@@ -232,7 +232,7 @@ console.log('\n=== G/H 变体复用同一套样式 + 交互细节 ===');
   check('H 第 1 步返回 → 回登录页（容器决定去向）', page.url().includes('/m/login'), page.url());
 
   // 横屏：内容可达（可滚）。真机横屏（844×390）带**移动 UA** → 判定走手机端；
-  // 桌面 chromium 裸开 844 宽会被宽度优先判定成桌面版（见 device/resolve/viewport.ts），
+  // 桌面 chromium 裸开 844 宽会被宽度优先判定成桌面版（见 utils/device.ts），
   // 所以这里必须单独开一个带 iPhone UA 的 context 复现真机横屏。
   const landCtx = await browser.newContext({
     viewport: { width: 844, height: 390 },

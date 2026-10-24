@@ -1,27 +1,24 @@
 /**
- * 路径别名**单一来源**（vite.config 消费；关卡锚点；tsconfig 手抄对照）
+ * 路径别名**单一来源**（vite / vitest / tsconfig 三处共用）
  *
- * === 消费方现状（2026-10-24 起）===
- * - `vite.config.ts` import 本文件（唯一的 config 消费方）
- * - `vitest.config.ts` 经 mergeConfig 继承 vite.config，**不再直接 import**
- *   —— 此前「两个 config 各 import 一份防漂移」的形态已退役（`config/plugins.ts`
- *   同因删除）；build/test 的 alias 一致性由继承结构保证
- * - `tsconfig.app.json` 的 paths 仍是手抄（静态 JSON 无法求值 TS 模块），
- *   由关卡 `e2e/verify-alias-single-source.mjs` 比对
- * - 关卡同时把本文件当**锚点**（动态 import 取数据 / 存在性检查 / 双形态
- *   物理条件同源）—— 消除本文件需连动改 2-3 个关卡，收益只是少一个文件，
- *   不划算；真实逻辑（双形态探测）无论放哪都得存在
- *
- * === 历史与不变量 ===
- * 本地包（`skinsuite` / `stable-deviceid`）在 monorepo 里**必须指到包内
+ * === 为什么要有这个文件 ===
+ * 此前 `@` / `skinsuite` / `stable-deviceid` 三个别名被**手抄三份**：
+ *   - `vite.config.js` 的 `resolve.alias`（构建 + dev server）
+ *   - `vitest.config.ts` 的 `resolve.alias`（单测）
+ *   - `tsconfig.app.json` 的 `compilerOptions.paths`（类型检查）
+ * 三份里任意一份漏改，症状都不是报错而是**静默解析失败或解析到另一份实现**：
+ *   - vite / vitest 漏改 → 组件 import 时 `Cannot find module`
+ *   - tsconfig 漏改 → `vue-tsc -b` 报找不到声明（或退化成 any 而静默放过）
+ * 两个本地包（`skinsuite` / `stable-deviceid`）在 monorepo 里**必须指到包内
  * `src/index.ts`（源码直供）**，刻意不指向包目录 —— 那样解析要靠 npm 建的
  * `node_modules/<pkg>` 符号链接，首次克隆还没装依赖时就解析不了。npm 侧在
  * package.json 里声明版本号只是为了
  * 让 lockfile / 供应链审计说得通，**运行期真伪以本文件为准**。
  *
  * === 为什么是 `.ts` 而不是 `.js` ===
- * 被 `vite.config.ts`（TS）import，且自身需要 `import.meta.dirname` 与类型标注
- * （关卡也以动态 import 读它）。
+ * 本文件被 `vite.config.ts`（TS）与 `vitest.config.ts`（TS）共同 import，且自身
+ * 需要 `import.meta.dirname` 与类型标注。统一成 TS 后，两处 config 的**语言也统一为 TS**
+ * （此前 vite.config 是 .js、vitest.config 是 .ts，同一份 alias 却跨语言抄）。
  *
  * === tsconfig paths 为什么不直接 import 本文件 ===
  * `compilerOptions.paths` 是 JSON 静态配置，无法求值 TS 模块。因此 `tsconfig.app.json`

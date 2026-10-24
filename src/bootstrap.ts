@@ -16,7 +16,7 @@
  *   判据很简单：**删掉本文件换一种装配方式，业务一行不该变。**
  *   例外：主题域初始化要传一个宿主事实 —— `router`（版式意图同步从它读 `query`）。
  *   这是「装配胶水」而非「业务实现」：机制在 `skinsuite/vue`。设备判定**不在**这里 ——
- *   归宿主设备模块（`device/resolve/`，页面分发器经 `device/wiring/useRenderDevice` 消费），
+ *   归宿主设备模块（`utils/device-resolve.ts`，页面分发器经 `useRenderDevice` 消费），
  *   主题 store 只经 `<ThemeView>` 的 device prop 接收。
  *
  * @author yijiu2025
@@ -32,9 +32,9 @@ import request from './utils/request';
 import { initDeviceSync } from 'stable-deviceid';
 import { reportError } from './composables/useErrorReporter';
 import { setupViewportFix } from './utils/viewport-fix';
-// 设备清单不再需要装配期副作用 import（2026-10-24 注册表退役）：
-// 词汇经 stores/theme.ts 的 createThemeState({ devices }) 注入，布线由分发器
-// 直接 import '@/view/devices' —— 无注册时序问题，这里什么都不用做。
+// 设备声明（副作用：注册进设备域）。必须在 `app.use(theme)` 之前 ——
+// 分发器与 store 的设备清单 / 兜底设备（fallbackDevice）来自这里
+import './theme/views/devices';
 
 // ---------------------------------------------------------------------------
 // 0. 挂载前的两项全局初始化（必须在 createApp / mount 之前）
@@ -67,7 +67,7 @@ app.use(router);
 app.use(i18n);
 
 // 主题域装配：只传 router（版式意图同步从它读 `query`）。设备判定**不在库内**：
-// 宿主设备模块（`device/resolve/`：视口 + URL 词汇）由页面分发器经
+// 宿主设备模块（`utils/device-resolve.ts`：视口 + URL 词汇）由页面分发器经
 // `useRenderDevice` 消费并选容器；设备身份由容器内的 `<ThemeView device="…">` props
 // 告知主题 store —— 库不认识任何判定词汇，也不 watch 路由 / 视口。
 //

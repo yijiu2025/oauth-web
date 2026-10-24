@@ -14,12 +14,13 @@
  * 主题 / 语言等 query 参数（`?lang=` / `?th_color=` / `?appName=` / `?qrCodeFirst=` …）
  * 由子容器（MiniLogin / StandardLogin）自己用 `useRoute().query` 读，本分发器不中转。
  */
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAntiCache } from '@/composables/useAntiCache';
 import AntiCacheDebugPanel from '@/components/common/AntiCacheDebugPanel.vue';
 import { postToParent } from '@/utils/parent';
-import { device } from '@/view/devices';
+import { deviceIds, fallbackDevice, resolveContainerOf } from 'skinsuite/vue';
+import { useRenderDevice } from '@/composables/useRenderDevice';
 
 const route = useRoute();
 
@@ -46,17 +47,32 @@ watch(
   { immediate: true, deep: true }
 );
 
-// 设备页装配（判定 + 容器 Map + 末条兜底 + 挂载预热，四页共用，见 useDevicePage）
-const activeComponent = device.useDevicePage('login');
+// 设备判定（宿主口径：视口 + URL 词汇；兜底显式落 standard）
+const device = useRenderDevice();
+
+// 异步按需加载不同形态的登录组件
+// 🔴 数据化：设备 id → 该页容器 的映射从设备清单派生，不写死三选一
+const deviceComponents = new Map(
+  deviceIds().map(id => [id, defineAsyncComponent(resolveContainerOf(id, 'login'))])
+);
+
+// 判定 → 选容器：未知 id（`?device=` 写错）才落设备清单末条；兜底已在判定里显式落 standard
+const activeComponent = computed(() => {
+  const fallback = fallbackDevice();
+  return deviceComponents.get(device.value) ?? deviceComponents.get(fallback)!;
+});
 
 // 组件挂载后执行
 onMounted(() => {
   // SSO_READY 统一在此发送（dispatcher 入口），子组件不再重复发。
   // 父窗口收到后关 loading + 同步主题。
-  // （各设备容器的预热已收进 useDevicePage，这里只管 SSO。）
   if (shouldSendSSOMessage.value) {
     postToParent({ type: 'SSO_READY' });
     console.warn('[SSO] 发送 SSO_READY 消息到父窗口');
+  }
+  // 挂载后立即预热所有设备的登录容器，避免「切换闪屏」。
+  for (const id of deviceIds()) {
+    void resolveContainerOf(id, 'login')().catch(() => {});
   }
 });
 

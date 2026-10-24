@@ -10,7 +10,7 @@
 import type { Router } from 'vue-router';
 import { isAuthenticated } from './auth-checker';
 import { sanitizeLocalRedirect } from '@/utils/redirect';
-import { isMobileViewport } from '@/device';
+import { isMobileViewport } from '@/utils/device';
 
 /** 桌面端未登录跳转目标 */
 const DESKTOP_LOGIN = '/login';

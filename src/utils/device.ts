@@ -1,12 +1,12 @@
 /**
- * 设备形态判定（视口半边）—— **宿主自己的业务口径**（device 模块 · resolve 层）
+ * 设备形态判定 —— **宿主自己的业务口径**（2026-10-19 从 skinsuite 收回）
  *
  * === 为什么归宿主 ===
  * 「手机还是电脑」是产品决定，不是通用机制：阈值取 768 / 1024 还是别的、UA 命中算不算、
  * 中间段怎么处理，换个产品就变。这些一旦下沉，主题库就得认识宿主的口径，别的项目复用
  * 机制时被迫沿用同一套约定。所以库里**没有任何判定**（2026-10-20：库只经
  * `<ThemeView>` 的 device prop 接收判定结果），判定实现留在宿主（本文件 +
- * 同目录 `render-device.ts`），由**页面分发器**经 `wiring/useRenderDevice` 调用选容器；
+ * `device-resolve.ts`），由**页面分发器**经 `useRenderDevice` 调用选容器；
  * 设备身份由被选中容器内的 `<ThemeView>` props 告知主题 store。
  *
  * === 判定口径（三态，宽视口优先于 UA）===
@@ -21,17 +21,16 @@
  *
  * === 同一份口径的消费方 ===
  *   · 页面分发器（决定渲染哪台设备）—— `viewportDevice()` 响应式设备代码信号 +
- *     `render-device.ts` 的组合判定（`wiring/useRenderDevice`）
- *   · 路由守卫 / Authorize（决定跳哪个登录页）—— 同一个 `isMobileViewport()`
- *   · 组件里的响应式形态（`wiring/useDeviceDetect`）—— 用 `watchViewport()` 订阅
+ *     `device-resolve.ts` 的组合判定（`composables/useRenderDevice`）
+ *   · 路由守卫 / 请求拦截 / Authorize（决定跳哪个登录页）—— 同一个 `isMobileViewport()`
+ *   · 组件里的响应式形态（`composables/useDeviceDetect`）—— 用 `watchViewport()` 订阅
  *
  * @author yijiu2025
  * @since 2026-09-21
  * @since 2026-10-19（从 skinsuite/vue 收回：判定属于宿主，不再下沉）
  * @since 2026-10-20（判定消费者改为页面分发器：新增响应式 `mobileViewport()` 信号）
  * @since 2026-10-24（升级三态：中间段拆出平板 `tablet`，布尔信号换成设备代码信号
- *                   `viewportDevice()`，并新增屏幕方向 `screenOrientation()`；
- *                   同日归位 device 模块 resolve 层，原 utils/device.ts）
+ *                   `viewportDevice()`，并新增屏幕方向 `screenOrientation()`）
  */
 import { ref } from 'vue';
 import type { Ref } from 'vue';
@@ -104,7 +103,7 @@ export function isMobileViewport(): boolean {
 /**
  * 核心视口判定：直接返回基础视口对应的设备代码（不含 URL 来源词汇 `mini`）
  *
- * 这是 `render-device.ts` 第 4 步「视口」的输入：分发器把 URL 词汇（?device= / ?from= 等）
+ * 这是 `device-resolve.ts` 第 4 步「视口」的输入：分发器把 URL 词汇（?device= / ?from= 等）
  * 与这里的视口设备代码合成最终设备。返回 `'standard' | 'tablet' | 'mobile'`。
  */
 export function resolveViewportDevice(): ViewportDevice {
@@ -195,7 +194,7 @@ function ensureViewportWatch(): void {
  * 响应式「当前视口判定的设备代码」—— 页面分发器的设备判定 computed 依赖它
  *
  * ```ts
- * // resolve/render-device.ts 的判定纯函数由 wiring/useRenderDevice 喂它：
+ * // utils/device-resolve.ts 的判定纯函数由 composables/useRenderDevice 喂它：
  * // resolveRenderDevice(query, path, viewportDevice().value)
  * ```
  * 拉宽 / 缩窄窗口跨断点时信号翻转（standard ↔ tablet ↔ mobile）→ 分发器 computed

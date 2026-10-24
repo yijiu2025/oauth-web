@@ -12,17 +12,26 @@
  * 另外把父应用跳注册页携带的 OAuth 上下文（appName / client_id / redirect_uri / scope /
  * state / invite / lang）通过 `provide('registerContext')` 透传给子容器。
  */
-import { provide, reactive } from 'vue';
+import { computed, defineAsyncComponent, onMounted, provide, reactive } from 'vue';
 import { useRoute } from 'vue-router';
-import { device } from '@/view/devices';
+import { deviceIds, fallbackDevice, resolveContainerOf } from 'skinsuite/vue';
+import { useRenderDevice } from '@/composables/useRenderDevice';
 
 const route = useRoute();
 
-// 设备页装配（判定 + 容器 Map + 末条兜底 + **挂载预热**，四页共用，见 useDevicePage）。
-// 预热的两条理由：① 避免切换闪屏（设备形态运行时才定）；② 宽窄切换零新请求
-// （verify-responsive-switch C4 守这条；四页同构由 useDevicePage 单点保证，
-// 0.5.0「误删后三个的预热」这类漂移不再可能发生）。
-const activeComponent = device.useDevicePage('register');
+// 设备判定（宿主口径：视口 + URL 词汇；兜底显式落 standard）
+const device = useRenderDevice();
+
+// 异步按需加载不同形态的注册容器：设备 id → 容器，映射从设备清单派生
+const deviceComponents = new Map(
+  deviceIds().map(id => [id, defineAsyncComponent(resolveContainerOf(id, 'register'))])
+);
+
+// 判定 → 选容器：未知 id（`?device=` 写错）才落设备清单末条；兜底已在判定里显式落 standard（主题由容器内 ThemeView 告知）
+const activeComponent = computed(() => {
+  const fallback = fallbackDevice();
+  return deviceComponents.get(device.value) ?? deviceComponents.get(fallback)!;
+});
 
 // 透传 OAuth 注册上下文给子组件（子组件用 inject('registerContext') 获取）
 const q = route.query;
@@ -44,6 +53,21 @@ const registerContext = reactive({
   lang: String(q.lang || '') || 'zh_cn'
 });
 provide('registerContext', registerContext);
+
+/**
+ * 挂载后立即预热所有设备的注册容器：
+ *   ① 避免「切换闪屏」—— 设备形态在运行时才能确定（视口 / `?device=` 锁定），
+ *      dispatcher 自身 prefetch 之后，defineAsyncComponent 还要再走一次 chunk 下载；
+ *   ② 宽 → 窄 / 窄 → 宽切换**零新请求**（`verify-responsive-switch` C4 守这条）——
+ *      拉宽时桌面容器必须已经在缓存里，不能等那一刻才去下载。
+ * 🔴 这条预热在 0.5.0 设备判定归宿主的改写中曾被误删（只留下 login 的），
+ *     C4 当场红 —— 四个分发器必须同构，别只改一个。
+ */
+onMounted(() => {
+  for (const id of deviceIds()) {
+    void resolveContainerOf(id, 'register')().catch(() => {});
+  }
+});
 </script>
 
 <template>

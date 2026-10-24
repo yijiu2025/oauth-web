@@ -81,6 +81,7 @@ declare global {
   const useCountdown: typeof import('./composables/useCountdown').useCountdown
   const useCssModule: typeof import('vue').useCssModule
   const useCssVars: typeof import('vue').useCssVars
+  const useDeviceDetect: typeof import('./composables/useDeviceDetect').useDeviceDetect
   const useHCaptcha: typeof import('./composables/useHCaptcha').useHCaptcha
   const useI18n: typeof import('vue-i18n').useI18n
   const useId: typeof import('vue').useId
@@ -91,7 +92,8 @@ declare global {
   const useModel: typeof import('vue').useModel
   const usePasswordStrength: typeof import('./composables/usePasswordStrength').usePasswordStrength
   const useQrLogin: typeof import('./composables/useQrLogin').useQrLogin
-  const useRecaptcha: typeof import('./composables/useHCaptcha')['useRecaptcha']
+  const useRecaptcha: typeof import('./composables/useHCaptcha').useRecaptcha
+  const useRenderDevice: typeof import('./composables/useRenderDevice').useRenderDevice
   const useRoute: typeof import('vue-router').useRoute
   const useRouter: typeof import('vue-router').useRouter
   const useSlots: typeof import('vue').useSlots
@@ -216,6 +218,7 @@ declare module 'vue' {
     readonly useCountdown: UnwrapRef<typeof import('./composables/useCountdown')['useCountdown']>
     readonly useCssModule: UnwrapRef<typeof import('vue')['useCssModule']>
     readonly useCssVars: UnwrapRef<typeof import('vue')['useCssVars']>
+    readonly useDeviceDetect: UnwrapRef<typeof import('./composables/useDeviceDetect')['useDeviceDetect']>
     readonly useHCaptcha: UnwrapRef<typeof import('./composables/useHCaptcha')['useHCaptcha']>
     readonly useI18n: UnwrapRef<typeof import('vue-i18n')['useI18n']>
     readonly useId: UnwrapRef<typeof import('vue')['useId']>
@@ -227,6 +230,7 @@ declare module 'vue' {
     readonly usePasswordStrength: UnwrapRef<typeof import('./composables/usePasswordStrength')['usePasswordStrength']>
     readonly useQrLogin: UnwrapRef<typeof import('./composables/useQrLogin')['useQrLogin']>
     readonly useRecaptcha: UnwrapRef<typeof import('./composables/useHCaptcha')['useRecaptcha']>
+    readonly useRenderDevice: UnwrapRef<typeof import('./composables/useRenderDevice')['useRenderDevice']>
     readonly useRoute: UnwrapRef<typeof import('vue-router')['useRoute']>
     readonly useRouter: UnwrapRef<typeof import('vue-router')['useRouter']>
     readonly useSlots: UnwrapRef<typeof import('vue')['useSlots']>

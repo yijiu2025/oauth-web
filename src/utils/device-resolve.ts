@@ -1,27 +1,27 @@
 /**
- * 「本次访问渲染哪台设备」—— **宿主自己的判定模块**（device 模块 · resolve 层）
+ * 「本次访问渲染哪台设备」—— **宿主自己的判定模块**（词汇全在宿主，零主题依赖）
  *
  * === 形态（2026-10-20 重构，2026-10-23 兜底口径收口）===
  * 一个**纯函数** `resolveRenderDevice(query, path, baseViewportDevice)`：输入全是事实
  * （路由 query / path + 视口设备代码），输出**永远是具体设备 id**——没有显式倾向时返回
  * `'standard'`（宿主的业务事实：标准页是兜底，**显式写死**，不靠库 `fallbackDevice()`
  * 按声明顺序兜底）。不 import 主题库、不建响应式、不碰 store —— 页面分发器经
- * `wiring/useRenderDevice.ts` 薄封装调用（那里负责把 route / 视口信号接进来）。
+ * `composables/useRenderDevice.ts` 薄封装调用（那里负责把 route / 视口信号接进来）。
  *
- * === 为什么放 device/resolve、不放 `theme/views/` ===
- * `src/theme/` 是**主题域**：`themes/`（主题包）+ `views/`（纯声明：`defineThemePage`）
- * + `theme.config.ts`。整包可以搬到另一个前端，所以那里只能放**声明与契约**，
- * 不能放运行时判断 —— 否则 `virtual:theme` 会把判定代码跟着主题域一起拉进包，
- * 「主题域可整体迁移」这条不再成立。判定词汇（`?device=` / `?from=` …）是宿主
- * 业务，住在本文件 + 同目录 `viewport.ts`（视口口径与信号）。
+ * === 为什么放 utils、不放 `theme/views/` ===
+ * `src/theme/` 是**主题域**：`themes/`（主题包）+ `views/`（纯声明：`defineThemePage` /
+ * `defineThemeDevice`）+ `theme.config.ts`。整包可以搬到另一个前端，所以那里只能放
+ * **声明与契约**，不能放运行时判断 —— 否则 `virtual:theme` 会把判定代码跟着主题域
+ * 一起拉进包，「主题域可整体迁移」这条不再成立。判定词汇（`?device=` / `?from=` …）
+ * 是宿主业务，住在本文件 + `utils/device.ts`（视口口径与信号）。
  *
  * === 优先级（高 → 低）===
  * 1. `?device=<id>` 一次性锁定（压过一切，视口缩放不切换；原样返回，合法性交给
- *    分发器的设备 Map —— 未命中即落设备清单末条）
+ *    分发器的设备 Map —— 未命中即落设备清单末条，与库 `resolveContainerOf` 同口径）
  * 2. `?isMobile=true` 显式手机意图，压过下面的来源标记（窗口里点「用手机端打开」）
  * 3. 来源标记：`?from=mini` / `?fromLogin=mini` / 路径含 `mini` → 紧凑版；
  *    `?from=tablet` → 平板（iframe 弹窗 / 平板落地页各自的来源约定）
- * 4. 视口（调用方传 `baseViewportDevice`，口径见同目录 `viewport.ts` 的
+ * 4. 视口（调用方传 `baseViewportDevice`，口径见 `utils/device.ts` 的
  *    `resolveViewportDevice()`：宽视口优先于 UA，中间段拆平板）
  * 5. 兜底：返回 `'standard'` —— 🔴 显式落标准页，**不返回 null、不由库的
  *    `fallbackDevice()` 兜底**（"哪台是兜底设备"是宿主业务事实，写死在判定里，
@@ -33,8 +33,7 @@
  *                   `useRenderDevice`，本文件零 import 零状态）
  * @since 2026-10-23（兜底口径收口：`return null` → `return 'standard'`，判定永远返回具体 id）
  * @since 2026-10-24（视口输入从 `mobile: boolean` 升级为 `baseViewportDevice: string`——
- *                   支持平板：视口层算出 standard/tablet/mobile 三态，本文件直接采用；
- *                   同日归位 device 模块 resolve 层，原 utils/device-resolve.ts）
+ *                   支持平板：视口层算出 standard/tablet/mobile 三态，本文件直接采用）
  */
 
 /** 从 query 取字符串值；非字符串（数组 / 数字 / 缺失）一律当空串 */
@@ -81,7 +80,7 @@ export function resolveRenderDevice(
   if (from === 'mini' || fromLogin === 'mini' || pathHasSegment(path, 'mini')) return 'mini';
   if (from === 'tablet') return 'tablet';
 
-  // 4) 视口（viewportDevice 信号已含宽视口优先 + 中间段平板判定，口径见 resolve/viewport.ts）
+  // 4) 视口（viewportDevice 信号已含宽视口优先 + 中间段平板判定，口径见 utils/device.ts）
   if (baseViewportDevice) return baseViewportDevice;
 
   // 5) 兜底：没有显式倾向 → 显式落标准页（不 null、不由库兜底）
