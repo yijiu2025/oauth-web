@@ -135,6 +135,28 @@ for (const { spec, dir, rel } of LOCAL_PKG_ENTRIES) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// 🔴 `vue` 必须钉到宿主安装的那份（2026-10-25，消灭 monorepo 双 vue 拷贝）
+//
+// 本地包「源码直供」让 theme-core 的 `import 'vue'` 按 node 解析命中**它自带的**
+// node_modules/vue（devDep，版本可与宿主不同）—— 同一个 program / 同一个构建里
+// 出现两份 vue 声明（根仓提升 3.5.38 vs theme-core 3.5.44 实测）：
+//   · 类型层：`app.use(theme)` 的 install 签名携带库侧 App 类型，跨声明结构比对
+//     失败 → ts2769；pinia 不认库里的 ref（`RefSymbol` 是不同声明的 unique
+//     symbol）→ store 取值拿到 Ref 本体（ThemeStoreLike / MauthThemeSwitch /
+//     DocModal / GraphicCaptcha 一族全中）。
+//   · 运行层：dev 的 optimizeDeps 按说明符扁平预打包通常只有一份，但 build
+//     （rollup）按 importer 解析，有打进两份 vue 的经典风险 —— alias 显式钉死，
+//     dev / build 同源。
+// 探测顺序复用 INSTALLED_ROOTS：monorepo 形态命中根仓提升份；standalone 命中
+// 本仓 node_modules/vue。都探不到就不注册（回落 node 标准解析，仍是单份）。
+// ⚠️ 键是裸说明符：`vue-router` / `vue-i18n` 不以 `vue/` 开头，不会被前缀匹配误伤。
+// ---------------------------------------------------------------------------
+const vueHostRoot = INSTALLED_ROOTS.map((root) => path.resolve(root, 'vue')).find((dir) => existsSync(dir));
+if (vueHostRoot) {
+  aliases['vue'] = vueHostRoot;
+}
+
 /**
  * tsconfig `paths` 形态（值必须是**相对 tsconfig 文件**的路径，且用 `/` 分隔）。
  * 供关卡与本文件比对；运行时不被 vite/vitest 读取。
@@ -151,7 +173,9 @@ export const tsconfigPaths: Record<string, string[]> = {
   skinsuite: ['../packages/theme-core/src/index.ts'],
   'skinsuite/vue': ['../packages/theme-core/src/vue/index.ts'],
   'skinsuite/vue/panel': ['../packages/theme-core/src/vue/debug/panel.ts'],
-  'skinsuite/vite': ['../packages/theme-core/src/vite/index.ts']
+  'skinsuite/vite': ['../packages/theme-core/src/vite/index.ts'],
+  // 🔴 与上方 `vue` 运行时 alias 同源（钉到宿主安装份）；注册理由见其注释块
+  vue: ['../node_modules/vue']
 };
 
 export default aliases;

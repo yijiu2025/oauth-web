@@ -35,7 +35,15 @@
       "skinsuite": ["../packages/theme-core/src/index.ts"],
       "skinsuite/vue": ["../packages/theme-core/src/vue/index.ts"],
       "skinsuite/vue/panel": ["../packages/theme-core/src/vue/debug/panel.ts"],
-      "skinsuite/vite": ["../packages/theme-core/src/vite/index.ts"]
+      "skinsuite/vite": ["../packages/theme-core/src/vite/index.ts"],
+      /* 🔴 `vue` 必须钉到宿主安装的那份：本地包源码直供后，theme-core 里的
+         `import 'vue'` 按 node 解析会命中它自带的 node_modules/vue（版本可与宿主
+         不同）—— 类型世界出现两份 vue 声明，症状成族：`app.use(theme)` 的 install
+         签名（App 类型）跨声明比对失败（ts2769）；pinia 不认库里的 ref（RefSymbol
+         是另一份声明），store 取值拿到 Ref 本体。此映射把整个 program 的 vue 统一
+         到宿主安装份。与 aliases.ts 的 `vue` 键同源，关卡 verify-alias-single-source
+         盯防。standalone 形态下该路径不存在，TS 自动回落 node_modules 正常解析。 */
+      "vue": ["../node_modules/vue"]
     }
   },
   "include": [

@@ -26,7 +26,8 @@
  *   两种形态统一源码直供后，同一文件 = 一个模块实例。
  *
  * 于是 standalone 形态的断言变成：
- *   · alias 表 = `@` + skinsuite 家族 5 个键（`stable-deviceid` 只发 dist，仍不注册）；
+ *   · alias 表 = `@` + skinsuite 家族 4 个键 + `vue`（钉本仓 node_modules 安装份；
+ *     `stable-deviceid` 只发 dist，仍不注册）；
  *   · skinsuite 家族必须指到 `node_modules/skinsuite/src/**`（不是 dist）；
  *   · `skinsuite/vite` 在**配置加载阶段**仍由包 exports 解析到 `dist/vite/index.js`
  *     （Node 拒绝在 node_modules 里剥类型），两条解析并存且都成立。
@@ -106,18 +107,18 @@ try {
 const aliasKeys = Object.keys(aliases).sort();
 if (MONOREPO_FORM) {
   check(
-    '导出 aliases 含 6 个键（@ / skinsuite / skinsuite/vite / skinsuite/vue / skinsuite/vue/panel / stable-deviceid）',
-    aliasKeys.length === 6 &&
-      aliasKeys.join(',') === '@,skinsuite,skinsuite/vite,skinsuite/vue,skinsuite/vue/panel,stable-deviceid',
+    '导出 aliases 含 7 个键（@ / skinsuite 家族 4 / stable-deviceid / vue）',
+    aliasKeys.length === 7 &&
+      aliasKeys.join(',') === '@,skinsuite,skinsuite/vite,skinsuite/vue,skinsuite/vue/panel,stable-deviceid,vue',
     `实际：${aliasKeys.join(', ') || '(空)'}`
   );
 } else {
   // standalone：skinsuite 家族同样源码直供（指 node_modules/skinsuite/src），
-  // stable-deviceid 只发 dist，按设计不注册
+  // stable-deviceid 只发 dist，按设计不注册；vue 钉到本仓 node_modules 安装份
   check(
-    'standalone 形态 aliases 含 5 个键（@ + skinsuite 家族 4 个）',
-    aliasKeys.length === 5 &&
-      aliasKeys.join(',') === '@,skinsuite,skinsuite/vite,skinsuite/vue,skinsuite/vue/panel',
+    'standalone 形态 aliases 含 6 个键（@ + skinsuite 家族 4 + vue）',
+    aliasKeys.length === 6 &&
+      aliasKeys.join(',') === '@,skinsuite,skinsuite/vite,skinsuite/vue,skinsuite/vue/panel,vue',
     `实际：${aliasKeys.join(', ') || '(空)'}`
   );
 }
