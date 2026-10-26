@@ -1,6 +1,10 @@
 /**
  * 「上线前合规阻断」守卫：协议占位符 / 个人邮箱清零
  *
+ * ⚠️ **本脚本不进常规 CI**（不在 verify-all.mjs 的 static 组）——它是「上线前」检查：
+ * 占位符在开发阶段未填是正常的（真实主体信息需上线前由维护者填写），进 CI 会让
+ * 每次 push 恒红。上线前手动跑：`node e2e/verify-agreement-placeholders.mjs`。
+ *
  * === 背景（代码审查 P0）===
  * `agreementConfig.ts` 与两个协议模板（ServiceAgreement / PrivacyPolicy）里有大量
  * 上线前必填占位符，以及误用的个人 QQ 邮箱（`241849626@qq.com`）——注释自己要求
