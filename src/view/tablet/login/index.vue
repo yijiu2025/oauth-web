@@ -8,7 +8,7 @@
  * 版式加载（`themes/<包>/tablet/login/index.vue`）。
  *
  * 所以这里不复制 StandardLogin 的 ~370 行业务，而是：
- *   ① 转发 StandardLogin（业务 + 契约组装只有一份，见 multi-theme.md 职责红线）
+ *   ① 转发 StandardLogin（业务 + 契约组装只有一份，职责红线：业务只在容器层）
  *   ② 用 `device="tablet"` prop 覆盖它的设备身份（StandardLogin 的 `device` 默认
  *      standard，本容器显式传 tablet，让它读 `?th_tab`、按 tablet 作用域加载版式）
  *

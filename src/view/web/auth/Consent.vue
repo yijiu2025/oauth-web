@@ -166,7 +166,7 @@ const deny = async () => {
 
 onMounted(() => {
   // 语言跟随父应用透传。明暗入口 `?theme=dark|light` 已废弃失效（2026-10-20，
-  // 见 docs/login-theme-routing.md §5）：明暗归主题状态机，URL 不再覆写。
+  // 见 skinsuite 文档站「明暗与色系」）：明暗归主题状态机，URL 不再覆写。
   const lang = route.query.lang as string;
   if (lang) locale.value = lang;
   if (shouldSendSSOMessage.value) {

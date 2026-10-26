@@ -21,6 +21,9 @@
     "type-check": "vue-tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
     "verify": "npm run lint && npm test && npm run build && npx vite build --outDir dist-nopwa && node e2e/verify-all.mjs --only static",
     "verify:static": "node e2e/verify-all.mjs --only static",
     "verify:all": "node e2e/verify-all.mjs",
@@ -37,7 +40,7 @@
     "axios": "^1.16.0",
     "pinia": "^3.0.4",
     "qrcode": "^1.5.4",
-    "skinsuite": "^0.10.0",
+    "skinsuite": "^0.11.3",
     "stable-deviceid": "^1.0.3",
     "vee-validate": "^4.15.1",
     "vue": "^3.5.32",
@@ -67,8 +70,14 @@
     "unplugin-vue-components": "^32.0.0",
     "vite": "^8.3.5",
     "vite-plugin-svg-icons": "^2.0.1",
+    "vitepress": "^1.6.4",
     "vitest": "^4.1.12",
     "vue-eslint-parser": "^10.4.1",
     "vue-tsc": "^3.2.8"
+  },
+  "overrides": {
+    "vitepress": {
+      "vite": "^6.4.4"
+    }
   }
 }

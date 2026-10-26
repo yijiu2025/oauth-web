@@ -181,7 +181,7 @@ onUnmounted(() => {
 
 /** 本容器的设备身份：默认 standard（文件位置即身份，`view/web/` 下都是电脑端）。
  *  其它设备（如 tablet）复用本容器的业务时，通过 `device` prop 覆盖 —— 避免
- *  「加一种设备就要复制一整份业务容器」的重复（业务只有一份，见 multi-theme.md 职责红线）。 */
+ *  「加一种设备就要复制一整份业务容器」的重复（业务只有一份，职责红线：业务只在容器层）。 */
 const props = withDefaults(defineProps<{ device?: string }>(), { device: 'standard' });
 
 /** 契约里字段绑定的内部构造形态 */

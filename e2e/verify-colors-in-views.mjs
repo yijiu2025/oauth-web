@@ -100,14 +100,14 @@ const cForgot = await probe('/m/forgot-password' + QS + '&th_color=cyan');
 check('C3 forgot-password base: th_color=cyan 生效', cForgot.theme === 'cyan', `theme=${cForgot.theme}`);
 
 /* ===== D. 黑白自带底色，明暗偏好不改变它们 ===== */
-// `?mode=` 明暗 URL 入口已废弃（2026-10-20，docs/login-theme-routing.md §5）——
+// `?mode=` 明暗 URL 入口已废弃（2026-10-20，见 skinsuite 文档站「明暗与色系」）——
 // 明暗只跟配色的系别走，不再从 URL 定。
 const dWhite = await probe('/m/register' + QS + '&th_color=white');
 check('D1 register base: th_color=white 生效', dWhite.theme === 'white', `theme=${dWhite.theme}`);
 check('D2 white 自带浅色底 --mauth-bg=#f8fafc', dWhite.bg === '#f8fafc', `bg=${dWhite.bg}`);
 check('D2b white 自带画布色 #ffffff', dWhite.canvas === '#ffffff', `canvas=${dWhite.canvas}`);
 
-// `?mode=` 明暗 URL 入口已废弃（2026-10-20，docs/login-theme-routing.md §5）——
+// `?mode=` 明暗 URL 入口已废弃（2026-10-20，见 skinsuite 文档站「明暗与色系」）——
 // black 是暗系配色，天然带 dark 类；不再从 URL 定明暗。
 await probe('/m/register' + QS + '&th_color=black');
 check('D3 black 自带 dark 类（mode= URL 入口已废弃）', await page.evaluate(() => document.documentElement.classList.contains('dark')));

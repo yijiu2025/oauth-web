@@ -3,6 +3,7 @@
 [English](README.en.md) | **简体中文**
 
 [![CI](https://github.com/yijiu2025/oauth-web/actions/workflows/ci.yml/badge.svg)](https://github.com/yijiu2025/oauth-web/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-VitePress-3c63fa)](https://yijiu2025.github.io/oauth-web/)
 
 企业统一身份认证（SSO）体系的**纯前端部分**：登录、注册、找回密码、扫码登录、OAuth 2.1
 应用授权页（authorize / consent）一整套页面，外加多主题、多设备版式、中英文国际化与深色模式。
@@ -41,6 +42,9 @@
 | 跟后端联调（接口 / 签名 / SSO） | [四、与后端联调](#四与后端联调) |
 | 主题 / 版式 / 多语言怎么扩 | [五、主题版式与多语言](#五主题版式与多语言) |
 | 动手前先看约束 | [六、已知约束](#六已知约束) |
+
+> 📖 **完整文档**见 [文档站](https://yijiu2025.github.io/oauth-web/)（VitePress）——登录 / 授权 /
+> iframe SSO 等主线流程一篇一主题。本 README 是速览，文档站是权威细节。
 
 ---
 
@@ -133,7 +137,7 @@ oauth-web/
 │   ├── utils/           # 通用工具（request 封装 / 校验 / 存储）
 │   └── view/            # 页面：web 桌面 / app 移动 / tablet 平板三套版式
 ├── config/aliases.ts    # 路径别名单一来源
-├── docs/                # 项目文档（前端生成手册、主题替换规范、主题热更新设计、Git 发版规则等）
+├── docs/                # 文档站（VitePress）：登录 / 授权 / iframe SSO 主线 + Git 发版规则
 ├── scripts/             # 发布脚本（release-web.mjs：按提交类型打 tag + 建 GitHub Release）
 ├── __tests__/           # 单元测试（Vitest）
 ├── e2e/                 # 端到端测试
@@ -142,7 +146,8 @@ oauth-web/
 ```
 
 读代码建议顺序：`main.ts`（入口）→ `router/routes.ts`（路由怎么生成）→
-`view/web/login/index.vue`（分发器）→ `theme/README.md`（主题体系总说明）。
+`view/web/login/index.vue`（分发器）→ `composables/useLoginFlow.ts`（登录流程）→
+`api/auth.ts`（接口）。
 
 ## 三、页面与路由
 
@@ -193,16 +198,14 @@ oauth-web/
 
 ## 五、主题 / 版式与多语言
 
-- **身份四维**：设备（`mobile | standard | mini | tablet` 平级，mini 是独立设备维度，不是 mobile 的缩写）× 页面 × 主题包（**≡ 一种版式**，目录名即 id）× 配色（只换颜色 / 圆角 / 背景，同 DOM）；注册表自动发现；
-- **URL 六键**：版式 `th` / `th_<urlKey>`，配色 `th_color` / `th_color_<urlKey>`，设备锁定 `device`，调试 `debug`；非法值落**当前包**、不回退（完整契约：[docs/login-theme-routing.md](docs/login-theme-routing.md)）；
-- **深色模式**：`index.html` 内联预置主题，首屏无白闪；明暗归主题状态机（localStorage 持久化），URL 不能指定（`?theme=dark|light` 已废弃）；
-- **演示 URL 速查表**（「能看到什么」，新人第一站）：[docs/README.md · 新人入口](docs/README.md)；
-- **术语表**（view ≡ pkg / urlKey / 四段键 / 容器 vs 分发器……一词一条）：[docs/glossary.md](docs/glossary.md)；
-- **国际化**：`src/i18n/index.ts`，默认 `zh_cn`，`en` 兜底；新增语言加一个 messages 对象即可。
-- **完整机制文档**：[docs/theme-replacement.md](docs/theme-replacement.md)（目录契约 / 替换入口 /
-  优先级 / 安全边界 / 验收清单，总文档同步维护，别的项目可直接套用）。
-- **热更新设计**：[docs/theme-hot-update.md](docs/theme-hot-update.md) —— 不重新发版就换主题的
-  三层模型（后端 token 覆写 / 配色切换 / 主题包 CDN 热更）；前两层已实现，第三层为设计文档。
+- **主题机制属于独立库 [skinsuite](https://github.com/yijiu2025/theme)**：主题包 × 设备 × 配色三段
+  正交、URL 参数键、目录契约、替换优先级、安全边界——**全部机制文档在 skinsuite 文档站**
+  <https://yijiu2025.github.io/theme/>。本仓库只负责**接入**：`src/theme/` 放主题资产，
+  `src/stores/theme.ts` 是接入壳。新增主题包 / 改配色 / 加版式，去 skinsuite 文档站读规范。
+- **设备版式**：web（桌面）/ app（移动端）/ tablet / mini 四套，按视口与 `?device=` 选容器；
+  设备判定归宿主（`src/device/`），URL 不被视口改写；
+- **国际化**：`src/i18n/index.ts`，默认 `zh_cn`，`en` 兜底；新增语言加一个 messages 对象即可；
+- **深色模式**：`index.html` 内联预置主题，首屏无白闪（机制见 skinsuite 文档站）。
 
 ## 六、已知约束
 
@@ -211,6 +214,36 @@ oauth-web/
 - **`.env` 不入库**：只提交 `.env.example` / `.env.development` / `.env.production`（后两者只放默认值与占位符），真实密钥一律走部署环境变量；
 - **H5 签名是弱防爬**：前端代码可被反编译，appKey 拿得到，真正的安全边界在后端登录态 + 权限校验；
 - **第三方登录端点只认站内相对路径**：端点一旦能由外部指定，"把用户送去任意外域"就从漏洞变成配置问题。
+
+## 赞助支持
+
+如果这个项目帮到了你，欢迎请作者喝杯咖啡：
+
+| 微信收款码（扫码直接转账） | 支付宝 |
+| --- | --- |
+| <img src=".github/assets/sponsor-wechat.png" width="180" alt="微信收款码"> | <img src=".github/assets/sponsor-alipay.png" width="180" alt="支付宝收款码"> |
+
+收到的每一笔都会记在心里。
+
+### 关注公众号「柒染靓月」
+
+| | |
+| --- | --- |
+| <img src=".github/assets/sponsor-official-account.jpg" width="150" alt="公众号二维码"> | CoreFlow 全栈框架、skinsuite 主题库、OAuth Web 等开源项目的**更新动态与技术分享**都会第一时间发布在公众号——扫码关注，新版本、新特性不再错过。赞助之外，**关注就是最直接的支持**。 |
+
+---
+
+## 其他项目
+
+| 项目 | 定位 | 说明 |
+| --- | --- | --- |
+| [CoreFlow](https://github.com/yijiu2025/CoreFlow) | 全栈框架 / 后端 | 本仓库的后端账号与授权服务，OAuth 2.1 授权码 / token 签发、用户账号体系所在处 |
+| [skinsuite](https://github.com/yijiu2025/theme) | 主题库 | 多主题 / 多版式机制的实现库（主题包 × 设备 × 页面 × 配色四段键），本仓库的主题接入依赖它 |
+| [RetroWeb](https://github.com/yijiu2025/retroweb) | 逆合成工作台前端 | 有机合成逆合成路线规划工作台，与本仓库同款技术栈 + SSO 接入模式（iframe `/mini-login`） |
+| [retro](https://github.com/yijiu2025/retro) | 逆合成后端 | RetroWeb 的 Python 后端，模型与化学计算（rdchiral / RDKit） |
+| [wb-logkit](https://github.com/yijiu2025/log) | 日志库 | 零依赖、Node / 浏览器通用的统一日志库，分级输出 + 自动脱敏 + 滚动文件 |
+
+---
 
 ## 开源协议
 

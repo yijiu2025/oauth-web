@@ -7,10 +7,10 @@
 > 开发者只需写设备清单与主题包。设计、注入点契约、迁移分期见
 > CoreFlow `https://github.com/yijiu2025/CoreFlow/blob/main/docs/standards/theme-package-extraction.md`。
 >
-> ⚠️ **URL 参数命名以 [login-theme-routing.md](../../docs/login-theme-routing.md) 为准（2026-10-19 起）**。
+> ⚠️ **URL 参数命名以 skinsuite 文档站 [URL 参数手册](https://yijiu2025.github.io/theme/guide/url-params.html) 为准（2026-10-19 起）**。
 > 现行键形：版式 `?th` / `?th_<urlKey>`、配色 `?th_color` / `?th_color_<urlKey>`、
 > 设备锁定 `?device=`、调试面板 `?debug=theme`；`?theme=dark|light` 明暗入口已废弃失效。
-> **拼链接 / 改代码前先读 login-theme-routing.md §2**。
+> **拼链接 / 改代码前先读 skinsuite 文档站 URL 参数手册**。
 >
 > ⚠️ **关卡路径**：正文里残留的 `.tmp-probe/verify-*.mjs` 是 2026-09-28 关卡迁移前的旧路径，
 > 活跃关卡已全部迁入 `oauth21/e2e/`（纳入版本控制）—— 下文命令块已按新路径修正，
@@ -206,7 +206,7 @@ themes/<包>/<设备>/<页面>/colors/<配色>/      ← 该页的配色
 > `compact` 包只覆盖 `mobile × register`，就在 `index.ts` 里写
 > `coverage: { devices: ['mobile'], pages: ['register'] }`。
 > 目录口径关卡据此推导该包应有的目录，不再写死包名 —— 声明与实现同目录，
-> 复制主题包时声明跟着走（见 `../docs/multi-theme.md` §八「coverage 覆盖声明」）。
+> 复制主题包时声明跟着走（见 skinsuite 文档站「主题包 · 配色 · 版式」的 coverage 覆盖声明）。
 
 **加一种版式**（换 DOM 结构）＝ **加一个包**，不是加深目录：
 

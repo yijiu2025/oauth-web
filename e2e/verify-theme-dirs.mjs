@@ -1,7 +1,7 @@
 /**
  * 静态关卡：主题目录口径（**四级结构**）+ 「版式跟随主题包与设备」的实现口径
  *
- * 守护的规则（`docs/multi-theme.md` 与 `oauth21/src/theme/README.md`）：
+ * 守护的规则（skinsuite 文档站「目录约定」与 `oauth21/src/theme/README.md`）：
  *
  *   结构 · 四级（主题包 → 设备 → 页面 → 配色）
  *     1. `themes/` 下一层目录 = 一个**主题包**，目录名即 id（只允许 [a-z0-9-]）

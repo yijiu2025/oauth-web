@@ -26,13 +26,13 @@ npm 包装（等价入口，见 package.json）：`npm run verify`（CI 顺序�
 **环境预检**：某关卡的端口没起、或产物目录不存在，会标「⏭️ 跳过」而非「❌ 失败」——
 避免"没起环境"被误读成"代码红了"。
 
-## 二、端口约定（与 docs/multi-theme.md §十、MEMORY §9 一致）
+## 二、端口约定（与 MEMORY §9 一致）
 
 | 端口 | 用途 |
 | --- | --- |
 | `5174` | dev 默认实例（大部分 Playwright 关卡） |
 | `5175` | **link 模式实例**（`VITE_PASSWORD_RESET_MODE=link`；`verify-forgot-view.mjs` 的 E 段 link 流程） |
-| `5177` | compact 版式实例（`VITE_REGISTER_VIEW=compact`；版式优先级第 4 档 / 首屏预算） |
+| `5177` | **首屏流量实例**（`verify-first-paint-budget.mjs` 独占；compact 由关卡自己用 `?th=compact` URL 驱动，不靠 env —— env 档 2026-10-20 已从 pick 链移除） |
 | `5184` | **移动端实例**（`verify-colors-in-views.mjs` 的 `/m/*` 路由探针） |
 | `5197` | color-peer 专用实例 |
 | `5189` | dist 预览（生产构建，验 SW 迁移 / 宽窄切换）—— ⚠️ 必须 `--outDir dist-nopwa`，见 §八 |
@@ -42,6 +42,42 @@ npm 包装（等价入口，见 package.json）：`npm run verify`（CI 顺序�
 
 ## 三、活跃关卡（26 个，分四组）
 
+> 🔴 **CI 覆盖边界**（2026-10-21 补齐 —— 别把「CI 绿」当成「全验过」）
+>
+> **CI 跑的**：lint + 单测（vitest）+ 构建 + **① 静态组**（`post-build-cmd` 的
+> `verify-all.mjs --only static`）。
+> **CI 不跑的**：②③④ 三组（dev / 特殊端口 / 生产构建）—— CI 里起 dev server 易 flake，
+> 是刻意取舍，理由见 `.github/workflows/ci.yml` 文件头注释。
+>
+> ⇒ 所以**改了主题机制 / URL 取值链 / 容器分发，光等 CI 绿不够**，必须本地全量：
+> `npm run probe:up && npm run verify:all`（两串必须同一次 shell，见 MEMORY §9）。
+>
+> ⚠️ 反过来别误判成「机制测试也不进 CI」：**单测层面是进 CI 的** —— 宿主 vitest
+> （`src/theme/views/__tests__/`）与库侧 `packages/theme-core` 打 dist 的 53 例，
+> 分别由各自仓的 CI 必跑。不进 CI 的只有**浏览器行为**这一层。
+
+> 🔴 **可复用边界**（2026-10-22 补齐 —— 别把「业务回归」当成「可迁移资产」）
+>
+> 26 个活跃关卡分两类，**新前端接入时只该拿第一类**：
+>
+> | 类 | 组 | 判据来源 | 换前端后 |
+> | --- | --- | --- | --- |
+> | **契约守卫**（可复用） | ① 静态组 | 由清单/接口派生（package.json exports、`devices.ts`、`aliases.ts`），位置无关 | 直接复用；路径用 `--dir` 或 env `VITE_THEME_DIR` 调 |
+> | **业务回归**（**不可复用**） | ②③④ dev/special/prod | 断言**本仓**的 DOM 选择器、页面 URL、主题色值 | **必须自建**；复制过去是假绿 |
+>
+> 实测耦合密度（2026-10-22）：②③④ 里 9 个主题相关关卡，单文件内宿主 DOM 选择器
+> **3~29 处**、页面 URL **1~34 处**，另有 `rgb()`/`rgba()` 色值期望。
+> ⇒ 曾经设想的「抽端口 / 页面 / 包 id 成 target 文件」**不成立**：要抽的还有 DOM 契约与
+> 配色数值，真迁移等于按新前端的 DOM 与主题重写整个关卡，那时它已经是新关卡了。
+>
+> ⚠️ 反过来说，**静态组里 2 个主题关卡才是给新前端准备的资产**：
+> · `verify-theme-dirs` —— 目录契约，支持 `--dir` 入参与 env `VITE_THEME_DIR`
+>   （解析见 `lib/theme-dir.mjs`）
+> · `verify-kernel-zero-coupling` —— 内核纯度，判据由 export 清单 + import 说明符派生
+> 两者都不碰本仓业务，换仓即可用。其余业务行为关卡请**照着写自己的**，
+> 别复制 —— 复制品在新仓大概率「跑绿」，因为端口没起会跳过，而 `--allow-skip` 一开
+> 跳过即算通过。
+
 ### ① 静态关卡（无浏览器 / 无服务器）
 | 关卡 | 守什么 |
 | --- | --- |
@@ -49,7 +85,7 @@ npm 包装（等价入口，见 package.json）：`npm run verify`（CI 顺序�
 | `verify-doctor` | **预检门诊自身的行为测试**（`scripts/doctor.mjs` 判定函数的 node --test）：版本范围 / 端口三态 / vite 缓存四态 / skinsuite 双形态 / env 文件齐否（13 项） |
 | `verify-env-files.mjs` | **env 四文件一致性机检**（CONTRIBUTING 红线 #2 从人守变机检）：四文件同键同序 / 文件内无重复键 / 键形 `^VITE_[A-Z0-9_]+$` / `.env.example` 每键有注释 —— 漏改的症状是**静默**的（读到的是另一文件的默认值），只有机检能抓到（当前 12 键全绿） |
 | `verify-env-files-test` | **上一项的判定函数测试**（`parseEnvKeys`/`compareEnvFiles` 的 node --test）：注释块隔断 / CRLF / 值含 `=` / 顺序漂移 / 少键 / 多键 / 重复键 / 键形，四条判定路径各自覆盖通过+失败两侧（13 项） |
-| `verify-theme-dirs.mjs` | **核心静态关卡**：四级目录口径 + 无版式层 + 四段键 + `data-mauth-view`=包名 + 三设备静态引入 + 内核包契约（589 项） |
+| `verify-theme-dirs.mjs` | **核心静态关卡**：四级目录口径 + 无版式层 + 四段键 + `data-mauth-view`=包名 + 三设备静态引入 + 内核包契约（621 项，以实跑输出为准） |
 | `verify-glob-device.mjs` | glob 真的扫到设备段、配色 glob 只有一套（26 项） |
 | `verify-alias-single-source.mjs` | **别名三处一致**：`config/aliases.ts` ↔ `tsconfig.app.json` paths ↔ 实解析探针。双形态分流：monorepo（上级有 `packages/`）下 `skinsuite`/`stable-deviceid` 必须解析到 `packages/*/src/index.ts`（源码直供，不是 node_modules dist）；standalone（单仓 checkout / CI / 开源用户）下两键按设计不注册，探针用 node `import.meta.resolve` 确认裸说明符命中 `node_modules/<pkg>/dist`（21/15 项） |
 | `verify-kernel-zero-coupling.mjs` | **内核零框架耦合**：两包 dependencies/peerDependencies 全空、源码只 import 相对路径（禁 vue）⇒ 防"源码直供"下静默产出两份 Vue。双形态分流：monorepo 查 `packages/*/src` + 宿主 alias 仍指源码；standalone 查 node_modules 发布面（skinsuite 有 src；stable-deviceid 只发 dist ⇒ 降级查 dist，tsc 产物保留 import 面）（18/20 项） |
@@ -68,7 +104,7 @@ npm 包装（等价入口，见 package.json）：`npm run verify`（CI 顺序�
 | `verify-login-view.mjs` | 登录页「业务容器 + 可换版式」（36 项） |
 | `verify-register-view.mjs` | 注册页「业务容器 + 可换版式」（36 项） |
 | `verify-forgot-view.mjs` | 重置密码页「业务容器 + 可换版式」（56 项，含 I 段 iframe 分发） |
-| `verify-view-priority.mjs` | 版式优先级五档 + 设备维度键 + 空串/非法值（需 `--env-base 5177` 验第 4 档） |
+| `verify-view-priority.mjs` | 版式优先级四档链 + 设备维度键 + 空串/非法值（URL 驱动，主实例 5174；第 3 档「包声明」由 `verify-theme-dirs.mjs` §12 静态守） |
 | `verify-mobile-forgot.mjs` | `/m/*` URL 不被视口改写（保持路由，③ 守） |
 
 ### ③ 特殊端口关卡

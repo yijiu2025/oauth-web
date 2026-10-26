@@ -201,25 +201,18 @@ Host apps (same pattern as retroweb / posecraft / firewall) embed `/mini-login` 
 
 ## 5. Themes, Layouts & i18n
 
-- **Four identity axes**: device (`mobile | standard | mini | tablet`, peer-level — mini is an
-  independent device, not a shorthand for mobile) × page × theme package (**≡ one layout**,
-  directory name is the id, discovered automatically) × palette (colors / radii / backgrounds
-  only, same DOM);
-- **Six URL keys**: layout `th` / `th_<urlKey>`, palette `th_color` / `th_color_<urlKey>`, device
-  lock `device`, debug `debug`; an invalid value falls back to the **current package** (never the
-  theme tier) — full contract: [docs/login-theme-routing.md](docs/login-theme-routing.md);
-- **Dark mode**: theme is pre-applied inline in `index.html` — no first-paint flash; light/dark
-  belongs to the theme state machine (localStorage-persisted), not the URL (`?theme=dark|light`
-  is deprecated);
+- **Theming belongs to the standalone library [skinsuite](https://github.com/yijiu2025/theme)**:
+  theme-package × device × palette orthogonality, URL keys, directory contracts, replacement
+  priorities and security boundaries — **all mechanism docs live in the skinsuite docs site**
+  <https://yijiu2025.github.io/theme/>. This repo only *integrates* it: `src/theme/` holds theme
+  assets, `src/stores/theme.ts` is the integration shell. To add a package / palette / layout, read
+  the skinsuite docs, not this repo.
+- **Device layouts**: web (desktop) / app (mobile) / tablet / mini, selected by viewport and
+  `?device=`; device resolution is host-owned (`src/device/`), URL is never rewritten by viewport;
 - **i18n**: `src/i18n/index.ts`, default `zh_cn`, `en` fallback; add a messages object for a new
-  language.
-- **Full mechanism doc**: [docs/theme-replacement.md](docs/theme-replacement.md) (directory
-  contract, replacement entries, priorities, security boundaries, acceptance checklist — maintained
-  in the master docs too, ready to be adopted by other projects).
-- **Hot-update design**: [docs/theme-hot-update.md](docs/theme-hot-update.md) — a three-layer
-  model for changing themes without redeploying the frontend (backend token overrides / palette
-  switching / theme-package hot updates from CDN). The first two layers are implemented; the third
-  is a design document.
+  language;
+- **Dark mode**: theme is pre-applied inline in `index.html` — no first-paint flash (mechanism in
+  the skinsuite docs).
 
 ## 6. Known Constraints
 
@@ -234,6 +227,36 @@ Host apps (same pattern as retroweb / posecraft / firewall) embed `/mini-login` 
   the real security boundary is backend session + permission checks;
 - **Social-login endpoints accept relative in-site paths only**: an externally settable endpoint
   would turn "redirect users anywhere" from a vulnerability into a configuration option.
+
+## Sponsorship
+
+If this project helps you, feel free to buy the author a coffee:
+
+| WeChat Pay (scan to transfer) | Alipay |
+| --- | --- |
+| <img src=".github/assets/sponsor-wechat.png" width="180" alt="WeChat Pay"> | <img src=".github/assets/sponsor-alipay.png" width="180" alt="Alipay"> |
+
+Every contribution is remembered.
+
+### Follow the official account "柒染靓月"
+
+| | |
+| --- | --- |
+| <img src=".github/assets/sponsor-official-account.jpg" width="150" alt="Official account QR"> | Updates and technical write-ups for CoreFlow, skinsuite, OAuth Web and other open-source projects are published here first — scan to follow so you don't miss new releases and features. Beyond sponsoring, **following is the most direct form of support**. |
+
+---
+
+## Related Projects
+
+| Project | Role | Description |
+| --- | --- | --- |
+| [CoreFlow](https://github.com/yijiu2025/CoreFlow) | Full-stack framework / backend | The backend account & authorization service for this repo — OAuth 2.1 code/token issuance and user accounts live here |
+| [skinsuite](https://github.com/yijiu2025/theme) | Theme library | The multi-theme / multi-layout engine (theme-package × device × page × palette), which this repo's theming depends on |
+| [RetroWeb](https://github.com/yijiu2025/retroweb) | Retrosynthesis workbench frontend | Organic retrosynthesis route-planning workbench, same stack + SSO integration (iframe `/mini-login`) as this repo |
+| [retro](https://github.com/yijiu2025/retro) | Retrosynthesis backend | RetroWeb's Python backend for models & chemistry (rdchiral / RDKit) |
+| [wb-logkit](https://github.com/yijiu2025/log) | Logging library | Zero-dependency, Node / browser unified logger — leveled output + auto-redaction + rolling files |
+
+---
 
 ## License
 

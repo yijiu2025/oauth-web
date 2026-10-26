@@ -22,7 +22,7 @@
  *   node oauth21/e2e/verify-all.mjs --only static       # 只跑静态关卡（无浏览器/服务器）
  *   node oauth21/e2e/verify-all.mjs --list              # 只打印关卡清单，不跑
  *
- * 端口约定（与 docs/multi-theme.md §十、MEMORY §9 一致）：
+ * 端口约定（与 e2e/VERIFY.md §二、MEMORY §9 一致）：
  *   5174 = dev（默认实例）  5175 = link 模式实例（VITE_PASSWORD_RESET_MODE=link）
  *   5177 = 首屏流量实例（verify-first-paint-budget 独占；compact 由 URL 驱动）  5197 = color-peer 专用
  *   5189 = dist 预览（生产构建，量流量/验 SW 用）

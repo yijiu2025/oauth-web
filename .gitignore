@@ -39,3 +39,7 @@ vite.config.js.timestamp-*.mjs
 # 探针脚本与中间产物（favicon 压缩、体积实测等一次性工具）
 # 带 * ：.tmp-probe.bak / .tmp-probe-2 等同族拷贝一并忽略（eslint 同款放宽）
 .tmp-probe*
+
+# 文档站构建缓存（dist 已被上面的 dist 规则覆盖，这里补 cache）
+docs/.vitepress/cache/
+*.tsbuildinfo

@@ -46,7 +46,7 @@ UI 改动请附截图或录屏，**桌面 + 移动 + 深色**三态：
 
 - [ ] env 变量如有增减，**四个文件同序同注释**已同步（`.env` 除外，它不入库）
 - [ ] 未提交 `.env`、`dist/`、`.tmp-probe/` 等应被忽略的文件
-- [ ] 主题 / 版式改动符合 [docs/theme-replacement.md](../docs/theme-replacement.md)（目录名即 id；`view ≡ pkg`；设备平级）
+- [ ] 主题 / 版式改动符合 [skinsuite 目录约定](https://yijiu2025.github.io/theme/guide/directory.html)（目录名即 id；`view ≡ pkg`；设备平级）
 - [ ] 如改别名，只改了 `config/aliases.ts` 单一来源
 - [ ] 无新增 `console.*`（静态关卡会拦）
 - [ ] 无新增 `any` 债务（静态关卡会拦）

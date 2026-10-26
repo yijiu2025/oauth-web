@@ -365,7 +365,7 @@ describe('theme store 行为守卫', () => {
       expect(store.deviceViewOf('standard')).toBe('compact');
     });
 
-    it('?theme=dark 被忽略（明暗 URL 入口已废弃失效，docs/login-theme-routing.md §5）', async () => {
+    it('?theme=dark 被忽略（明暗 URL 入口已废弃失效，见 skinsuite 文档站「明暗与色系」）', async () => {
       const store = await freshStore('?theme=dark');
       expect(store.mode).toBe('system');
       expect(store.isDark).toBe(false);
