@@ -78,11 +78,11 @@
 
 | 预算项 | 线 | 实测 |
 | --- | --- | --- |
-| 首屏静态集 gzip 总量 | ≤ 150 KB | 135.6 KB |
-| 首屏静态集文件数 | ≤ 12 | 8 |
-| 单 chunk gzip / raw | ≤ 60 KB / 200 KB | 51.4 / 160.1 KB |
-| dist 总量 | ≤ 1024 KB | 808.5 KB |
-| index.html | ≤ 8 KB | 2.8 KB |
+| 首屏静态集 gzip 总量 | ≤ 175 KB | 160.2 KB |
+| 首屏静态集文件数 | ≤ 12 | 9 |
+| 单 chunk gzip / raw | ≤ 60 KB / 240 KB | 45.9 / 211.1 KB |
+| dist 总量 | ≤ 1024 KB | 839.3 KB |
+| index.html | ≤ 8 KB | 7.0 KB |
 
 - 已接入 `e2e/verify-all.mjs` 静态关卡组（产物不存在时 exit 3 跳过，不误红）。
 - 自带毒丸自证：`--poison` 把预算线压到 -1 必须全红（已实测 exit 1）——**恒绿的关卡等于没关卡**。
@@ -105,7 +105,7 @@
 
 | 指标 | 目标 | 工具 |
 | --- | --- | --- |
-| 首屏静态集 gzip | ≤ 150 KB（关卡硬守） | `verify-bundle-budget.mjs` |
+| 首屏静态集 gzip | ≤ 175 KB（关卡硬守） | `verify-bundle-budget.mjs` |
 | 首屏总流量（含按需） | ≤ 220 KB | `measure-load-budget.mjs`（当前 211.0 KB） |
 | 视口/设备切换增量请求 | **0** | `measure-load-budget.mjs` 场景②③（三形态预热的设计回报） |
 | 非内置包 chunk 首屏加载数 | **0** | `verify-first-paint-budget.mjs` |

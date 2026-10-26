@@ -67,7 +67,10 @@ export async function fetchPublicKey(): Promise<CryptoKey> {
   }
 
   // 3. 请求公钥端点（首次 / 缓存失效）
-  const resp = await fetch(`${SERVER}/oauth2.1/crypto/public-key`);
+  //    8s 超时：弱网下不能让 fetch 无限挂起（登录/注册会一直卡在加密这一步）
+  const resp = await fetch(`${SERVER}/oauth2.1/crypto/public-key`, {
+    signal: AbortSignal.timeout(8000)
+  });
   if (!resp.ok) throw new Error('获取公钥失败');
   const data = await resp.json();
   const kid = data.kid;
@@ -103,13 +106,14 @@ export function clearPublicKeyCache(): void {
 }
 
 /**
- * ArrayBuffer 转 Base64
+ * ArrayBuffer 转 Base64（分块拼接，避免大数组逐字节字符串相加的性能退化）
  */
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
+  const CHUNK = 0x8000; // 32KB 分块，避免 call stack 溢出 + 减少字符串拼接次数
   let binary = '';
-  for (const b of bytes) {
-    binary += String.fromCharCode(b);
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
   }
   return btoa(binary);
 }

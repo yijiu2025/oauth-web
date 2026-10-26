@@ -27,6 +27,11 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const { t } = useI18n();
+
+/** 取应用名的首字符（用 Array.from 按码点取，避免 emoji/代理对截断出乱码） */
+function firstChar(name: string): string {
+  return Array.from(name || 'A')[0] ?? 'A';
+}
 </script>
 
 <template>
@@ -35,7 +40,7 @@ const { t } = useI18n();
     <div class="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-100 dark:border-slate-800 space-y-3">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-[#2563eb]/10 flex items-center justify-center text-[#2563eb] font-bold text-lg">
-          {{ (consentState?.client_name || 'A')[0].toUpperCase() }}
+          {{ firstChar(consentState?.client_name || '').toUpperCase() }}
         </div>
         <div>
           <h3 class="text-sm font-bold dark:text-white">
@@ -71,7 +76,8 @@ const { t } = useI18n();
       <button
         type="button"
         @click="props.onDeny"
-        class="flex-1 h-11 border border-slate-200 dark:border-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+        :disabled="props.submitting"
+        class="flex-1 h-11 border border-slate-200 dark:border-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {{ t('login.deny') }}
       </button>

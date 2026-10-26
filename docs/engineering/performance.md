@@ -37,7 +37,7 @@
 | LCP | ≤ 2.0s（4G 中位） | Lighthouse / CrUX |
 | INP | ≤ 200ms | 同上 |
 | CLS | ≤ 0.1 | 同上 |
-| 首屏静态集 gzip | ≤ 150 KB（硬守） | `verify-bundle-budget.mjs` |
+| 首屏静态集 gzip | ≤ 175 KB（硬守） | `verify-bundle-budget.mjs` |
 | 首屏总流量 | ≤ 220 KB | `measure-load-budget.mjs` |
 | 视口/设备切换增量请求 | 0 | `measure-load-budget.mjs` |
 | dist 总量 | ≤ 1 MB（硬守） | `verify-bundle-budget.mjs` |

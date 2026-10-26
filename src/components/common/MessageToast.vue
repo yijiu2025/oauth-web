@@ -1,11 +1,12 @@
 <template>
   <Teleport to="body">
     <Transition name="toast">
-      <div v-if="messages.length" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+      <div v-if="messages.length" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none" aria-live="polite" aria-atomic="false">
         <TransitionGroup name="toast-item">
           <div
             v-for="msg in messages"
             :key="msg.id"
+            :role="msg.type === 'error' ? 'alert' : 'status'"
             class="pointer-events-auto px-4 py-3 rounded-xl shadow-lg backdrop-blur-md text-sm font-medium flex items-center gap-2 min-w-[280px] mauth-toast"
             :class="toastClass(msg.type)"
           >

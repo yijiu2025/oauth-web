@@ -47,13 +47,14 @@ import { useCaptchaFlow } from '@/composables/useCaptchaFlow';
 import { useKeyboardAvoid } from '@/composables/useKeyboardAvoid';
 import { usePasswordStrength } from '@/composables/usePasswordStrength';
 import { rsaEncrypt, getCachedKid } from '@/utils/crypto';
+import { clearUrlQuery } from '@/utils/clear-url-query';
 import { ThemeView } from 'skinsuite/vue';
 import type {
   ForgotPasswordStage,
   ForgotPasswordTranslate,
   ForgotPasswordViewContext
 } from '@/theme/views/forgot-password';
-import type { Ref } from 'vue';
+import { bindField, makeTranslate, assertContract, type FieldSource } from '@/utils/contract-utils';
 
 const { t, locale } = useI18n();
 const route = useRoute();
@@ -164,6 +165,8 @@ const [confirmPassword, confirmPasswordProps] = defineField('confirmPassword');
 
 // v2.20.1：忘记密码页挂载后预热 login dispatcher chunk，避免「回到登录」切换闪屏
 onMounted(() => {
+  // 重置 token 是可当密码用的凭证，读完立即从地址栏抹掉
+  if (linkToken.value) clearUrlQuery(['token']);
   void import('@/view/web/login/index.vue').catch(() => {});
 });
 
@@ -287,58 +290,9 @@ const goBack = () => {
    契约组装（版式渲染已收进 <ThemeView>，本容器只组装 ctx）
    ========================================================================== */
 
-/** 契约里字段绑定的**内部构造形态**：值与错误都是 ref，交给 reactive 自动解包成契约里的标量 */
-interface FieldSource {
-  value: Ref<string>;
-  attrs: Ref<Record<string, unknown>>;
-  invalid: Ref<boolean>;
-  error: Ref<string | undefined>;
-}
+const translate: ForgotPasswordTranslate = makeTranslate(t);
 
-/**
- * 把一个字段打成交给版式的"绑定三件套"
- *
- * - `value` 包一层可写 computed：vee-validate 给的值 ref 是 `string | undefined`
- *   （一次都没填过就是 undefined），而契约承诺版式拿到的一定是字符串 —— 读时兜底成 `''`。
- * - `attrs` **整个 ref 原样存下来**，不提前取 `.value`（它内部是 computed，提前取会拿过期快照）。
- */
-function bindField(
-  value: Ref<string | undefined>,
-  attrs: Ref<Record<string, unknown>>,
-  invalid: Ref<boolean>,
-  error: Ref<string | undefined>
-): FieldSource {
-  return {
-    value: computed({
-      get: () => value.value ?? '',
-      set: next => {
-        value.value = next;
-      }
-    }),
-    attrs,
-    invalid,
-    error
-  };
-}
-
-/**
- * 编译期契约自检
- *
- * 容器组装的 ctx 必须**结构上满足** `theme/views/forgot-password.ts` 声明的契约：
- * 少一个字段、类型对不上，都会在这行报错 —— 契约才是真有约束力的，而不是一份会过期的文档。
- */
-function assertForgotPasswordContract(ctx: ForgotPasswordViewContext): ForgotPasswordViewContext {
-  return ctx;
-}
-
-/** 翻译函数：只把「key + （命名参数 | 兜底文案）」这一子集交给版式 */
-const translate: ForgotPasswordTranslate = (key, params) => {
-  if (params === undefined) return t(key);
-  return typeof params === 'string' ? t(key, params) : t(key, params as never);
-};
-
-/** 交给版式的上下文（reactive + 嵌套 ref：契约里声明的是标量，reactive 自动解包） */
-const ctx = assertForgotPasswordContract(
+const ctx = assertContract<ForgotPasswordViewContext>(
   reactive({
     t: translate,
 

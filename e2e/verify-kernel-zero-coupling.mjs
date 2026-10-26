@@ -292,8 +292,8 @@ if (MONOREPO_FORM) {
     const text = readFileSync(aliasesFile, 'utf8');
     check(
       'aliases.ts 保留 LOCAL_PKG_ENTRIES 源码目标表',
-      text.includes('LOCAL_PKG_ENTRIES'),
-      '找不到 LOCAL_PKG_ENTRIES'
+      /const\s+LOCAL_PKG_ENTRIES\s*:\s*ReadonlyArray/.test(text),
+      '找不到 LOCAL_PKG_ENTRIES 声明'
     );
     check(
       'aliases.ts 保留 existsSync 条件注册（源码在才注册，绝不指向不存在的路径）',

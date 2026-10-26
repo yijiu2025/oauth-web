@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { authApi } from '@/api/auth';
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { useThemeStore } from '@/stores/theme';
 
 const props = defineProps({
@@ -99,6 +99,13 @@ watch(userInput, val => {
 
 const inputRef = ref<HTMLInputElement | null>(null);
 
+/** Esc 关闭（模态框键盘可达性） */
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && props.isOpen) emit('close');
+}
+onMounted(() => window.addEventListener('keydown', onKeydown));
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
+
 watch(
   () => props.isOpen,
   val => {
@@ -137,6 +144,9 @@ watch(
       v-if="isOpen"
       class="mauth-captcha-root fixed inset-0 z-[200] flex items-center justify-center p-6"
       :class="{ dark: themeStore.activeTone === 'dark' }"
+      role="dialog"
+      aria-modal="true"
+      aria-label="图形验证码"
     >
       <!-- Backdrop：与桌面 main.scss 同款 --mauth-canvas（v2.21.0） -->
       <div class="mauth-captcha-backdrop absolute inset-0" @click="emit('close')"></div>
@@ -146,7 +156,7 @@ watch(
         <div class="p-10">
           <div class="flex items-center justify-between mb-10">
             <h4 class="mauth-captcha-title text-xs font-bold uppercase tracking-[0.2em]">{{ title }}</h4>
-            <button @click="emit('close')" class="mauth-captcha-close-btn w-8 h-8 flex items-center justify-center rounded-full transition-all">
+            <button aria-label="关闭" @click="emit('close')" class="mauth-captcha-close-btn w-8 h-8 flex items-center justify-center rounded-full transition-all">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path d="M18 6L6 18M6 6l12 12" />
               </svg>
@@ -209,7 +219,7 @@ watch(
                   :class="{ 'mauth-captcha-input--error': error }"
                 />
                 <Transition name="fade">
-                  <p v-if="error" class="text-center text-[11px] text-mauth-danger font-bold mt-3 tracking-wide uppercase">
+                  <p v-if="error" role="alert" class="text-center text-[11px] text-mauth-danger font-bold mt-3 tracking-wide uppercase">
                     {{ error }}
                   </p>
                 </Transition>

@@ -31,7 +31,7 @@ export const agreementConfig = {
   /** 个人信息保护负责人（DPO）联系邮箱 */
   DPO_EMAIL: '【如 dpo@yourdomain.com】',
   /** 客服/联系邮箱 */
-  CONTACT_EMAIL: '241849626@qq.com',
+  CONTACT_EMAIL: '【请填写企业客服邮箱】',
   /** 客服电话 */
   CONTACT_PHONE: '【请填写】',
   /** 服务协议生效日期（YYYY年M月D日） */
@@ -44,8 +44,8 @@ export const agreementConfig = {
   PRIVACY_VERSION: 'V1.0',
   /** 个人信息权利响应时限（工作日） */
   RESPONSE_DAYS: '15个工作日',
-  /** 账号注销后信息删除时限 */
-  DELETE_AFTER_DELETE_DAYS: '15日/30日',
+  /** 账号注销后信息删除时限（需填单一明确期限，如「30日」；法律另有规定留存的除外） */
+  DELETE_AFTER_DELETE_DAYS: '【请填写删除期限】',
   /** 日志信息保存期限 */
   LOG_RETENTION: '6个月',
   /** 交易与订单信息保存期限 */

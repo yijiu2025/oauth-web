@@ -25,6 +25,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useThemeStore } from '@/stores/theme';
 import { ThemeView } from 'skinsuite/vue';
+import { safeDecodeURIComponent } from '@/utils/safe-decode';
+import { makeTranslate, assertContract } from '@/utils/contract-utils';
 import type { NotFoundTranslate, NotFoundViewContext } from '@/theme/views/not-found';
 
 const route = useRoute();
@@ -35,8 +37,8 @@ const themeStore = useThemeStore();
 /** 本容器的设备身份（tablet 复用业务时覆盖为 tablet） */
 const props = withDefaults(defineProps<{ device?: string }>(), { device: 'standard' });
 
-/** 尝试提取原始访问的路径（decode 防止双重编码） */
-const attemptedPath = computed(() => decodeURIComponent(route.fullPath));
+/** 尝试提取原始访问的路径（安全 decode，畸形 URL 不抛 URIError） */
+const attemptedPath = computed(() => safeDecodeURIComponent(route.fullPath));
 
 /** 返回登录：标准桌面场景去 /login */
 function goHome() {
@@ -53,19 +55,12 @@ function goBack() {
    契约组装（版式渲染已收进 <ThemeView>，本容器只组装 ctx）
    ========================================================================== */
 
-/** 编译期契约自检：少一个字段、类型对不上都会在这行报错 */
-function assertNotFoundContract(ctx: NotFoundViewContext): NotFoundViewContext {
-  return ctx;
-}
-
+// 契约组装样板（translate/assertContract）收口在 src/utils/contract-utils.ts
 /** 翻译函数：只把「key + （命名参数 | 兜底文案）」这一子集交给版式 */
-const translate: NotFoundTranslate = (key, params) => {
-  if (params === undefined) return t(key);
-  return typeof params === 'string' ? t(key, params) : t(key, params as never);
-};
+const translate: NotFoundTranslate = makeTranslate(t);
 
 /** 交给版式的上下文（reactive：契约里声明的标量，在容器里是 ref，reactive 自动解包） */
-const ctx = assertNotFoundContract(
+const ctx = assertContract<NotFoundViewContext>(
   reactive({
     t: translate,
     title: computed(() => t('not_found.title', '页面未找到')),

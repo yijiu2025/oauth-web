@@ -41,9 +41,10 @@ import { useButtonLock } from '@/composables/useButtonLock';
 import { useCaptcha } from '@/composables/useCaptcha';
 import { useAgreementVersion, captureAgreementVersion } from '@/composables/useAgreementVersion';
 import { rsaEncrypt, getCachedKid } from '@/utils/crypto';
+import { withTimeout } from '@/utils/with-timeout';
 import { ThemeView } from 'skinsuite/vue';
 import type { RegisterDirection, RegisterTranslate, RegisterViewContext } from '@/theme/views/register';
-import type { Ref } from 'vue';
+import { bindField, makeTranslate, assertContract, type FieldSource } from '@/utils/contract-utils';
 
 /** 步骤总数：web 端两步（账号+验证码 → 密码+协议） */
 const TOTAL_STEPS = 2;
@@ -165,16 +166,6 @@ const { captchaKey, showCaptcha, openCaptcha: openRegCaptcha, onCaptchaSuccess }
 // 工具函数
 // ================================
 /**
- * 异步操作超时保护（CLAUDE.md 铁律：所有可能阻塞的异步操作设置超时兜底）
- */
-function withTimeout<T>(p: Promise<T>, ms: number, op: string): Promise<T> {
-  return Promise.race([
-    p,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${op} timeout (${ms}ms)`)), ms))
-  ]);
-}
-
-/**
  * 注册后回跳（OAuth 同源白名单，防开放重定向）
  */
 function safeRedirect(): string {
@@ -197,9 +188,12 @@ const checkEmail = async () => {
     isEmailDuplicate.value = false;
     return;
   }
+  // 请求前快照：响应回来时若邮箱已被改，丢弃旧响应，避免竞态污染新邮箱的重复标记
+  const queriedEmail = values.email;
   isEmailChecking.value = true;
   try {
-    const res = (await authApi.checkEmail(values.email)) as unknown as { isDuplicate?: boolean };
+    const res = (await authApi.checkEmail(queriedEmail)) as unknown as { isDuplicate?: boolean };
+    if (values.email !== queriedEmail) return; // 邮箱已变，本次结果作废
     isEmailDuplicate.value = !!res?.isDuplicate;
   } catch (err) {
     console.warn('[StandardRegister] checkEmail failed', err);
@@ -317,43 +311,11 @@ onUnmounted(() => dispose());
  */
 const props = withDefaults(defineProps<{ device?: string }>(), { device: 'standard' });
 
-/** 契约里字段绑定的内部构造形态 */
-interface FieldSource {
-  value: Ref<string>;
-  attrs: Ref<Record<string, unknown>>;
-  invalid: Ref<boolean>;
-  error: Ref<string | undefined>;
-}
+// 契约组装样板（FieldSource/bindField/translate/assertContract）收口在
+// src/utils/contract-utils.ts，各容器共用，不再逐文件复制。
+const translate: RegisterTranslate = makeTranslate(t);
 
-function bindField(
-  value: Ref<string | undefined>,
-  attrs: Ref<Record<string, unknown>>,
-  invalid: Ref<boolean>,
-  error: Ref<string | undefined>
-): FieldSource {
-  return {
-    value: computed({
-      get: () => value.value ?? '',
-      set: next => {
-        value.value = next;
-      }
-    }),
-    attrs,
-    invalid,
-    error
-  };
-}
-
-function assertRegisterContract(ctx: RegisterViewContext): RegisterViewContext {
-  return ctx;
-}
-
-const translate: RegisterTranslate = (key, params) => {
-  if (params === undefined) return t(key);
-  return typeof params === 'string' ? t(key, params) : t(key, params as never);
-};
-
-const ctx = assertRegisterContract(
+const ctx = assertContract<RegisterViewContext>(
   reactive({
     t: translate,
     appName: computed(() => registerContext.appName),

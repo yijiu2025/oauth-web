@@ -31,6 +31,8 @@ const isSuccess = ref(false);
 const isVerifying = ref(false);
 const errorMsg = ref('');
 const trackRef = ref<HTMLElement | null>(null);
+/** 成功后的延时反馈定时器（用于卸载时清理，避免组件销毁后仍 emit+reset） */
+let successTimer: ReturnType<typeof setTimeout> | null = null;
 
 const reasonText: Record<string, string> = {
   fingerprint_changed: '检测到设备环境变更',
@@ -73,6 +75,26 @@ const onEnd = () => {
   }
 };
 
+/**
+ * 键盘可操作性（a11y）：滑块可聚焦，方向键左右移动、Enter/Space 一次性滑到底触发验证。
+ * 否则纯鼠标/触摸用户可通过验证，键盘/读屏用户被完全阻断。
+ */
+const onKeydown = (e: KeyboardEvent) => {
+  if (isSuccess.value || isVerifying.value) return;
+  const STEP = Math.max(maxMove.value / 10, 1);
+  if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    moveX.value = Math.min(moveX.value + STEP, maxMove.value);
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    moveX.value = Math.max(moveX.value - STEP, 0);
+  } else if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    moveX.value = maxMove.value;
+    void handleVerify();
+  }
+};
+
 /** 滑到底调 verify-challenge 完成真正的人机验证 */
 const handleVerify = async () => {
   if (isVerifying.value || isSuccess.value) return;
@@ -87,7 +109,7 @@ const handleVerify = async () => {
     isMoving.value = false;
     isSuccess.value = true;
     // 滑块变绿停留 500ms，让用户看到成功反馈，再通知调用方重发原请求
-    setTimeout(() => {
+    successTimer = setTimeout(() => {
       emit('success');
       reset();
     }, 500);
@@ -122,14 +144,26 @@ onMounted(() => {
   window.addEventListener('mouseup', onEnd);
   window.addEventListener('touchmove', onMove, { passive: false });
   window.addEventListener('touchend', onEnd);
+  window.addEventListener('keydown', onEscKeydown);
 });
 
 onUnmounted(() => {
+  // 清理成功反馈定时器：避免组件销毁后仍 emit('success') + reset()
+  if (successTimer) {
+    clearTimeout(successTimer);
+    successTimer = null;
+  }
   window.removeEventListener('mousemove', onMove);
   window.removeEventListener('mouseup', onEnd);
   window.removeEventListener('touchmove', onMove);
   window.removeEventListener('touchend', onEnd);
+  window.removeEventListener('keydown', onEscKeydown);
 });
+
+/** Esc 关闭（模态框键盘可达性） */
+function onEscKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && props.isOpen) emit('close');
+}
 </script>
 
 <template>
@@ -152,7 +186,7 @@ onUnmounted(() => {
               </div>
               <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{{ title }}</h4>
             </div>
-            <button @click="emit('close')" class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-all">
+            <button aria-label="关闭验证" @click="emit('close')" class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-all">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path d="M18 6L6 18M6 6l12 12" />
               </svg>
@@ -203,7 +237,13 @@ onUnmounted(() => {
 
             <!-- Slider Button -->
             <div
-              class="absolute left-0 top-0 bottom-0 w-11 flex items-center justify-center cursor-grab active:cursor-grabbing z-10 transition-shadow select-none"
+              tabindex="0"
+              role="slider"
+              :aria-valuemin="0"
+              :aria-valuemax="maxMove"
+              :aria-valuenow="Math.round(moveX)"
+              :aria-valuetext="isSuccess ? '验证成功' : isVerifying ? '验证中' : '向右滑动完成验证'"
+              class="absolute left-0 top-0 bottom-0 w-11 flex items-center justify-center cursor-grab active:cursor-grabbing z-10 transition-shadow select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               :class="[
                 isSuccess
                   ? 'bg-green-500 text-white shadow-lg shadow-green-500/30'
@@ -214,6 +254,7 @@ onUnmounted(() => {
               :style="{ transform: `translateX(${moveX}px)` }"
               @mousedown="onStart"
               @touchstart="onStart"
+              @keydown="onKeydown"
             >
               <svg
                 v-if="!isSuccess && !isVerifying"

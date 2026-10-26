@@ -33,7 +33,7 @@ npm run dev            # http://localhost:5174
 | `npm run dev` | 开发服务器（端口 5174，`strictPort` 被占直接报错） |
 | `npm run build` | 先 `vue-tsc -b` 类型检查，再 `vite build` 产物构建 |
 | `npm run preview` | 本地预览构建产物 |
-| `npm test` | Vitest 跑单元测试（`__tests__/` 与 `e2e/`） |
+| `npm test` | Vitest 跑单元测试（`__tests__/`） |
 | `npm run lint` / `lint:fix` | ESLint 检查 / 自动修复 |
 | `npm run type-check` | 仅类型检查（`vue-tsc -b`） |
 | `npm run docs:dev` / `docs:build` | 本文档站（VitePress）开发 / 构建 |

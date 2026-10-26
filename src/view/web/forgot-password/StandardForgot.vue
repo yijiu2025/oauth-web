@@ -42,13 +42,14 @@ import { useCountdown } from '@/composables/useCountdown';
 import { useCaptchaFlow } from '@/composables/useCaptchaFlow';
 import { usePasswordStrength } from '@/composables/usePasswordStrength';
 import { rsaEncrypt, getCachedKid } from '@/utils/crypto';
+import { clearUrlQuery } from '@/utils/clear-url-query';
 import { ThemeView } from 'skinsuite/vue';
 import type {
   ForgotPasswordStage,
   ForgotPasswordTranslate,
   ForgotPasswordViewContext
 } from '@/theme/views/forgot-password';
-import type { Ref } from 'vue';
+import { bindField, makeTranslate, assertContract, type FieldSource } from '@/utils/contract-utils';
 
 const { t, locale } = useI18n();
 const route = useRoute();
@@ -146,6 +147,8 @@ const [confirmPassword, confirmPasswordProps] = defineField('confirmPassword');
 
 // v2.20.1：忘记密码页挂载后预热 login dispatcher chunk，避免「回到登录」切换闪屏
 onMounted(() => {
+  // 重置 token 是可当密码用的凭证，读完立即从地址栏抹掉，避免进入历史/Referer/日志
+  if (linkToken.value) clearUrlQuery(['token']);
   void import('@/view/web/login/index.vue').catch(() => {});
 });
 
@@ -270,46 +273,9 @@ const goBack = () => {
  */
 const props = withDefaults(defineProps<{ device?: string }>(), { device: 'standard' });
 
-/** 契约里字段绑定的内部构造形态 */
-interface FieldSource {
-  value: Ref<string>;
-  attrs: Ref<Record<string, unknown>>;
-  invalid: Ref<boolean>;
-  error: Ref<string | undefined>;
-}
+const translate: ForgotPasswordTranslate = makeTranslate(t);
 
-function bindField(
-  value: Ref<string | undefined>,
-  attrs: Ref<Record<string, unknown>>,
-  invalid: Ref<boolean>,
-  error: Ref<string | undefined>
-): FieldSource {
-  return {
-    value: computed({
-      get: () => value.value ?? '',
-      set: next => {
-        value.value = next;
-      }
-    }),
-    attrs,
-    invalid,
-    error
-  };
-}
-
-/** 编译期契约自检 */
-function assertForgotPasswordContract(ctx: ForgotPasswordViewContext): ForgotPasswordViewContext {
-  return ctx;
-}
-
-/** 翻译函数：只把「key + （命名参数 | 兜底文案）」这一子集交给版式 */
-const translate: ForgotPasswordTranslate = (key, params) => {
-  if (params === undefined) return t(key);
-  return typeof params === 'string' ? t(key, params) : t(key, params as never);
-};
-
-/** 交给版式的上下文（reactive + 嵌套 ref） */
-const ctx = assertForgotPasswordContract(
+const ctx = assertContract<ForgotPasswordViewContext>(
   reactive({
     t: translate,
 

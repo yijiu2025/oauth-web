@@ -6,7 +6,7 @@
 
 企业统一身份认证（SSO）体系的**纯前端部分**：登录、注册、找回密码、扫码登录、OAuth 2.1 授权页（authorize / consent）一整套页面，外加多主题、多设备版式、国际化与深色模式。
 
-- 技术栈：Vue 3.5（Composition API）+ TypeScript 6 + Vite 8（Rolldown + Oxc）+ Pinia 3 + Vue Router 5 + vue-i18n 11 + Tailwind CSS 3.4 + SCSS + VeeValidate 4 + Zod 3 + Vitest 4
+- 技术栈：Vue 3.5（Composition API）+ TypeScript 6 + Vite 8（Rolldown + Oxc）+ Pinia 3 + Vue Router 5 + vue-i18n 11 + Tailwind CSS 4 + SCSS + VeeValidate 4 + Zod 3 + Vitest 4
 - 端口：**5174**（`strictPort`），`/api` 与 `/oauth2.1` 由 vite proxy 转发到后端 `localhost:3000`
 - 协议：[GPL-3.0](LICENSE)
 - 后端账号与授权服务在另一个仓库 [CoreFlow](https://github.com/yijiu2025/CoreFlow)，本仓所有接口都来自它
@@ -42,7 +42,7 @@ npm run dev            # http://localhost:5174
 | `npm run build`                         | 先 `vue-tsc -b` 类型检查，再 `vite build` 生产构建                                                  |
 | `npm run preview`                       | 本地预览构建产物                                                                                    |
 | `npm run type-check`                    | 仅类型检查（`vue-tsc -b`）                                                                          |
-| `npm test`                              | Vitest 跑单元测试（`__tests__/` 与 `e2e/`）                                                         |
+| `npm test`                              | Vitest 跑单元测试（`__tests__/`）                                                              |
 | `npm run lint` / `lint:fix`             | ESLint 检查 / 自动修复                                                                              |
 | `npm run verify`                        | CI 顺序本地复刻：lint → 单测 → 构建（含 dist-nopwa）→ 静态关卡                                       |
 | `npm run verify:all`                    | 全量关卡（先 `npm run probe:up` 起 dev 实例；生产组还要构建 + 5189 预览，见 [e2e/VERIFY.md](e2e/VERIFY.md)） |

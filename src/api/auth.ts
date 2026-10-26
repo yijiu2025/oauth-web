@@ -1,6 +1,7 @@
 import request from '@/utils/request';
 import { getStableDeviceId } from 'stable-deviceid';
 import { rsaEncrypt, clearPublicKeyCache, buildEncryptedLoginPayload } from '@/utils/crypto';
+import type { LocationQueryValue } from 'vue-router';
 
 /**
  * 登录请求负载类型
@@ -12,6 +13,25 @@ export interface LoginPayload {
   username?: string;
   password?: string;
   type: 'sms' | 'pwd' | 'email';
+}
+
+/**
+ * OAuth 授权查询参数（`GET /oauth2.1/authorize`）
+ *
+ * 字段类型 = vue-router 的 `LocationQueryValue`（即 `string | null` 与 `string[]` 的联合），
+ * 与 `route.query` 产出类型一致：直接透传、零转换。
+ * 用精确字段而非 `Record<string, any>`：把「授权端点接受哪些参数」的契约固定在
+ * 这一处，而非散落在调用方手写的对象里，也不逃逸成 any。
+ */
+export interface OAuthAuthorizeParams {
+  client_id?: LocationQueryValue | LocationQueryValue[];
+  redirect_uri?: LocationQueryValue | LocationQueryValue[];
+  response_type?: string | LocationQueryValue[];
+  scope?: LocationQueryValue | LocationQueryValue[];
+  state?: LocationQueryValue | LocationQueryValue[];
+  code_challenge?: LocationQueryValue | LocationQueryValue[];
+  code_challenge_method?: LocationQueryValue | LocationQueryValue[];
+  nonce?: LocationQueryValue | LocationQueryValue[];
 }
 
 /**
@@ -196,7 +216,7 @@ export const authApi = {
    * 检查授权状态 (获取当前 Cookie 登录用户信息)
    * 返回 {action:'login'|'consent', client_name, scope, sessionId, user}
    */
-  async checkAuthorize(params: Record<string, any>) {
+  async checkAuthorize(params: OAuthAuthorizeParams) {
     return request.get('/oauth2.1/authorize', { params });
   },
 

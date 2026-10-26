@@ -17,6 +17,8 @@
 
 const ERROR_REPORT_URL = '/api/v1/client-error';
 
+import { stripSensitiveQuery } from '@/utils/clear-url-query';
+
 /**
  * 上报错误（生产用 fetch + 失败兜底；开发用 console.warn 留痕）
  * @param err 错误对象（Error 或 string）
@@ -25,7 +27,9 @@ const ERROR_REPORT_URL = '/api/v1/client-error';
 export async function reportError(err: unknown, info?: string): Promise<void> {
   const message = err instanceof Error ? err.message : String(err);
   const errorType = err instanceof Error ? err.name : 'UnknownError';
-  const url = typeof location !== 'undefined' ? location.href : '';
+  // 剥掉敏感 query（token/state/验证码等），避免凭证进后端日志
+  const rawUrl = typeof location !== 'undefined' ? location.href : '';
+  const url = stripSensitiveQuery(rawUrl);
   const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
   const digest = await digestMessage(message);
 

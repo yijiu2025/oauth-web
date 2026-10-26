@@ -155,7 +155,7 @@ function ariaFor(id: SocialProviderId): string {
           </svg>
           <!-- Apple：⌘（Apple 的经典符号） -->
           <svg
-            v-else
+            v-else-if="id === 'apple'"
             viewBox="0 0 24 24"
             width="20"
             height="20"
@@ -167,6 +167,10 @@ function ariaFor(id: SocialProviderId): string {
           >
             <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 0 0 0-6z" />
           </svg>
+          <!-- 未知 provider（理论上到不了这里：SocialProviderId 是封闭联合，
+               v-if/v-else-if 已穷举。保留此空分支是刻意的——若未来加渠道忘配图标，
+               这里渲染空而非静默套用 Apple 图标，错误可被一眼发现） -->
+          <span v-else class="sr-only">{{ t('login.social_unconfigured') }}</span>
 
           <span v-if="id === lastProvider" class="mauth-social-badge">{{ t('login.social_last') }}</span>
         </span>

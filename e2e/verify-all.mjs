@@ -86,6 +86,8 @@ const GROUPS = [
       { name: 'verify-console-strip', cmd: ['verify-console-strip.mjs'], needs: {} },
       // 2026-09-28 新增：类型逃逸清零（any/@ts-ignore 关在 types/external.ts 单一入口）
       { name: 'verify-no-any-debt', cmd: ['verify-no-any-debt.mjs'], needs: {} },
+      // 2026-10-26 新增：上线前合规阻断（协议占位符/个人邮箱清零，防带占位符上线）
+      { name: 'verify-agreement-placeholders', cmd: ['verify-agreement-placeholders.mjs'], needs: {} },
       { name: 'verify-no-pwa', cmd: ['verify-no-pwa.mjs', '--dir', 'dist-nopwa'], needs: { dist: join(OA, 'dist-nopwa') } },
       // 2026-10-15 新增：包体积预算（首屏静态集 gz / 单 chunk / dist 总量，防悄悄膨胀）
       { name: 'verify-bundle-budget', cmd: ['verify-bundle-budget.mjs', '--dir', 'dist'], needs: { dist: join(OA, 'dist') } },

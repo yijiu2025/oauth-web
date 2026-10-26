@@ -1,5 +1,7 @@
 <template>
-  <div v-if="visible" class="debug-panel">
+  <!-- 🔴 生产环境整块不渲染：调试面板绝不能泄露到线上（isDev 生产构建为 false，
+       整棵子树被 tree-shake）。 -->
+  <div v-if="isDev && visible" class="debug-panel">
     <div class="debug-header">
       <h3>🔧 防缓存调试面板</h3>
       <button @click="togglePanel" class="close-btn" title="关闭面板">
@@ -38,20 +40,6 @@
 
       <div class="debug-actions">
         <button
-          @click="toggleAutoRefresh"
-          :class="['action-btn', { active: autoRefresh }]"
-        >
-          {{ autoRefresh ? '暂停自动刷新' : '开启自动刷新' }}
-        </button>
-
-        <button
-          @click="changeInterval"
-          class="action-btn secondary"
-        >
-          调整间隔
-        </button>
-
-        <button
           @click="copyRnd"
           class="action-btn secondary"
           title="复制防缓存戳"
@@ -71,8 +59,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed } from 'vue';
 import { useAntiCache } from '@/composables/useAntiCache';
+
+/**
+ * 生产环境隔离：调试面板只在 dev 构建渲染。
+ * 用 `import.meta.env.DEV` 在 script 里取一次成常量（模板表达式里不能直接用
+ * `import.meta` —— Vue 模板按非 module 模式解析会报 `import.meta may appear only
+ * with 'sourceType: "module"'`）。生产构建时 Vite 会把 `import.meta.env.DEV` 替换成
+ * `false`，`v-if="isDev && visible"` 整棵子树被 tree-shake，不泄露调试信息。
+ */
+const isDev = import.meta.env.DEV;
 
 interface Props {
   /** 是否显示面板 */
@@ -106,16 +103,12 @@ const {
   enableDebug: true
 });
 
-// 本地状态
-const isPanelOpen = ref(props.visible);
-const customInterval = ref(props.refreshInterval);
-
 // 计算属性
 const autoRefresh = computed(() => isAutoRefreshing.value);
 
 const autoRefreshStatus = computed(() => {
   if (!autoRefresh.value) return '关闭';
-  return `开启 (${formatInterval(customInterval.value)})`;
+  return `开启 (${formatInterval(props.refreshInterval)})`;
 });
 
 // 方法
@@ -125,28 +118,6 @@ const refresh = () => {
 
 const togglePanel = () => {
   emit('update:visible', false);
-  // 同时停止自动刷新
-  if (autoRefresh.value) {
-    // 由于 Composable 的限制，我们这里只是发出警告
-    // 实际的停止需要在父组件中处理
-    console.warn('调试面板已关闭，自动刷新仍在运行');
-  }
-};
-
-const toggleAutoRefresh = () => {
-  // 这里需要重新初始化 useAntiCache 来切换状态
-  // 由于 Composable 的限制，我们可以提示用户刷新页面
-  alert('请刷新页面以应用新的自动刷新设置');
-};
-
-const changeInterval = () => {
-  const newInterval = prompt('请输入新的刷新间隔（秒）:',
-    (customInterval.value / 1000).toString());
-
-  if (newInterval && !isNaN(Number(newInterval))) {
-    customInterval.value = Number(newInterval) * 1000;
-    alert('设置成功，请刷新页面生效');
-  }
 };
 
 const copyRnd = async (evt: MouseEvent) => {
@@ -210,15 +181,9 @@ const formatInterval = (ms: number) => {
   return `${Math.round(ms / 3600000)}小时`;
 };
 
-// 监听props变化
-watch(() => props.visible, (newVal) => {
-  isPanelOpen.value = newVal;
-});
-
 // 暴露方法给父组件
 defineExpose({
   refresh,
-  toggleAutoRefresh,
   copyRnd
 });
 </script>

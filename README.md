@@ -1,57 +1,56 @@
-# OAuth Web · 企业统一身份认证前端（OAuth 2.1 登录 / 授权）
+# OAuth Web · Enterprise Identity Frontend (OAuth 2.1 Login / Authorization)
 
-[English](README.en.md) | **简体中文**
+**English** | [简体中文](README.zh-CN.md)
 
 [![CI](https://github.com/yijiu2025/oauth-web/actions/workflows/ci.yml/badge.svg)](https://github.com/yijiu2025/oauth-web/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/badge/docs-VitePress-3c63fa)](https://yijiu2025.github.io/oauth-web/)
 
-企业统一身份认证（SSO）体系的**纯前端部分**：登录、注册、找回密码、扫码登录、OAuth 2.1
-应用授权页（authorize / consent）一整套页面，外加多主题、多设备版式、中英文国际化与深色模式。
-后端账号与授权服务在另一个仓库 [CoreFlow（nodeservers）](https://github.com/yijiu2025/CoreFlow)。
+The **pure frontend** of an enterprise unified identity (SSO) system: a complete set of pages for
+login, registration, password recovery, QR-code login and the OAuth 2.1 app authorization flow
+(`authorize` / `consent`), plus multi-theme, multi-device layouts, zh/en i18n and dark mode.
+The backend account & authorization service lives in a separate repository,
+[CoreFlow (nodeservers)](https://github.com/yijiu2025/CoreFlow).
 
-**它解决什么问题**：子应用（retroweb / posecraft / firewall …）不各自建登录页，统一把用户送到
-这里登录、授权，拿回 OAuth 2.1 授权码。本仓库既可以作为授权中心独立部署，也可以被其他应用
-以 iframe 方式嵌入（`/mini-login` 快捷登录）。
+**What it solves**: sub-apps (retroweb / posecraft / firewall …) don't each build their own login
+page — they send users here to log in and grant consent, then receive an OAuth 2.1 authorization
+code. This repo can be deployed standalone as the authorization center, or embedded into other apps
+via iframe (`/mini-login` compact login).
 
-> 技术栈：Vue 3.5（Composition API）+ TypeScript 6 + Vite 8（Rolldown + Oxc）+ Pinia 3 + Vue Router 5
-> + vue-i18n 11 + Tailwind CSS 3.4 + SCSS + VeeValidate 4 + Zod 3 + axios + Vitest 4
-> 端口：**5174**（`strictPort`，`/api` 代理到后端 `localhost:3000`）
-> 许可：[GPL-3.0](LICENSE)
+> Stack: Vue 3.5 (Composition API) + TypeScript 6 + Vite 8 (Rolldown + Oxc) + Pinia 3 + Vue Router 5
+> + vue-i18n 11 + Tailwind CSS 4 + SCSS + VeeValidate 4 + Zod 3 + axios + Vitest 4
+> Port: **5174** (`strictPort`; `/api` is proxied to the backend at `localhost:3000`)
+> License: [GPL-3.0](LICENSE)
 
-## 能力一览
+## Features
 
-| 能力 | 说明 |
+| Feature | Description |
 | --- | --- |
-| 账号密码登录 | 登录 / 注册 / 邮箱验证码 / 找回密码 / 重置密码全流程 |
-| 扫码登录 | 后端发二维码 token，前端轮询状态，扫码后自动登录 |
-| OAuth 2.1 授权 | `/authorize` 授权页 + `/consent` 授权确认页，支持授权码 + PKCE 流程 |
-| iframe 嵌入登录 | `/mini-login` 紧凑版路由，供宿主应用弹窗嵌入；父 origin 白名单校验后才 `postMessage` |
-| 多设备版式 | web（桌面）/ app（移动端）/ tablet / mini 四套版式，URL 不被视口改写 |
-| 多主题 | 主题包 × 设备 × 配色三段正交，深 / 浅色一键切换，首屏无白闪 |
-| 国际化 | vue-i18n，简体中文（`zh_cn`）为默认语言，英文（`en`）兜底 |
-| 请求安全 | H5 签名（appKey + timestamp + nonce + url + body 的 SHA-256），弱防爬 |
-| 表单校验 | VeeValidate + Zod 声明式 schema，前后端同规则 |
+| Password login | Full flow: login / register / email verification code / forgot & reset password |
+| QR-code login | Backend issues a QR token, frontend polls status, auto-login after scan |
+| OAuth 2.1 authorization | `/authorize` page + `/consent` page, authorization-code flow with PKCE |
+| iframe login | `/mini-login` compact route for host-app popups; `postMessage` only after parent-origin allowlist check |
+| Multi-device layouts | web (desktop) / app (mobile) / tablet / mini — URL is never rewritten by viewport |
+| Multi-theme | package × device × palette, three orthogonal axes; dark/light toggle, no first-paint flash |
+| i18n | vue-i18n; Simplified Chinese (`zh_cn`) default, English (`en`) fallback |
+| Request signing | H5 signature (SHA-256 over appKey + timestamp + nonce + url + body), anti-crawl |
+| Form validation | Declarative VeeValidate + Zod schemas shared with the backend rules |
 
-## 快速索引
+## Quick Index
 
-| 想做的事 | 看哪节 |
+| I want to… | Section |
 | --- | --- |
-| 把它跑起来 | [一、跑起来](#一跑起来) |
-| 看代码该从哪读起 | [二、目录结构](#二目录结构) |
-| 页面和路由都有哪些 | [三、页面与路由](#三页面与路由) |
-| 跟后端联调（接口 / 签名 / SSO） | [四、与后端联调](#四与后端联调) |
-| 主题 / 版式 / 多语言怎么扩 | [五、主题版式与多语言](#五主题版式与多语言) |
-| 动手前先看约束 | [六、已知约束](#六已知约束) |
-
-> 📖 **完整文档**见 [文档站](https://yijiu2025.github.io/oauth-web/)（VitePress）——登录 / 授权 /
-> iframe SSO 等主线流程一篇一主题。本 README 是速览，文档站是权威细节。
+| Run it locally | [1. Getting Started](#1-getting-started) |
+| Know where to start reading the code | [2. Project Structure](#2-project-structure) |
+| See all pages and routes | [3. Pages & Routes](#3-pages--routes) |
+| Integrate with the backend (API / signing / SSO) | [4. Backend Integration](#4-backend-integration) |
+| Extend themes / layouts / languages | [5. Themes, Layouts & i18n](#5-themes-layouts--i18n) |
+| Check constraints before hacking | [6. Known Constraints](#6-known-constraints) |
 
 ---
 
-## 一、跑起来
+## 1. Getting Started
 
-前置依赖：Node.js 20+、npm 10+（`engines` 硬口径，见 `package.json`）。后端服务（CoreFlow）另行启动，见
-[四、与后端联调](#四与后端联调)。
+Prerequisites: Node.js 20+, npm 10+ (hard `engines` floor, see `package.json`). Start the backend service (CoreFlow)
+separately — see [4. Backend Integration](#4-backend-integration).
 
 ```bash
 git clone https://github.com/yijiu2025/oauth-web.git
@@ -60,192 +59,207 @@ npm install
 npm run dev            # http://localhost:5174
 ```
 
-### 关于 `skinsuite` / `stable-deviceid` 两个依赖
+### About the `skinsuite` / `stable-deviceid` dependencies
 
-本仓的主题内核（`skinsuite`）与设备 ID 工具（`stable-deviceid`）按上级目录是否
-存在 `packages/` 自动切换两种运行形态（`config/aliases.ts` 条件注册）：
+The theme kernel (`skinsuite`) and device-ID helper (`stable-deviceid`) switch
+between two runtime modes automatically, based on whether a `packages/`
+directory exists one level up (conditional registration in `config/aliases.ts`):
 
-- **单仓使用**（本 README 的 clone 方式，也是 CI / 开源用户的形态）：两个包走
-  `node_modules` 里的 npm 发布版（`package.json` 声明的版本号），无需任何额外
-  目录，`npm install` 装完即用；
-- **monorepo 协作**（CoreFlow 主仓库内）：上级有 `packages/` 时 alias 自动指向
-  包源码（源码直供，改包源码即时生效）。
+- **Standalone repo** (the clone flow above — also CI and open-source users):
+  both packages resolve to the npm published versions in `node_modules` (the
+  versions declared in `package.json`). No extra directories needed; works
+  right after `npm install`.
+- **Monorepo development** (inside the CoreFlow main repo): when `packages/`
+  exists upstream, aliases point at the package sources (source-direct supply,
+  so package edits take effect immediately).
 
-关卡 `e2e/verify-alias-single-source.mjs` 等按同一物理条件分流验证两种形态，
-两种形态下单测 / 构建 / 静态关卡均全绿。
+Gate `e2e/verify-alias-single-source.mjs` and its peers verify both modes under
+the same physical condition; unit tests, builds and static gates are green in
+both modes.
 
-### 常用命令
+### Common Commands
 
-| 命令 | 作用 |
+| Command | Purpose |
 | --- | --- |
-| `npm run dev` | 开发服务器（端口 5174，`strictPort` 被占直接报错，不静默换端口） |
-| `npm run build` | 先 `vue-tsc -b` 类型检查，再 `vite build` 产物构建 |
-| `npm run preview` | 本地预览构建产物 |
-| `npm test` | Vitest 跑单元测试（`__tests__/` 与 `e2e/`） |
-| `npm run lint` / `lint:fix` | ESLint 检查 / 自动修复 |
-| `npm run type-check` | 仅类型检查（`vue-tsc -b`） |
-| `node e2e/verify-all.mjs --only static` | 静态关卡（12 项）：主题目录形态 / env 四文件一致性 / 别名单一来源 / 内核零框架耦合 / console 剥离 / any 债务 / PWA / 包体积预算 |
+| `npm run dev` | Dev server on port 5174 (`strictPort` — fails loudly instead of silently switching ports) |
+| `npm run build` | `vue-tsc -b` type-check, then `vite build` |
+| `npm run preview` | Preview the production build locally |
+| `npm test` | Vitest unit tests (`__tests__/`) |
+| `npm run lint` / `lint:fix` | ESLint check / auto-fix |
+| `npm run type-check` | Type-check only (`vue-tsc -b`) |
+| `node e2e/verify-all.mjs --only static` | Static gates (12): theme dir shape / env four-file consistency / alias single source / kernel zero-coupling / console strip / any debt / PWA / bundle budget |
 
-**CI**：推送到 `main` 或开 PR 时，GitHub Actions 自动跑「类型检查 → ESLint →
-Vitest → 生产构建 → 静态关卡」（`.github/workflows/ci.yml`）。需要 dev server 的
-dev / prod 关卡组刻意不进 CI（起服务易 flake），本地 `node e2e/verify-all.mjs`
-全量跑。
+**CI**: on push to `main` or PR, GitHub Actions runs type-check → ESLint → Vitest →
+production build → static gates (`.github/workflows/ci.yml`). The dev / prod gate groups
+(which need dev/preview servers) are deliberately excluded to avoid flakiness — run the
+full suite locally with `node e2e/verify-all.mjs`.
 
-### 环境变量
+### Environment Variables
 
-复制 `.env.example` 为 `.env` 起步。四个 env 文件的**变量顺序完全一致**，按环境叠加取值：
+Start by copying `.env.example` to `.env`. All four env files list the variables in the **exact same order** and stack by environment:
 
-| 文件 | 角色 | 入库 |
+| File | Role | Tracked |
 | --- | --- | --- |
-| `.env` | 本地基础配置（本机默认值） | 否（`.gitignore`） |
-| `.env.development` | `npm run dev` 时覆盖 `.env` | 是 |
-| `.env.production` | `npm run build` 时覆盖 `.env`（只放默认值/占位符，真实密钥由部署平台注入） | 是 |
-| `.env.example` | 脱敏模板 | 是 |
+| `.env` | Local base config (your machine defaults) | No (`.gitignore`) |
+| `.env.development` | Overrides `.env` for `npm run dev` | Yes |
+| `.env.production` | Overrides `.env` for `npm run build` (defaults/placeholders only — inject real secrets via the deploy platform) | Yes |
+| `.env.example` | Sanitized template | Yes |
 
-每个文件内的注释就是完整解释（含漏配症状与安全边界）；用不到的变量留空即"不启用"，不要删行。完整变量清单（顺序同文件内）：
+The comments inside each file are the full explanation (including failure symptoms and security boundaries); an unused variable is left empty = "disabled" — do not delete the line. Full list (same order as in the files):
 
-| 变量 | 说明 | 默认 |
+| Variable | Description | Default |
 | --- | --- | --- |
-| `VITE_API_BASE_URL` | 后端 API 基地址；开发由 vite proxy 转发 `/api`，生产留空 = 同源部署 | 代码内兜底 `http://localhost:3000` |
-| `VITE_THEME_DIR` | 主题根目录：`skinsuite/vite` 的 `themeAssets()` 插件扫它生成 `virtual:theme`（其下 `themes/` 固定为主题包目录） | `src/theme` |
-| `VITE_RECAPTCHA_ENABLED` | 启用人机验证 hCaptcha（与后端 `RECAPTCHA_ENABLED` 对应） | `false` |
-| `VITE_RECAPTCHA_SITE_KEY` | hCaptcha site key（公开值；secret 只放后端） | — |
-| `VITE_TURNSTILE_ENABLED` | 启用 Cloudflare Turnstile（与 hCaptcha 同时开启时优先） | `false` |
-| `VITE_TURNSTILE_SITE_KEY` | Turnstile site key（Cloudflare Dashboard 获取） | — |
-| `VITE_PASSWORD_RESET_MODE` | 密码重置方式：`code` 验证码 / `link` 邮件链接（须与后端一致） | `code` |
-| `VITE_SOCIAL_ENDPOINT` | 第三方登录授权端点，**只接受站内相对路径**（刻意不支持绝对地址） | 空 |
-| `VITE_SOCIAL_PROVIDERS` | 默认展示的 provider，逗号分隔；`?social=` 可单次覆盖 | 空 |
-| `VITE_ALLOWED_PARENT_ORIGINS` | iframe 父应用 origin 白名单，逗号分隔；漏配症状是宿主弹窗等满 3s 超时（不是报错） | 本地开发用 origin |
-| `VITE_SIGN_APP_KEY` | H5 签名 appKey（前后端共享；弱防爬，敏感操作仍靠登录态 + 权限） | — |
-| `VITE_THEME_ENDPOINT` | 后端主题下发端点（按 client_id 下发配色/明暗/token）；未配置 = 机制不生效、零请求 | 空 |
+| `VITE_API_BASE_URL` | Backend API base URL; in dev, `/api` is proxied by vite; empty in production = same-origin deploy | `http://localhost:3000` (code fallback) |
+| `VITE_THEME_DIR` | Theme root directory: scanned by the `skinsuite/vite` `themeAssets()` plugin to generate `virtual:theme` (its `themes/` subdirectory is always the package dir) | `src/theme` |
+| `VITE_RECAPTCHA_ENABLED` | Enable hCaptcha (must match backend `RECAPTCHA_ENABLED`) | `false` |
+| `VITE_RECAPTCHA_SITE_KEY` | hCaptcha site key (public by design; the secret lives only on the backend) | — |
+| `VITE_TURNSTILE_ENABLED` | Enable Cloudflare Turnstile (takes precedence over hCaptcha when both are on) | `false` |
+| `VITE_TURNSTILE_SITE_KEY` | Turnstile site key (from the Cloudflare Dashboard) | — |
+| `VITE_PASSWORD_RESET_MODE` | `code` (verification code) / `link` (email link); must match the backend | `code` |
+| `VITE_SOCIAL_ENDPOINT` | Social-login authorize endpoint — **relative in-site paths only** (absolute URLs are deliberately rejected) | empty |
+| `VITE_SOCIAL_PROVIDERS` | Default visible providers (`wechat,alipay,qq,weibo,github,apple`); `?social=` overrides per visit | empty |
+| `VITE_ALLOWED_PARENT_ORIGINS` | Comma-separated parent origins allowed to embed via iframe; a missing entry shows up as the host dialog waiting out a 3s fallback timeout (not an error) | Local dev origins |
+| `VITE_SIGN_APP_KEY` | H5 signing appKey (shared with backend; weak anti-crawl — real security is session + permissions) | — |
+| `VITE_THEME_ENDPOINT` | Backend theme-config endpoint (per-client_id color/mode/tokens); unset = mechanism off, zero requests | empty |
 
-## 二、目录结构
+## 2. Project Structure
 
 ```text
 oauth-web/
 ├── src/
-│   ├── api/             # 接口请求层（auth.ts：登录 / 授权 / 扫码 / 验证码）
-│   ├── assets/          # 静态资源（图标 / 全局样式）
-│   ├── components/      # 业务组件 + ui 原子组件（SvgIcon 等）
-│   ├── composables/     # 组合式函数（useAuth / useTheme …）
-│   ├── i18n/            # 国际化（zh_cn 默认 / en 兜底）
-│   ├── layouts/         # 布局组件
-│   ├── router/          # 路由与守卫（页面路由由注册表自动生成）
-│   ├── stores/          # Pinia 状态模块
-│   ├── theme/           # 主题体系：包 × 设备 × 配色三段正交
-│   ├── types/           # 全局 TypeScript 类型
-│   ├── utils/           # 通用工具（request 封装 / 校验 / 存储）
-│   └── view/            # 页面：web 桌面 / app 移动 / tablet 平板三套版式
-├── config/aliases.ts    # 路径别名单一来源
-├── docs/                # 文档站（VitePress）：登录 / 授权 / iframe SSO 主线 + Git 发版规则
-├── scripts/             # 发布脚本（release-web.mjs：按提交类型打 tag + 建 GitHub Release）
-├── __tests__/           # 单元测试（Vitest）
-├── e2e/                 # 端到端测试
-├── public/              # 原样拷贝的静态资源
-└── vite.config.ts       # Vite 配置（proxy / 别名 / 自动导入 / SVG 雪碧图）
+│   ├── api/             # Request layer (auth.ts: login / authorization / QR / verification)
+│   ├── assets/          # Static assets (icons / global styles)
+│   ├── components/      # Business components + ui atoms (SvgIcon, …)
+│   ├── composables/     # Composition functions (useAuth / useTheme …)
+│   ├── i18n/            # i18n (zh_cn default / en fallback)
+│   ├── layouts/         # Layout components
+│   ├── router/          # Routes & guards (page routes are auto-generated)
+│   ├── stores/          # Pinia store modules
+│   ├── theme/           # Theme system: package × device × palette (orthogonal)
+│   ├── types/           # Global TypeScript types
+│   ├── utils/           # Utilities (request wrapper / validation / storage)
+│   └── view/            # Pages: web desktop / app mobile / tablet layouts
+├── config/aliases.ts    # Single source of truth for path aliases
+├── docs/                # Project docs (frontend generation guide, theme replacement spec, theme hot-update design, Git release rules, …)
+├── scripts/             # Release script (release-web.mjs: commit-driven tag + GitHub Release)
+├── __tests__/           # Unit tests (Vitest)
+├── e2e/                 # End-to-end tests
+├── public/              # Static files copied as-is
+└── vite.config.ts       # Vite config (proxy / aliases / auto-import / SVG sprite)
 ```
 
-读代码建议顺序：`main.ts`（入口）→ `router/routes.ts`（路由怎么生成）→
-`view/web/login/index.vue`（分发器）→ `composables/useLoginFlow.ts`（登录流程）→
-`api/auth.ts`（接口）。
+Suggested reading order: `main.ts` (entry) → `router/routes.ts` (how routes are generated) →
+`view/web/login/index.vue` (dispatcher) → `theme/README.md` (theme system overview).
 
-## 三、页面与路由
+## 3. Pages & Routes
 
-| 路由 | 页面 | 说明 |
+| Route | Page | Notes |
 | --- | --- | --- |
-| `/login` | 登录 | 账号密码 + 扫码登录；`?from=mini` 进入紧凑形态 |
-| `/m/login` | 登录（移动端） | 与 `/login` 共用分发器，窄视口渲染手机版式，**URL 不被视口改写** |
-| `/mini-login` | 快捷登录 | 供宿主应用 iframe 嵌入的紧凑独立路由 |
-| `/register` | 注册 | 邮箱验证码注册 |
-| `/forgot-password` | 找回密码 | 验证码 / 邮件链接两种模式（`/reset-password?token=` 会重定向到这里并透传 query） |
-| `/authorize` | 应用授权 | OAuth 2.1 授权码 + PKCE 流程入口 |
-| `/consent` | 授权确认 | 授权确认页（authorize 流带 `session_id`，login 流带 `consent_key`） |
+| `/login` | Login | Password + QR login; `?from=mini` for compact form |
+| `/m/login` | Login (mobile) | Same dispatcher as `/login`; narrow viewport renders the mobile layout, **URL unchanged** |
+| `/mini-login` | Compact login | Standalone route for host-app iframe embedding |
+| `/register` | Register | Email verification code registration |
+| `/forgot-password` | Forgot password | Code / email-link modes (`/reset-password?token=` redirects here, query preserved) |
+| `/authorize` | App authorization | OAuth 2.1 authorization-code + PKCE entry |
+| `/consent` | Consent confirmation | authorize flow carries `session_id`, login flow carries `consent_key` |
 
-路由由页面注册表（`theme/views/pages.ts`）**自动生成**：新增页面 = 写契约文件 + 分发器目录 +
-主题目录，不用手改路由表。
+Routes are **auto-generated** from the page registry (`theme/views/pages.ts`): adding a page =
+contract file + dispatcher directory + theme directory, no route-table edits.
 
-## 四、与后端联调
+## 4. Backend Integration
 
-本仓库是纯前端，所有账号 / 授权能力来自后端
-[CoreFlow（nodeservers）](https://github.com/yijiu2025/CoreFlow)。本地联调：
+This repo is frontend-only; all account / authorization capabilities come from the backend
+[CoreFlow (nodeservers)](https://github.com/yijiu2025/CoreFlow). For local integration:
 
-1. 后端跑在 `localhost:3000`（Fastify + Sequelize + Redis），先执行数据库迁移；
-2. 本仓库 `npm run dev`，`/api` 与 `/oauth2.1` 由 vite proxy 转发到后端；
-3. 前端 `.env` 的 `VITE_SIGN_APP_KEY` 必须与后端 `.env` 的 `SIGN_APP_KEY` 一致，否则 H5 签名校验失败；
-4. 前端 `VITE_RECAPTCHA_ENABLED` 与后端 `RECAPTCHA_ENABLED`、`VITE_PASSWORD_RESET_MODE` 与后端
-   `PASSWORD_RESET_MODE` 需分别对应。
+1. Run the backend on `localhost:3000` (Fastify + Sequelize + Redis) with migrations applied;
+2. `npm run dev` here — `/api` and `/oauth2.1` are proxied to the backend by vite;
+3. `VITE_SIGN_APP_KEY` in this repo's `.env` must equal the backend's `SIGN_APP_KEY`, or H5
+   signature verification fails;
+4. Keep `VITE_RECAPTCHA_ENABLED` ↔ backend `RECAPTCHA_ENABLED` and `VITE_PASSWORD_RESET_MODE` ↔
+   backend `PASSWORD_RESET_MODE` in sync.
 
-前端主要调用（`src/api/auth.ts`）：
+Main frontend endpoints (`src/api/auth.ts`):
 
-| 端点 | 用途 |
+| Endpoint | Purpose |
 | --- | --- |
-| `POST /oauth2.1/login` | 账号密码登录 |
-| `POST /oauth2.1/login/consent/confirm` | 授权确认 |
-| `POST /oauth2.1/login/verify-email` | 邮箱验证码校验 |
-| `GET /oauth2.1/authorize` | 获取授权页信息 |
-| `POST /oauth2.1/authorize/consent` | 提交授权 |
-| `GET /oauth2.1/qr/generate` | 生成扫码登录二维码 |
-| `GET /oauth2.1/qr/status` | 轮询扫码状态 |
+| `POST /oauth2.1/login` | Password login |
+| `POST /oauth2.1/login/consent/confirm` | Confirm consent |
+| `POST /oauth2.1/login/verify-email` | Email verification code |
+| `GET /oauth2.1/authorize` | Fetch authorization page info |
+| `POST /oauth2.1/authorize/consent` | Submit consent |
+| `GET /oauth2.1/qr/generate` | Generate QR-login code |
+| `GET /oauth2.1/qr/status` | Poll QR-scan status |
 
-### iframe SSO（被其他应用嵌入）
+### iframe SSO (embedding into other apps)
 
-宿主应用（retroweb / posecraft / firewall 同款模式）以 iframe 打开 `/mini-login`：
+Host apps (same pattern as retroweb / posecraft / firewall) embed `/mini-login` in an iframe:
 
-- 宿主与本应用做 **origin + source 双校验** 的 `postMessage` 握手（`SSO_READY` / 主题同步）；
-- 只有父 origin 命中 `VITE_ALLOWED_PARENT_ORIGINS` 白名单才发消息——漏配的症状是宿主弹窗
-  「正在加载安全登录」等满 3 秒兜底超时；
-- 弹窗宽高按 iframe 内口 1:1 设置。
+- Handshake via `postMessage` with **origin + source double validation** (`SSO_READY` / theme sync);
+- Messages are sent only when the parent origin matches `VITE_ALLOWED_PARENT_ORIGINS` — a
+  misconfiguration shows as the host popup waiting the full 3s fallback timeout;
+- Popup width/height match the iframe inner port 1:1.
 
-## 五、主题 / 版式与多语言
+## 5. Themes, Layouts & i18n
 
-- **主题机制属于独立库 [skinsuite](https://github.com/yijiu2025/theme)**：主题包 × 设备 × 配色三段
-  正交、URL 参数键、目录契约、替换优先级、安全边界——**全部机制文档在 skinsuite 文档站**
-  <https://yijiu2025.github.io/theme/>。本仓库只负责**接入**：`src/theme/` 放主题资产，
-  `src/stores/theme.ts` 是接入壳。新增主题包 / 改配色 / 加版式，去 skinsuite 文档站读规范。
-- **设备版式**：web（桌面）/ app（移动端）/ tablet / mini 四套，按视口与 `?device=` 选容器；
-  设备判定归宿主（`src/device/`），URL 不被视口改写；
-- **国际化**：`src/i18n/index.ts`，默认 `zh_cn`，`en` 兜底；新增语言加一个 messages 对象即可；
-- **深色模式**：`index.html` 内联预置主题，首屏无白闪（机制见 skinsuite 文档站）。
+- **Theming belongs to the standalone library [skinsuite](https://github.com/yijiu2025/theme)**:
+  theme-package × device × palette orthogonality, URL keys, directory contracts, replacement
+  priorities and security boundaries — **all mechanism docs live in the skinsuite docs site**
+  <https://yijiu2025.github.io/theme/>. This repo only *integrates* it: `src/theme/` holds theme
+  assets, `src/stores/theme.ts` is the integration shell. To add a package / palette / layout, read
+  the skinsuite docs, not this repo.
+- **Device layouts**: web (desktop) / app (mobile) / tablet / mini, selected by viewport and
+  `?device=`; device resolution is host-owned (`src/device/`), URL is never rewritten by viewport;
+- **i18n**: `src/i18n/index.ts`, default `zh_cn`, `en` fallback; add a messages object for a new
+  language;
+- **Dark mode**: theme is pre-applied inline in `index.html` — no first-paint flash (mechanism in
+  the skinsuite docs).
 
-## 六、已知约束
+## 6. Known Constraints
 
-- **强依赖后端**：没有 CoreFlow 后端时，登录 / 授权 / 扫码全部不可用（页面能打开，接口会失败）；
-- **端口写死 5174**：`strictPort`，被占用会直接启动失败——这是故意的，避免手机调试连错端口；
-- **`.env` 不入库**：只提交 `.env.example` / `.env.development` / `.env.production`（后两者只放默认值与占位符），真实密钥一律走部署环境变量；
-- **H5 签名是弱防爬**：前端代码可被反编译，appKey 拿得到，真正的安全边界在后端登录态 + 权限校验；
-- **第三方登录端点只认站内相对路径**：端点一旦能由外部指定，"把用户送去任意外域"就从漏洞变成配置问题。
+- **Backend required**: without CoreFlow, login / authorization / QR all fail (pages render, APIs
+  error out);
+- **Port is pinned to 5174**: `strictPort` — startup fails if taken, deliberately, so phones don't
+  connect to the wrong port;
+- **`.env` is not committed**: only `.env.example`, `.env.development` and `.env.production`
+  are (the latter two hold defaults/placeholders only); real secrets go through deployment
+  env vars;
+- **H5 signing is weak anti-crawl**: the frontend can be de-compiled, so the appKey is obtainable —
+  the real security boundary is backend session + permission checks;
+- **Social-login endpoints accept relative in-site paths only**: an externally settable endpoint
+  would turn "redirect users anywhere" from a vulnerability into a configuration option.
 
-## 赞助支持
+## Sponsorship
 
-如果这个项目帮到了你，欢迎请作者喝杯咖啡：
+If this project helps you, feel free to buy the author a coffee:
 
-| 微信收款码（扫码直接转账） | 支付宝 |
+| WeChat Pay (scan to transfer) | Alipay |
 | --- | --- |
-| <img src=".github/assets/sponsor-wechat.png" width="180" alt="微信收款码"> | <img src=".github/assets/sponsor-alipay.png" width="180" alt="支付宝收款码"> |
+| <img src=".github/assets/sponsor-wechat.png" width="180" alt="WeChat Pay"> | <img src=".github/assets/sponsor-alipay.png" width="180" alt="Alipay"> |
 
-收到的每一笔都会记在心里。
+Every contribution is remembered.
 
-### 关注公众号「柒染靓月」
+### Follow the official account "柒染靓月"
 
 | | |
 | --- | --- |
-| <img src=".github/assets/sponsor-official-account.jpg" width="150" alt="公众号二维码"> | CoreFlow 全栈框架、skinsuite 主题库、OAuth Web 等开源项目的**更新动态与技术分享**都会第一时间发布在公众号——扫码关注，新版本、新特性不再错过。赞助之外，**关注就是最直接的支持**。 |
+| <img src=".github/assets/sponsor-official-account.jpg" width="150" alt="Official account QR"> | Updates and technical write-ups for CoreFlow, skinsuite, OAuth Web and other open-source projects are published here first — scan to follow so you don't miss new releases and features. Beyond sponsoring, **following is the most direct form of support**. |
 
 ---
 
-## 其他项目
+## Related Projects
 
-| 项目 | 定位 | 说明 |
+| Project | Role | Description |
 | --- | --- | --- |
-| [CoreFlow](https://github.com/yijiu2025/CoreFlow) | 全栈框架 / 后端 | 本仓库的后端账号与授权服务，OAuth 2.1 授权码 / token 签发、用户账号体系所在处 |
-| [skinsuite](https://github.com/yijiu2025/theme) | 主题库 | 多主题 / 多版式机制的实现库（主题包 × 设备 × 页面 × 配色四段键），本仓库的主题接入依赖它 |
-| [RetroWeb](https://github.com/yijiu2025/retroweb) | 逆合成工作台前端 | 有机合成逆合成路线规划工作台，与本仓库同款技术栈 + SSO 接入模式（iframe `/mini-login`） |
-| [retro](https://github.com/yijiu2025/retro) | 逆合成后端 | RetroWeb 的 Python 后端，模型与化学计算（rdchiral / RDKit） |
-| [wb-logkit](https://github.com/yijiu2025/log) | 日志库 | 零依赖、Node / 浏览器通用的统一日志库，分级输出 + 自动脱敏 + 滚动文件 |
+| [CoreFlow](https://github.com/yijiu2025/CoreFlow) | Full-stack framework / backend | The backend account & authorization service for this repo — OAuth 2.1 code/token issuance and user accounts live here |
+| [skinsuite](https://github.com/yijiu2025/theme) | Theme library | The multi-theme / multi-layout engine (theme-package × device × page × palette), which this repo's theming depends on |
+| [RetroWeb](https://github.com/yijiu2025/retroweb) | Retrosynthesis workbench frontend | Organic retrosynthesis route-planning workbench, same stack + SSO integration (iframe `/mini-login`) as this repo |
+| [retro](https://github.com/yijiu2025/retro) | Retrosynthesis backend | RetroWeb's Python backend for models & chemistry (rdchiral / RDKit) |
+| [wb-logkit](https://github.com/yijiu2025/log) | Logging library | Zero-dependency, Node / browser unified logger — leveled output + auto-redaction + rolling files |
 
 ---
 
-## 开源协议
+## License
 
-[GNU General Public License v3.0](LICENSE)。与后端 CoreFlow 保持一致：你可以自由使用、修改和
-再分发本代码，但衍生作品必须以相同协议开源。
+[GNU General Public License v3.0](LICENSE) — consistent with the backend CoreFlow: you may freely
+use, modify and redistribute this code, but derivative works must be open-sourced under the same
+license.

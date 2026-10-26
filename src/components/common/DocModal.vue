@@ -1,9 +1,33 @@
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useThemeStore } from '@/stores/theme';
+import { useI18n } from 'vue-i18n';
 
-defineProps<{ isOpen: boolean; title: string }>();
+const props = defineProps<{ isOpen: boolean; title: string }>();
 const emit = defineEmits<{ close: [] }>();
 const close = () => emit('close');
+
+const { t } = useI18n();
+const cardRef = ref<HTMLElement | null>(null);
+
+/** Esc 关闭（模态框键盘可达性的最低要求） */
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && props.isOpen) close();
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown));
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
+
+// 打开时把焦点移到卡片（读屏/键盘用户能继续在弹窗内操作）
+watch(
+  () => props.isOpen,
+  open => {
+    if (open) {
+      // 等 DOM 挂载后再聚焦
+      requestAnimationFrame(() => cardRef.value?.focus());
+    }
+  }
+);
 
 /**
  * v2.21.0 token 化：根挂 .dark（与 StandardLogin/StandardRegister/GraphicCaptcha 一致）。
@@ -18,18 +42,23 @@ const themeStore = useThemeStore();
       v-if="isOpen"
       class="mauth-doc-modal-root fixed inset-0 z-[200] flex items-center justify-center p-4"
       :class="{ dark: themeStore.activeTone === 'dark' }"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mauth-doc-modal-title"
       @click="close"
     >
       <!-- Backdrop：v2.21.0 token 化（之前 bg-slate-950/60 硬编码） -->
       <div class="mauth-doc-modal-backdrop absolute inset-0"></div>
       <div
-        class="mauth-doc-modal-card relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden"
+        ref="cardRef"
+        tabindex="-1"
+        class="mauth-doc-modal-card relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden outline-none"
         @click.stop
       >
         <!-- Header（紧凑） -->
         <div class="mauth-doc-modal-header flex items-center justify-between px-5 py-3">
-          <h2 class="mauth-doc-modal-title text-base font-bold">{{ title }}</h2>
-          <button @click="close" class="mauth-doc-modal-close transition-colors">
+          <h2 id="mauth-doc-modal-title" class="mauth-doc-modal-title text-base font-bold">{{ title }}</h2>
+          <button aria-label="关闭" @click="close" class="mauth-doc-modal-close transition-colors">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
@@ -42,7 +71,7 @@ const themeStore = useThemeStore();
         <!-- Footer（紧凑） -->
         <div class="mauth-doc-modal-footer px-5 py-3 flex justify-end">
           <button @click="close" class="mauth-doc-modal-confirm px-5 h-9 rounded-lg font-bold text-xs transition-opacity">
-            我已阅读
+            {{ t('login.agree_confirm') || '我已阅读' }}
           </button>
         </div>
       </div>

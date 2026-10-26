@@ -18,6 +18,10 @@ export default [
       // 临时构建产物目录（`dist-*`）：gitignore 已覆盖，但 lint 走 `eslint .` 会扫进来，
       // 必须显式忽略 —— 否则一堆压缩产物被打进 lint 范围、报出成千个 no-undef。
       'dist-*/**',
+      // VitePress 文档站构建产物（`docs/.vitepress/dist` + `cache`）：
+      // `eslint .` 会扫进来报一堆 no-unused-vars / no-irregular-whitespace（压缩 JS）。
+      'docs/.vitepress/dist/**',
+      'docs/.vitepress/cache/**',
       'node_modules/**',
       'src/auto-import.d.ts',
       'src/components.d.ts',
@@ -36,10 +40,20 @@ export default [
       '.tmp-probe*/**'
     ]
   },
+  // 🔴 三个 recommended 必须**先于**下面的 e2e/ 与 scripts/ 覆盖块声明：
+  //    flat config 里后出现的规则覆盖前面的。若 recommended 放在 e2e/scripts 之后，
+  //    会把那些块里刻意关掉的 no-undef / no-empty / no-console 重新顶回 error，
+  //    让「关卡脚本 / 工具脚本靠 console 输出结论」这一语义失效。
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  ...vue.configs['flat/recommended'],
   // ⚠️ e2e/ 是**纳入版本控制**的验收关卡（2026-09-28 从 .tmp-probe 迁入）。
   //    它们是 Node 脚本（import fs / process.argv / console）+ 注入到页面里跑的
   //    浏览器片段（document / caches / navigator），两套全局都要给。
   //    与 src（浏览器 + 禁 console.log）不同：这里脚本本就靠 console 输出结论。
+  //    🔴 此块必须放在三个 recommended 配置**之后**：flat config 里后出现的规则覆盖
+  //    前面的，放在 recommended 之前会被 no-undef/no-empty/no-console 重新顶回 error，
+  //    本块刻意关掉的规则就失效了。
   {
     files: ['e2e/**/*.{mjs,js}'],
     languageOptions: {
@@ -60,6 +74,7 @@ export default [
   // 与 e2e/ 同样是"两套全局"之外的第三种。2026-10-15 补：release-web.mjs
   // 引入时没配这块，`eslint .` 对它报一片 no-undef（process/console/fetch），
   // CI 的 lint 步骤直接红 —— 新增 scripts/ 下的脚本前先确认这里覆盖到。
+  //    同样必须放在三个 recommended 配置**之后**（原因见 e2e 块注释）。
   {
     files: ['scripts/**/*.{mjs,js}'],
     languageOptions: {
@@ -75,9 +90,6 @@ export default [
       '@typescript-eslint/no-unused-vars': 'warn'
     }
   },
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
-  ...vue.configs['flat/recommended'],
   {
     files: ['**/*.{ts,vue}'],
     languageOptions: {

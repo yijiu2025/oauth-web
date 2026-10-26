@@ -18,6 +18,7 @@
  */
 import type { RouteRecordRaw } from 'vue-router';
 import { reportError } from '@/composables/useErrorReporter';
+import { stripSensitiveQuery } from '@/utils/clear-url-query';
 
 /** 分发器（`view/web/<page>/index.vue`）：页面名 → 惰性加载器（glob 是字面量，键与 PAGE_DEFS 的 path 一致） */
 const dispatchers = import.meta.glob('/src/view/web/*/index.vue');
@@ -100,7 +101,8 @@ export const errorRoutes: RouteRecordRaw[] = [
       // 上报 404，用于发现死链 / 扫描探测行为。
       // 🔴 必须走 reportError（生产 fetch 上报后端），不能用 console.warn：
       //    生产构建 dropConsole 会把 console 删掉，404 监控会静默失效。
-      void reportError(`[404] ${to.fullPath}`, `referrer=${document.referrer}`);
+      // 剥掉敏感 query（token/state 等），避免凭证进后端 404 日志
+      void reportError(`[404] ${stripSensitiveQuery(to.fullPath)}`, `referrer=${document.referrer}`);
     }
   }
 ];

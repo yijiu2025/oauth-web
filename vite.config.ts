@@ -36,9 +36,9 @@ export default defineConfig(() => ({
 
     // ⛔️ 这里刻意**没有** `VitePWA` —— 2026-09-27 整体移除。
     //
-    // 判断依据不是"收益不高"，而是**登录页根本不适用**，规范里本来就写着这一条：
-    // `docs/frontend/PWA_GUIDE.md` §一「适用场景：内容型应用…**不适用**：纯登录页（oauth21 用完即走，
-    // 安装价值低）」。也就是说此前的集成是**违反自家规范**的 —— 这条移除是把实现改回规范，不是改规范迁就实现。
+    // 判断依据不是"收益不高"，而是**登录页根本不适用**：内容型应用适合 PWA，
+    // 纯登录页（oauth21 用完即走、安装价值低）**不适用**。也就是说此前的集成是
+    // **违反自家规范**的 —— 这条移除是把实现改回规范，不是改规范迁就实现。
     //
     // 为什么"收益低"就足以移除：登录页是入口闸门，SW 的首访成本必须每次重付
     // （全新浏览器 / 无痕 / 清了缓存 / 新用户），而它换来的复用收益恰恰付在最不需要快的地方
@@ -51,8 +51,8 @@ export default defineConfig(() => ({
     //   ② 预缓存把整棵 dist 写进 `sw.js` 清单，首访多下 780 KB —— 页面自身按需只要 214 KB，
     //      78% 的流量是这次根本用不到的东西。
     //
-    // ⚠️ 想加回来之前，先读 `docs/frontend/PWA_GUIDE.md` 第六节「如何移除」：
-    //    光删配置**清不掉**已经装过 SW 的浏览器（它会一直用旧 SW、永远不回源），必须留一次自毁迁移。
+    // ⚠️ 想加回来之前，先想清楚「如何移除」：光删配置**清不掉**已经装过 SW 的浏览器
+    //    （它会一直用旧 SW、永远不回源），必须留一次自毁迁移。
     //    本仓那次迁移就是 `oauth21/public/sw.js`（它的顶部注释写了何时可以删）。
   ],
   resolve: {
@@ -87,7 +87,14 @@ export default defineConfig(() => ({
   css: {
     preprocessorOptions: {
       scss: {
-        additionalData: `@use "@/assets/styles/variables.scss" as *;`
+        additionalData: `@use "@/assets/styles/variables.scss" as *;`,
+        // 静默 Sass 的 @import deprecation warning：
+        // main.scss 里 `@import 'tailwindcss'` 是 Tailwind v4 的官方引入方式
+        // （透传给 @tailwindcss/postcss 展开），不是给 Sass 处理的 —— Sass 对
+        // @import 的 deprecation 在这里是「误报」，改成 @use 反而会破坏 Tailwind
+        // 的引入（Tailwind v4 不兼容 Sass 预处理，@use 会把 tailwindcss 当
+        // Sass 部分文件解析而失败）。故静默 `import` 这一条，其余 deprecation 照报。
+        silenceDeprecations: ['import']
       }
     }
   },

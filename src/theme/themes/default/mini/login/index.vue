@@ -267,6 +267,22 @@ const emailVerifyOpen = computed(() => ctx.value.panel === 'emailVerify');
             </a>
           </div>
         </div>
+
+        <!-- 协议勾选（与 Standard 版式对齐，登录前须同意） -->
+        <label class="mlogin-checkbox-label mt-2">
+          <input type="checkbox" v-model="ctx.agreed" class="hidden" />
+          <span class="mlogin-checkbox" :class="{ checked: ctx.agreed }">
+            <svg v-if="ctx.agreed" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="4">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </span>
+          <span class="text-xs text-slate-400 hover:text-slate-500 transition-colors">
+            {{ ctx.t('login.agree_prefix') || '我已阅读并同意' }}
+            <a href="#" class="mlogin-highlight-link" @click.stop.prevent="ctx.actions.openAgreement('service')">{{ ctx.t('login.agree_link_service') || '《服务协议》' }}</a>
+            {{ ctx.t('login.agree_and') || '与' }}
+            <a href="#" class="mlogin-highlight-link" @click.stop.prevent="ctx.actions.openAgreement('privacy')">{{ ctx.t('login.agree_link_privacy') || '《隐私政策》' }}</a>
+          </span>
+        </label>
       </template>
     </AuthContainer>
   </div>

@@ -57,7 +57,7 @@ import { useThemeStore } from '@/stores/theme';
 import { ThemeView } from 'skinsuite/vue';
 import type { LoginDirection, LoginPanel, LoginTranslate, LoginViewContext } from '@/theme/views/login';
 import type { SocialProviderId } from '@/composables/useSocialLogin';
-import type { Ref } from 'vue';
+import { bindField, makeTranslate, assertContract, type FieldSource } from '@/utils/contract-utils';
 
 const authStore = useAuthStore();
 const route = useRoute();
@@ -291,58 +291,10 @@ onMounted(() => {
   void import('@/view/web/forgot-password/index.vue').catch(() => {});
 });
 
-/** 契约里字段绑定的**内部构造形态**：值与错误都是 ref，交给 reactive 自动解包成契约里的标量 */
-interface FieldSource {
-  value: Ref<string>;
-  attrs: Ref<Record<string, unknown>>;
-  invalid: Ref<boolean>;
-  error: Ref<string | undefined>;
-}
-
-/**
- * 把一个字段打成交给版式的"绑定三件套"
- *
- * - `value` 包一层可写 computed：vee-validate 给的值 ref 是 `string | undefined`
- *   （一次都没填过就是 undefined），而契约承诺版式拿到的一定是字符串 —— 读时兜底成
- *   `''`，写时原样回填进表单（`v-model` 仍写回同一个 ref，校验/取值链路不变）。
- * - `attrs` **整个 ref 原样存下来**，不提前取 `.value`：vee-validate 里它是 `computed`，
- *   取值时可能产出新对象，提前取会拿到过期快照。
- */
-function bindField(
-  value: Ref<string | undefined>,
-  attrs: Ref<Record<string, unknown>>,
-  invalid: Ref<boolean>,
-  error: Ref<string | undefined>
-): FieldSource {
-  return {
-    value: computed({
-      get: () => value.value ?? '',
-      set: next => {
-        value.value = next;
-      }
-    }),
-    attrs,
-    invalid,
-    error
-  };
-}
-
-/**
- * 编译期契约自检
- *
- * 容器组装的 ctx 必须**结构上满足** `theme/views/login.ts` 声明的契约：
- * 少一个字段、类型对不上，都会在这行报错。这样"版式契约"才是真的有约束力，
- * 而不是一份会过期的文档。改契约后容器与所有版式会一起报错，不会悄悄跑偏。
- */
-function assertLoginContract(ctx: LoginViewContext): LoginViewContext {
-  return ctx;
-}
-
+// 契约组装样板（FieldSource/bindField/translate/assertContract）收口在
+// src/utils/contract-utils.ts，各容器共用，不再逐文件复制。
 /** 翻译函数：只把「key + （命名参数 | 兜底文案）」这一子集交给版式（版式因此不依赖 i18n 内部类型） */
-const translate: LoginTranslate = (key, params) => {
-  if (params === undefined) return t(key);
-  return typeof params === 'string' ? t(key, params) : t(key, params as never);
-};
+const translate: LoginTranslate = makeTranslate(t);
 
 /**
  * 交给版式的上下文
@@ -351,7 +303,7 @@ const translate: LoginTranslate = (key, params) => {
  * 而这些标量在容器里都是 ref —— `reactive` 会自动解包，版式侧写 `ctx.mode`、
  * `v-model="ctx.fields.email.value"` 即可，不必到处 `.value`。
  */
-const ctx = assertLoginContract(
+const ctx = assertContract<LoginViewContext>(
   reactive({
     t: translate,
     appName: clientId,

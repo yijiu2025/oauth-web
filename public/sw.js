@@ -3,7 +3,7 @@
  *
  * === 为什么这个文件存在 ===
  * 本项目曾用 `vite-plugin-pwa` 生成过 SW（`registerType: 'autoUpdate'`）。它在生产环境有两个
- * 已实测的危害（完整记录见 `docs/frontend/PWA_GUIDE.md` 第六节）：
+ * 已实测的危害：
  *   ① 未配 denylist 的 `NavigationRoute` 会把**一切同源 GET 导航**顶成预缓存的 index.html，
  *      于是后端设备码授权页 `/oauth2.1/device`（`verification_uri`，只能靠浏览器导航打开）不可用；
  *   ② 预缓存把整棵 dist 写进清单，首访多下 780 KB（页面自身按需只要 214 KB）。

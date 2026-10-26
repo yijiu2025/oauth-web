@@ -50,14 +50,19 @@ import { useCountdown } from '@/composables/useCountdown';
 import { useCaptchaFlow } from '@/composables/useCaptchaFlow';
 import { useButtonLock } from '@/composables/useButtonLock';
 import { rsaEncrypt, getCachedKid } from '@/utils/crypto';
+import { withTimeout } from '@/utils/with-timeout';
 import { useCaptcha } from '@/composables/useCaptcha';
 import { useKeyboardAvoid } from '@/composables/useKeyboardAvoid';
 import { ThemeView } from 'skinsuite/vue';
 import type { RegisterDirection, RegisterTranslate, RegisterViewContext } from '@/theme/views/register';
-import type { Ref } from 'vue';
+import { bindField, makeTranslate, assertContract, type FieldSource } from '@/utils/contract-utils';
 
 /** 步骤总数。契约里的 `totalSteps` 与进度百分比都算它，别在两处各写一个 3 */
 const TOTAL_STEPS = 3;
+
+/** 异步操作超时（与 web 端注册页同一口径，弱网下不能无限挂起） */
+const RSA_ENCRYPT_TIMEOUT = 30_000;
+const RECAPTCHA_TIMEOUT = 30_000;
 
 const { t, locale } = useI18n();
 const route = useRoute();
@@ -162,10 +167,13 @@ const checkEmail = async () => {
     isEmailDuplicate.value = false;
     return;
   }
+  // 请求前快照：响应回来时若邮箱已变，丢弃旧响应，避免竞态污染新邮箱
+  const queriedEmail = values.email;
   isEmailChecking.value = true;
   try {
     // request.ts 拦截器已解包 AxiosResponse.data，类型断言拿 isDuplicate 字段
-    const res = (await authApi.checkEmail(values.email)) as unknown as { isDuplicate?: boolean };
+    const res = (await authApi.checkEmail(queriedEmail)) as unknown as { isDuplicate?: boolean };
+    if (values.email !== queriedEmail) return;
     isEmailDuplicate.value = !!res?.isDuplicate;
   } catch {
     // 查重失败不阻断注册流程（后端注册时有唯一约束兜底）
@@ -248,8 +256,10 @@ const handleRegister = handleSubmit(async data => {
   try {
     // 排除 confirmPassword（`_` 前缀 = 有意不使用）：它只用于本地一致性校验，不发往后端
     const { confirmPassword: _confirmPassword, ...submitData } = data;
-    const encryptedPassword = await rsaEncrypt(submitData.password);
-    const recaptchaToken = recaptchaEnabled ? await getCaptchaToken() : null;
+    const encryptedPassword = await withTimeout(rsaEncrypt(submitData.password), RSA_ENCRYPT_TIMEOUT, 'rsaEncrypt');
+    const recaptchaToken = recaptchaEnabled
+      ? await withTimeout(getCaptchaToken(), RECAPTCHA_TIMEOUT, 'getCaptchaToken')
+      : null;
     await authApi.register({
       ...submitData,
       password: encryptedPassword,
@@ -270,68 +280,9 @@ const handleRegister = handleSubmit(async data => {
    契约组装（版式渲染已收进 <ThemeView>，本容器只组装 ctx）
    ========================================================================== */
 
-/** 契约里字段绑定的**内部构造形态**：值与错误都是 ref，交给 reactive 自动解包成契约里的标量 */
-interface FieldSource {
-  value: Ref<string>;
-  attrs: Ref<Record<string, unknown>>;
-  invalid: Ref<boolean>;
-  error: Ref<string | undefined>;
-}
+const translate: RegisterTranslate = makeTranslate(t);
 
-/**
- * 把一个字段打成交给版式的"绑定三件套"
- *
- * - `value` 包一层可写 computed：vee-validate 给的值 ref 是 `string | undefined`
- *   （一次都没填过就是 undefined），而契约承诺版式拿到的一定是字符串 —— 读时兜底成
- *   `''`，写时原样回填进表单（`v-model` 仍写回同一个 ref，校验/取值链路不变）。
- * - `attrs` **整个 ref 原样存下来**，不提前取 `.value`：vee-validate 里它是 `computed`，
- *   取值时可能产出新对象，提前取会拿到过期快照。交给 reactive 在读取时自动解包，
- *   版式侧 `v-bind="ctx.fields.x.attrs"` 拿到的就是当前那副原生事件绑定。
- */
-function bindField(
-  value: Ref<string | undefined>,
-  attrs: Ref<Record<string, unknown>>,
-  invalid: Ref<boolean>,
-  error: Ref<string | undefined>
-): FieldSource {
-  return {
-    value: computed({
-      get: () => value.value ?? '',
-      set: next => {
-        value.value = next;
-      }
-    }),
-    attrs,
-    invalid,
-    error
-  };
-}
-
-/**
- * 编译期契约自检
- *
- * 容器组装的 ctx 必须**结构上满足** `theme/views/register.ts` 声明的契约：
- * 少一个字段、类型对不上，都会在这行报错。这样"版式契约"才是真的有约束力，
- * 而不是一份会过期的文档。
- */
-function assertRegisterContract(ctx: RegisterViewContext): RegisterViewContext {
-  return ctx;
-}
-
-/** 翻译函数：只把「key + （命名参数 | 兜底文案）」这一子集交给版式（版式因此不依赖 i18n 内部类型） */
-const translate: RegisterTranslate = (key, params) => {
-  if (params === undefined) return t(key);
-  return typeof params === 'string' ? t(key, params) : t(key, params as never);
-};
-
-/**
- * 交给版式的上下文
- *
- * reactive + 嵌套 ref：契约里声明的是**标量**（`step: number`、`fields.x.value: string`），
- * 而这些标量在容器里都是 ref —— `reactive` 会自动解包，版式侧写 `ctx.step`、
- * `v-model="ctx.fields.email.value"` 即可，不必到处 `.value`。
- */
-const ctx = assertRegisterContract(
+const ctx = assertContract<RegisterViewContext>(
   reactive({
     t: translate,
     appName: computed(() => String(route.query.appName ?? '')),

@@ -67,8 +67,34 @@ const isColorStyle = p => /^\/src\/theme\/themes\/[^/]+\/[^/]+\/[^/]+\/colors\/[
 /** 「非内置包的版式 chunk」——本次验收真正要守的那条 */
 const isForeignView = p => isViewModule(p) && !p.startsWith(`/src/theme/themes/${BUILTIN}/`);
 
+/**
+ * 探测 Chrome/Chromium 可执行文件路径（跨平台）。
+ * 优先 `CHROME_PATH` 环境变量（CI 里显式指定），否则按平台试常见安装路径。
+ * 之前硬编码 `C:/Program Files/Google/Chrome/...`，Linux/macOS 上直接挂。
+ */
+function resolveChromePath() {
+  if (process.env.CHROME_PATH && existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
+  const candidates =
+    process.platform === 'win32'
+      ? [
+          'C:/Program Files/Google/Chrome/Application/chrome.exe',
+          'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe'
+        ]
+      : process.platform === 'darwin'
+        ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
+        : ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'];
+  for (const p of candidates) if (existsSync(p)) return p;
+  return undefined;
+}
+
+const chromePath = resolveChromePath();
+if (!chromePath) {
+  console.error('❌ 找不到 Chrome/Chromium：请设 CHROME_PATH 环境变量指向 chrome 可执行文件');
+  process.exit(2);
+}
+
 const browser = await chromium.launch({
-  executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  executablePath: chromePath,
   headless: true
 });
 

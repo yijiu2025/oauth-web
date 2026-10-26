@@ -37,9 +37,10 @@ import { useCountdown } from '@/composables/useCountdown';
 import { useCaptchaFlow } from '@/composables/useCaptchaFlow';
 import { useQrLogin } from '@/composables/useQrLogin';
 import { useLoginFlow } from '@/composables/useLoginFlow';
+import { useSocialLogin } from '@/composables/useSocialLogin';
 import { ThemeView } from 'skinsuite/vue';
 import type { LoginTranslate, LoginViewContext } from '@/theme/views/login';
-import type { Ref } from 'vue';
+import { bindField, makeTranslate, assertContract, type FieldSource } from '@/utils/contract-utils';
 
 const authStore = useAuthStore();
 const themeStore = useThemeStore();
@@ -157,7 +158,11 @@ const { qrDataUrl, qrStatus, generate: generateQR, reset: resetQR } = useQrLogin
   () => showError(t('login.qr_expired') || '二维码已过期')
 );
 
-// 7. 生命周期与辅助计算
+// 7. 第三方登录渠道（URL ?social= / 父应用注入 / 构建期 env 三源，白名单过滤；
+//    后端未实现时 providers 为空数组 → 版式整行不渲染，零视觉变化）
+const { providers: socialProviders, lastProvider: socialLastProvider, startLogin } = useSocialLogin();
+
+// 8. 生命周期与辅助计算
 const isEmbedded = computed(() => {
   try {
     return window.self !== window.top;
@@ -184,43 +189,9 @@ onUnmounted(() => {
  *  「加一种设备就要复制一整份业务容器」的重复（业务只有一份，职责红线：业务只在容器层）。 */
 const props = withDefaults(defineProps<{ device?: string }>(), { device: 'standard' });
 
-/** 契约里字段绑定的内部构造形态 */
-interface FieldSource {
-  value: Ref<string>;
-  attrs: Ref<Record<string, unknown>>;
-  invalid: Ref<boolean>;
-  error: Ref<string | undefined>;
-}
+const translate: LoginTranslate = makeTranslate(t);
 
-function bindField(
-  value: Ref<string | undefined>,
-  attrs: Ref<Record<string, unknown>>,
-  invalid: Ref<boolean>,
-  error: Ref<string | undefined>
-): FieldSource {
-  return {
-    value: computed({
-      get: () => value.value ?? '',
-      set: next => {
-        value.value = next;
-      }
-    }),
-    attrs,
-    invalid,
-    error
-  };
-}
-
-function assertLoginContract(ctx: LoginViewContext): LoginViewContext {
-  return ctx;
-}
-
-const translate: LoginTranslate = (key, params) => {
-  if (params === undefined) return t(key);
-  return typeof params === 'string' ? t(key, params) : t(key, params as never);
-};
-
-const ctx = assertLoginContract(
+const ctx = assertContract<LoginViewContext>(
   reactive({
     t: translate,
     appName: computed(() => appConfig.value.appName),
@@ -262,8 +233,8 @@ const ctx = assertLoginContract(
     countdown: computed(() => countdown.value),
     submitting: computed(() => authStore.loading),
 
-    socialProviders: computed(() => [] as never[]),
-    socialLastProvider: null,
+    socialProviders,
+    socialLastProvider,
 
     consentState: computed(() => consentState.value as LoginViewContext['consentState']),
     consentSubmitting: computed(() => submittingConsent.value),
@@ -310,7 +281,7 @@ const ctx = assertLoginContract(
       openAgreement: (doc: 'service' | 'privacy') => {
         docType.value = doc;
       },
-      selectSocial: () => {},
+      selectSocial: startLogin,
       approveConsent,
       denyConsent,
       sendEmailVerifyCode,

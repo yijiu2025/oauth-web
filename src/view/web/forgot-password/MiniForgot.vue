@@ -22,13 +22,14 @@ import { useCountdown } from '@/composables/useCountdown';
 import { useCaptchaFlow } from '@/composables/useCaptchaFlow';
 import { usePasswordStrength } from '@/composables/usePasswordStrength';
 import { rsaEncrypt, getCachedKid } from '@/utils/crypto';
+import { clearUrlQuery } from '@/utils/clear-url-query';
 import { ThemeView } from 'skinsuite/vue';
 import type {
   ForgotPasswordStage,
   ForgotPasswordTranslate,
   ForgotPasswordViewContext
 } from '@/theme/views/forgot-password';
-import type { Ref } from 'vue';
+import { bindField, makeTranslate, assertContract, type FieldSource } from '@/utils/contract-utils';
 
 const { t, locale } = useI18n();
 const route = useRoute();
@@ -123,6 +124,8 @@ const [password, passwordProps] = defineField('password');
 const [confirmPassword, confirmPasswordProps] = defineField('confirmPassword');
 
 onMounted(() => {
+  // 重置 token 是可当密码用的凭证，读完立即从地址栏抹掉
+  if (linkToken.value) clearUrlQuery(['token']);
   void import('@/view/web/login/index.vue').catch(() => {});
 });
 
@@ -233,43 +236,9 @@ const goBack = () => {
    契约组装（版式渲染已收进 <ThemeView>，本容器只组装 ctx）
    ========================================================================== */
 
-/** 契约里字段绑定的内部构造形态 */
-interface FieldSource {
-  value: Ref<string>;
-  attrs: Ref<Record<string, unknown>>;
-  invalid: Ref<boolean>;
-  error: Ref<string | undefined>;
-}
+const translate: ForgotPasswordTranslate = makeTranslate(t);
 
-function bindField(
-  value: Ref<string | undefined>,
-  attrs: Ref<Record<string, unknown>>,
-  invalid: Ref<boolean>,
-  error: Ref<string | undefined>
-): FieldSource {
-  return {
-    value: computed({
-      get: () => value.value ?? '',
-      set: next => {
-        value.value = next;
-      }
-    }),
-    attrs,
-    invalid,
-    error
-  };
-}
-
-function assertForgotPasswordContract(ctx: ForgotPasswordViewContext): ForgotPasswordViewContext {
-  return ctx;
-}
-
-const translate: ForgotPasswordTranslate = (key, params) => {
-  if (params === undefined) return t(key);
-  return typeof params === 'string' ? t(key, params) : t(key, params as never);
-};
-
-const ctx = assertForgotPasswordContract(
+const ctx = assertContract<ForgotPasswordViewContext>(
   reactive({
     t: translate,
 

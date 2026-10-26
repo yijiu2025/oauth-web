@@ -23,9 +23,10 @@ import { useCountdown } from '@/composables/useCountdown';
 import { useCaptchaFlow } from '@/composables/useCaptchaFlow';
 import { useQrLogin } from '@/composables/useQrLogin';
 import { useLoginFlow } from '@/composables/useLoginFlow';
+import { useSocialLogin } from '@/composables/useSocialLogin';
 import { ThemeView } from 'skinsuite/vue';
 import type { LoginTranslate, LoginViewContext } from '@/theme/views/login';
-import type { Ref } from 'vue';
+import { bindField, makeTranslate, assertContract, type FieldSource } from '@/utils/contract-utils';
 
 const authStore = useAuthStore();
 const themeStore = useThemeStore();
@@ -106,6 +107,10 @@ const executeSendEmailCode = () => {
 };
 
 const handleLogin = handleSubmit(async () => {
+  if (!agreed.value) {
+    showError(t('login.agree_required') || '请先阅读并勾选同意相关协议');
+    return;
+  }
   if (loginType.value === 'pwd') {
     openCaptcha('login');
   } else {
@@ -134,6 +139,9 @@ const { qrDataUrl, qrStatus, generate: generateQR, reset: resetQR } = useQrLogin
   () => showError(t('login.qr_expired') || '二维码已过期')
 );
 
+// 第三方登录渠道（后端未实现时为空数组 → 版式整行不渲染）
+const { providers: socialProviders, lastProvider: socialLastProvider, startLogin } = useSocialLogin();
+
 onMounted(() => {
   // 明暗入口 `?theme=dark|light` 已废弃失效（2026-10-20，见 skinsuite 文档站「明暗与色系」）：
   // 明暗归主题状态机（localStorage 持久化的 mode / 调试面板 / 页面内切换），URL 不再覆写。
@@ -154,42 +162,9 @@ watch(showQR, val => {
    契约组装（版式渲染已收进 <ThemeView>，本容器只组装 ctx）
    ========================================================================== */
 
-interface FieldSource {
-  value: Ref<string>;
-  attrs: Ref<Record<string, unknown>>;
-  invalid: Ref<boolean>;
-  error: Ref<string | undefined>;
-}
+const translate: LoginTranslate = makeTranslate(t);
 
-function bindField(
-  value: Ref<string | undefined>,
-  attrs: Ref<Record<string, unknown>>,
-  invalid: Ref<boolean>,
-  error: Ref<string | undefined>
-): FieldSource {
-  return {
-    value: computed({
-      get: () => value.value ?? '',
-      set: next => {
-        value.value = next;
-      }
-    }),
-    attrs,
-    invalid,
-    error
-  };
-}
-
-function assertLoginContract(ctx: LoginViewContext): LoginViewContext {
-  return ctx;
-}
-
-const translate: LoginTranslate = (key, params) => {
-  if (params === undefined) return t(key);
-  return typeof params === 'string' ? t(key, params) : t(key, params as never);
-};
-
-const ctx = assertLoginContract(
+const ctx = assertContract<LoginViewContext>(
   reactive({
     t: translate,
     appName: computed(() => appConfig.value.appName),
@@ -231,8 +206,8 @@ const ctx = assertLoginContract(
     countdown: computed(() => countdown.value),
     submitting: computed(() => authStore.loading),
 
-    socialProviders: computed(() => [] as never[]),
-    socialLastProvider: null,
+    socialProviders,
+    socialLastProvider,
 
     consentState: computed(() => consentState.value as LoginViewContext['consentState']),
     consentSubmitting: computed(() => submittingConsent.value),
@@ -285,7 +260,7 @@ const ctx = assertLoginContract(
       openAgreement: (doc: 'service' | 'privacy') => {
         docType.value = doc;
       },
-      selectSocial: () => {},
+      selectSocial: startLogin,
       approveConsent,
       denyConsent,
       sendEmailVerifyCode,
