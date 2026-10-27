@@ -14,7 +14,12 @@
 import { chromium } from 'playwright-core';
 import { requirePort } from './lib/env-guard.mjs';
 
-const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const { resolveChromePath } = await import('./lib/chrome.mjs');
+const CHROME = resolveChromePath();
+if (!CHROME) {
+  console.error('❌ 找不到 Chrome/Chromium：请设 CHROME_PATH 环境变量指向 chrome 可执行文件');
+  process.exit(2);
+}
 const BASE = process.env.VF_BASE || 'http://127.0.0.1:5174';
 await requirePort(BASE); // 环境自检：端口没起 / 5xx 时在此红（退出码 2），不进 Playwright 超时地狱
 const QS = '?appName=posecraft&client_id=demo-client-001';

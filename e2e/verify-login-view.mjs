@@ -17,7 +17,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requirePort, requireScanDir } from './lib/env-guard.mjs';
 
-const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const { resolveChromePath } = await import('./lib/chrome.mjs');
+const CHROME = resolveChromePath();
+if (!CHROME) {
+  console.error('❌ 找不到 Chrome/Chromium：请设 CHROME_PATH 环境变量指向 chrome 可执行文件');
+  process.exit(2);
+}
 const BASE = 'http://127.0.0.1:5174';
 const QS = '?appName=posecraft&client_id=demo-client-001';
 // 关卡所在目录 = oauth21/e2e/，oauth21 就是上一级（跨机器可移植，不再写死本机绝对路径）

@@ -63,7 +63,7 @@ const loginSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('email'),
     email: z.string().email(t('validation.email_invalid')),
-    code: z.string().min(4, t('validation.code_min'))
+    code: z.string().regex(/^\d{6}$/, t('validation.code_min'))
   }),
   z.object({
     type: z.literal('pwd'),

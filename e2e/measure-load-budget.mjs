@@ -181,8 +181,14 @@ async function scenario(browser, name, { viewport, path, waitMs = 3500, then = n
   return { name, first: snap1, firstTotal: first.total, deltas };
 }
 
+const { resolveChromePath } = await import('./lib/chrome.mjs');
+const CHROME = resolveChromePath();
+if (!CHROME) {
+  console.error('❌ 找不到 Chrome/Chromium：请设 CHROME_PATH 环境变量指向 chrome 可执行文件');
+  process.exit(2);
+}
 const browser = await chromium.launch({
-  executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  executablePath: CHROME,
   headless: true
 });
 

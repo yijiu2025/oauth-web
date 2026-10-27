@@ -122,6 +122,11 @@ function isReexport(src) {
  * 为什么不直接删代码：同一段落里混着**仍然有效**的项（目录结构、配色 token 等），
  * 逐条删容易连坐。用「显式退役 + 记原因」保住可追溯性 —— 也让后来者一眼看出
  * 「不是没人管，是机制没了」。要恢复某条，把匹配词从这里删掉即可。
+ *
+ * 🔴 匹配是**子串**（`label.includes(word)`）：旧断言标签常带页面前缀 / 后缀
+ *    （如「login 容器用 readDeviceParam 读设备维度参数…」），家族退役必须按子串。
+ *    代价：**新增断言标签不得含退役词**（如「setupTheme」「容器静态引入」）——
+ *    否则会被静默退役（= 假绿）。新机制断言请用新措辞（见下方 setupTheme 块的新写法）。
  */
 const RETIRED = [
   '容器写死 THEME_DEVICE',
@@ -1119,56 +1124,37 @@ console.log(`\n=== 9. 主题状态机接线（scope/intent/runtime，2026-10-19 
   );
 }
 {
-  // 🔴 2026-10-17 起设备同步的**机制**下沉进主题库 `skinsuite/vue` 的 `setupTheme`，
-  //    宿主的「接线」（设备来源 / 写入目标 / 清单路由）内联回 `bootstrap.ts`（装配层）。
-  //    所以断言拆两块：机制读内核，接线读 bootstrap。
-  const setup = implText(['vue/setupTheme.ts']);
+  // 🔴 2026-10-27 起主题域初始化的**机制**是 Vue 插件 `theme`（`app.use(theme, { router })`）：
+  //    设备同步 / URL 版式意图同步的 watch 收在编排层 `createThemeState`。
+  //    断言拆两块：机制读内核（plugin.ts / create-theme-state.ts），接线读 bootstrap。
+  //    旧「setupTheme 函数 + 容器 readDeviceParam/THEME_DEVICE」整条已退役（见 RETIRED）。
+  const plugin = implText(['vue/plugin.ts']);
+  const state = implText(['vue/store/create-theme-state.ts']);
   const bootstrap = read(join(ROOT, 'bootstrap.ts'));
 
   check(
-    '内核导出了 setupTheme（主题域初始化的唯一机制入口）',
-    /export\s+function\s+setupTheme\s*\(/.test(setup),
-    '设备同步的机制必须收在库里，不能让每个宿主重演「watch 而非 afterEach」这套踩坑结论'
+    '内核导出 Vue 插件 theme（plugin.ts 是 app.use 装配入口）',
+    /export\s+const\s+theme\s*:\s*Plugin/.test(plugin) && /install\s*\(/.test(plugin),
+    '主题域初始化的唯一机制入口；宿主不再手写 setupTheme 函数'
   );
   check(
-    '设备同步用 watch(来源函数返回值) 而不是 afterEach',
-    /watch\(\s*options\.deviceSource/.test(setup) || /watch\(\s*[\w.]+deviceSource/.test(setup),
-    '⚠️ 写在 afterEach 里会让**首次**导航静默失效：app.use(router) 触发首导航时 ' +
-      'Pinia 的 activeInstance 尚未建立，useThemeStore() 抛错被吞 → 电脑端永远按手机端渲染'
+    'createThemeState 用 watch 同步 URL 版式意图（而非 afterEach）',
+    /watch\(\s*\(\)\s*=>\s*currentQuery\(\)/.test(state),
+    '⚠️ afterEach 会让**首次**导航静默失效：app.use(router) 触发首导航时 Pinia 的 activeInstance 尚未建立'
   );
   check(
-    '设备同步 watch 带 immediate（覆盖首次导航）',
-    /\{\s*immediate:\s*true\s*\}/.test(setup),
-    '没有 immediate 就漏掉首屏那一次'
+    'bootstrap.ts 用 app.use(theme, { router }) 装配（接线内联到装配层）',
+    /app\.use\(\s*theme\s*,\s*\{\s*router\s*\}/.test(bootstrap),
+    '设备来源 / 写入目标 / 清单路由三个宿主事实在装配层内联，新项目只需一行'
   );
   check(
-    'bootstrap.ts 直接调 setupTheme（接线内联到装配层）',
-    /setupTheme\s*\(\s*\{/.test(bootstrap),
-    '设备来源 / 写入目标 / 清单路由三个宿主事实在装配层内联，新项目只需调一次'
-  );
-  check(
-    '设备由 RouteMeta.device 判定（不是视口）',
-    /currentRoute\.value\.meta\.device\s*===\s*'mobile'\s*\?\s*'mobile'\s*:\s*'standard'/.test(bootstrap),
-    '用视口判会出现"分发器渲染移动端组件、路由说电脑端"的分裂'
-  );
-  check(
-    '接线把设备写回主题 store 的 setActiveDevice',
-    /setActiveDevice\s*\(/.test(bootstrap) && /themeManifest\.routes/.test(bootstrap),
-    '写入目标 = 主题 store；清单路由 = 虚拟模块解析出的 manifest'
-  );
-  check(
-    'bootstrap.ts 在 app.use(pinia) 之后调用 setupTheme',
+    'bootstrap.ts 在 app.use(pinia) 之后装配 theme 插件',
     (() => {
       const piniaAt = bootstrap.indexOf('app.use(pinia)');
-      const setupAt = bootstrap.indexOf('setupTheme(');
-      return piniaAt !== -1 && setupAt !== -1 && setupAt > piniaAt;
+      const themeAt = bootstrap.indexOf('app.use(theme');
+      return piniaAt !== -1 && themeAt !== -1 && themeAt > piniaAt;
     })(),
-    '函数内部会 useThemeStore()，必须在 Pinia activeInstance 建立之后调用'
-  );
-  check(
-    '路由守卫预取用 readDeviceParam 取版式（与容器同一取值链）',
-    read(join(ROOT, 'router', 'routes.ts')).includes('readDeviceParam'),
-    '守卫与容器各写一套取值链必然漂移（预取 `view.standard=compact` 会预取错包）'
+    'theme 插件内部会 useThemeStore()，必须在 Pinia activeInstance 建立之后'
   );
 }
 

@@ -21,20 +21,34 @@
  * @since 2026-09-24
  */
 
-/** 开发兜底：本地宿主常用 origin（仅当 env 未配置时生效，生产必须显式配置） */
+/** 开发兜底：本地宿主常用 origin（仅 dev 且 env **未定义**时生效；生产必须显式配置） */
 const DEV_FALLBACK = 'http://localhost:5176,http://127.0.0.1:5176';
+
+/**
+ * 解析白名单串（纯函数，导出供单测）：
+ * - `raw === undefined` → 用 `devFallback`（dev 回落开发 origin / prod 回落空集）；
+ * - `raw` 显式给值（**含空串**）→ 不再回落，空串解析成空数组 = 拒绝一切。
+ * - 逗号分隔，逐项 trim，丢弃空项。
+ */
+export function parseAllowedOrigins(raw: string | undefined, devFallback: string): readonly string[] {
+  const source = raw === undefined ? devFallback : raw;
+  return source.split(',').map(s => s.trim()).filter(Boolean);
+}
 
 /**
  * 受信父应用 origin 列表（来自 `VITE_ALLOWED_PARENT_ORIGINS`，逗号分隔）
  *
- * 自动 trim 并丢弃空项 —— 手写 env 时常见的 `a, b` 带空格会让 `includes()` 恒不命中。
+ * 🔴 区分「未定义」与「显式空串」（2026-10-27 修复）：
+ *   · env 未定义 → dev 回落 DEV_FALLBACK / prod 回落空集；
+ *   · env **显式空串** → 视为「白名单为空 = 拒绝一切」，绝不回落 dev 值。
+ *   此前 `|| DEV_FALLBACK` 会把生产里漏配的空串也当成「未配置」退回 localhost 开发 origin，
+ *   等于把 SSO postMessage 白名单静默开给本机任意应用。
  */
-const ALLOWED_PARENT_ORIGINS: readonly string[] = (
-  (import.meta as { env?: Record<string, string> }).env?.VITE_ALLOWED_PARENT_ORIGINS || DEV_FALLBACK
-)
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
+const rawAllowed = (import.meta as { env?: Record<string, string> }).env?.VITE_ALLOWED_PARENT_ORIGINS;
+const ALLOWED_PARENT_ORIGINS: readonly string[] = parseAllowedOrigins(
+  rawAllowed,
+  import.meta.env.DEV ? DEV_FALLBACK : ''
+);
 
 /**
  * 给定 origin 是否为受信父应用

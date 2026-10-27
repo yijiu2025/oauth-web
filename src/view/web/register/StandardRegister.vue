@@ -42,6 +42,7 @@ import { useCaptcha } from '@/composables/useCaptcha';
 import { useAgreementVersion, captureAgreementVersion } from '@/composables/useAgreementVersion';
 import { rsaEncrypt, getCachedKid } from '@/utils/crypto';
 import { withTimeout } from '@/utils/with-timeout';
+import { sanitizeLocalRedirect } from '@/utils/redirect';
 import { ThemeView } from 'skinsuite/vue';
 import type { RegisterDirection, RegisterTranslate, RegisterViewContext } from '@/theme/views/register';
 import { bindField, makeTranslate, assertContract, type FieldSource } from '@/utils/contract-utils';
@@ -167,13 +168,11 @@ const { captchaKey, showCaptcha, openCaptcha: openRegCaptcha, onCaptchaSuccess }
 // ================================
 /**
  * 注册后回跳（OAuth 同源白名单，防开放重定向）
+ * 复用 utils/redirect.ts 的 sanitizeLocalRedirect（此前这里内联抄了一份，
+ * 且漏了 `/\evil.com` 归一化分支 —— 白名单只该有一份实现）。
  */
 function safeRedirect(): string {
-  const r = registerContext.redirectUri || registerContext.redirect;
-  if (r && r.startsWith('/') && !r.startsWith('//') && !r.includes('://')) {
-    return r; // 同源相对路径
-  }
-  return '/login';
+  return sanitizeLocalRedirect(registerContext.redirectUri || registerContext.redirect) || '/login';
 }
 
 // ================================

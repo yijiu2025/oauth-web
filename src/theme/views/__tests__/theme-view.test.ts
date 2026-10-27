@@ -180,7 +180,7 @@ describe('ThemeView 行为守卫', () => {
       expect(register.pick({})).toBe(DEFAULT_PKG);
     });
 
-    it('device 归一化：白名单外 → 末条设备（standard；compact 只在 mobile 有 ⇒ 对照可证）', async () => {
+    it('未知设备：设备域命中不了 → 版式 id 回落包名（compact 只在 mobile 有 ⇒ 对照可证）', async () => {
       const { skinsuite } = await freshThemeWorld();
       const register = skinsuite.pageOf('register')!;
       // 同一个 url:compact：mobile 上命中，未知设备走末条（standard）域 ⇒ 落 default

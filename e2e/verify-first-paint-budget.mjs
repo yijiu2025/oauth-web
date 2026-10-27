@@ -28,6 +28,7 @@
  */
 import { chromium } from 'playwright-core';
 import { existsSync, readdirSync } from 'node:fs';
+import { resolveChromePath } from './lib/chrome.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requirePort, requireScanDir } from './lib/env-guard.mjs';
@@ -68,25 +69,8 @@ const isColorStyle = p => /^\/src\/theme\/themes\/[^/]+\/[^/]+\/[^/]+\/colors\/[
 const isForeignView = p => isViewModule(p) && !p.startsWith(`/src/theme/themes/${BUILTIN}/`);
 
 /**
- * 探测 Chrome/Chromium 可执行文件路径（跨平台）。
- * 优先 `CHROME_PATH` 环境变量（CI 里显式指定），否则按平台试常见安装路径。
- * 之前硬编码 `C:/Program Files/Google/Chrome/...`，Linux/macOS 上直接挂。
+ * Chrome/Chromium 可执行文件路径的解析收口在 `e2e/lib/chrome.mjs`（全 e2e 脚本单一来源）。
  */
-function resolveChromePath() {
-  if (process.env.CHROME_PATH && existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  const candidates =
-    process.platform === 'win32'
-      ? [
-          'C:/Program Files/Google/Chrome/Application/chrome.exe',
-          'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe'
-        ]
-      : process.platform === 'darwin'
-        ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
-        : ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'];
-  for (const p of candidates) if (existsSync(p)) return p;
-  return undefined;
-}
-
 const chromePath = resolveChromePath();
 if (!chromePath) {
   console.error('❌ 找不到 Chrome/Chromium：请设 CHROME_PATH 环境变量指向 chrome 可执行文件');

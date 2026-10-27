@@ -77,7 +77,7 @@ const loginSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('email'),
     email: z.string().email(t('validation.email_invalid') || '请输入有效的邮箱地址'),
-    code: z.string().min(4, t('validation.code_min') || '验证码至少4位')
+    code: z.string().regex(/^\d{6}$/, t('validation.code_min') || '请输入6位验证码')
   }),
   z.object({
     type: z.literal('pwd'),

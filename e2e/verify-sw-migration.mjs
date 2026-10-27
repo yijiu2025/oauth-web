@@ -33,7 +33,12 @@ const DIST = process.argv[3] || join(HERE, '..', 'dist-nopwa');
 // 环境自检（2026-10-21）：端口 + 产物（不存在 / 旧于源码都红；escape：GUARD_ALLOW_STALE=1）
 await requirePort(BASE);
 requireDist(DIST, join(HERE, '..', 'src'));
-const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const { resolveChromePath } = await import('./lib/chrome.mjs');
+const CHROME = resolveChromePath();
+if (!CHROME) {
+  console.error('❌ 找不到 Chrome/Chromium：请设 CHROME_PATH 环境变量指向 chrome 可执行文件');
+  process.exit(2);
+}
 const HIJACK_MARK = 'LEGACY-SW-HIJACKED-NAV-7f3a';
 const QS = '?appName=posecraft&client_id=demo-client-001';
 const LEGACY_FILE = join(DIST, '__legacy-sw.js');

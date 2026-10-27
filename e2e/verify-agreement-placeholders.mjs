@@ -62,15 +62,21 @@ console.log('== 1) agreementConfig.ts 运行时字段无占位符 / 个人邮箱
 check('agreementConfig.ts 存在', existsSync(configFile), configFile);
 if (existsSync(configFile)) {
   // 只统计「字段值」部分（`export const agreementConfig = {` 之后），排除文件头注释里的说明文字
-  const body = configText.slice(configText.indexOf('export const agreementConfig'));
-  const ph = body.match(CONFIG_PLACEHOLDER_RE);
-  check(
-    '字段值无占位符（【】/ yourdomain / dpo@ / example.com）',
-    !ph,
-    ph ? `仍残留：${[...new Set(ph)].join('、')}` : ''
-  );
-  const personal = body.match(PERSONAL_EMAIL_RE);
-  check('字段值无个人邮箱域名（qq/163/gmail 等）', !personal, personal ? `仍残留：${[...new Set(personal)].join('、')}` : '');
+  const configStart = configText.indexOf('export const agreementConfig');
+  if (configStart < 0) {
+    // 🔴 导出名缺失/改名时，slice(-1) 会只扫最后一个字符、占位符检查空转仍绿 —— 必须显式红
+    check('agreementConfig.ts 存在 export const agreementConfig 导出', false, '导出名缺失或改名');
+  } else {
+    const body = configText.slice(configStart);
+    const ph = body.match(CONFIG_PLACEHOLDER_RE);
+    check(
+      '字段值无占位符（【】/ yourdomain / dpo@ / example.com）',
+      !ph,
+      ph ? `仍残留：${[...new Set(ph)].join('、')}` : ''
+    );
+    const personal = body.match(PERSONAL_EMAIL_RE);
+    check('字段值无个人邮箱域名（qq/163/gmail 等）', !personal, personal ? `仍残留：${[...new Set(personal)].join('、')}` : '');
+  }
 }
 
 console.log('\n== 2) 协议模板无待填占位符 ==');
@@ -83,7 +89,13 @@ for (const name of templates) {
   }
   const text = readFileSync(p, 'utf8');
   // 只看模板内容（排除 <script> 里的 import/解构标识符）
-  const template = text.slice(text.indexOf('<template>'));
+  const tplStart = text.indexOf('<template>');
+  if (tplStart < 0) {
+    // 🔴 <template> 标记缺失时 slice(-1) 空转，占位符检查会静默绿 —— 必须显式红
+    check(`${name} 模板无待填占位符`, false, '<template> 标记缺失');
+    continue;
+  }
+  const template = text.slice(tplStart);
   const hits = template.match(TEMPLATE_PLACEHOLDER_RE);
   if (hits) {
     check(`${name} 模板无待填占位符`, false, `${hits.length} 处：${[...new Set(hits)].slice(0, 5).join('、')}`);
