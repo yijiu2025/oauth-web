@@ -24,5 +24,13 @@ export const registerApi = {
    */
   async checkEmail(email: string) {
     return request.get('/user/v1/check-email', { params: { email } });
+  },
+
+  /**
+   * 【预留】校验昵称是否重复（当前前端零调用，先保留待接入）
+   * @param nickname 昵称
+   */
+  async checkNickname(nickname: string) {
+    return request.get('/user/v1/check-nickname', { params: { nickname } });
   }
 };
