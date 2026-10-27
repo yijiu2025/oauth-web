@@ -1,11 +1,9 @@
 import { defineConfig } from 'vite';
-import path from 'path';
 import vue from '@vitejs/plugin-vue';
 import AutoImport from 'unplugin-auto-import/vite';
 import Components from 'unplugin-vue-components/vite';
-import { createSvgIconsPlugin } from 'vite-plugin-svg-icons';
 import { themeAssets } from 'skinsuite/vite';
-import { aliases, OAUTH21_ROOT } from './config/aliases.js';
+import { aliases } from './config/aliases.js';
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
@@ -28,10 +26,6 @@ export default defineConfig(() => ({
       extensions: ['vue'],
       include: [/\.vue$/, /\.vue\?vue/],
       dts: 'src/components.d.ts'
-    }),
-    createSvgIconsPlugin({
-      iconDirs: [path.resolve(OAUTH21_ROOT, 'src/assets/icons')],
-      symbolId: 'icon-[dir]-[name]'
     })
 
     // ⛔️ 这里刻意**没有** `VitePWA` —— 2026-09-27 整体移除。

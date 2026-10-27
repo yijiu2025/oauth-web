@@ -199,7 +199,10 @@ export const loginResponseSchema = z.discriminatedUnion('action', [
   }),
   z.object({
     action: z.literal('max_sessions'),
-    sessions: z.array(sessionBriefSchema),
+    // .max 是纵深防御（GHSA-mrhx-c7xc-m3w5）：虽然后端响应是受信来源，但给数组
+    // 封顶可让「超大 sessions 列表」在任何解析路径上都直接失败，而不是被 zod 累积
+    // issue 对象拖垮内存。
+    sessions: z.array(sessionBriefSchema).max(100),
     maxSessions: z.number()
   })
 ]);
