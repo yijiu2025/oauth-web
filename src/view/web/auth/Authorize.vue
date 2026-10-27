@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { authApi } from '@/api/auth';
+import { authorizeApi } from '@/api';
 import { isMobileViewport, useDeviceDetect } from '@/device';
 import { pickRedirectUrl } from '@/types/external';
 import { sanitizeExternalRedirect } from '@/utils/redirect';
@@ -74,7 +74,7 @@ const handleApprove = async () => {
   submitting.value = true;
   try {
     // request.ts 拦截器已解包 AxiosResponse.data，交给 pickRedirectUrl 取 redirect_url
-    const res: unknown = await authApi.authorizeConsent({
+    const res: unknown = await authorizeApi.authorizeConsent({
       sessionId: sessionId.value,
       user_id: userId.value,
       action: 'approve'
@@ -99,7 +99,7 @@ const handleDeny = async () => {
   submitting.value = true;
   try {
     // 从服务端响应取校验过的 redirect_url（不直接用 route.query.redirect_uri，防开放重定向）
-    const res = (await authApi.authorizeConsent({
+    const res = (await authorizeApi.authorizeConsent({
       sessionId: sessionId.value,
       user_id: userId.value,
       action: 'deny'
@@ -140,7 +140,7 @@ onMounted(async () => {
 
   try {
     // request.ts 拦截器已解包 AxiosResponse.data，类型断言拿后端字段
-    const res = (await authApi.checkAuthorize({
+    const res = (await authorizeApi.checkAuthorize({
       client_id: route.query.client_id,
       redirect_uri: route.query.redirect_uri,
       response_type: route.query.response_type || 'code',

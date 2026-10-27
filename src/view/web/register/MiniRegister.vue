@@ -8,7 +8,7 @@
  *
  * @author yijiu2025
  */
-import { authApi } from '@/api/auth';
+import { registerApi } from '@/api';
 import { useForm } from 'vee-validate';
 import { z } from 'zod';
 import { toTypedSchema } from '@vee-validate/zod';
@@ -193,7 +193,7 @@ const checkEmail = async () => {
   const queriedEmail = values.email;
   isEmailChecking.value = true;
   try {
-    const res = (await authApi.checkEmail(queriedEmail)) as unknown as { isDuplicate?: boolean };
+    const res = (await registerApi.checkEmail(queriedEmail)) as unknown as { isDuplicate?: boolean };
     if (values.email !== queriedEmail) return;
     isEmailDuplicate.value = !!res?.isDuplicate;
   } catch (err) {
@@ -273,7 +273,7 @@ const handleRegister = handleSubmit(async data => {
       ? await withTimeout(getCaptchaToken(), RECAPTCHA_TIMEOUT, 'getCaptchaToken')
       : null;
 
-    await authApi.register({
+    await registerApi.register({
       ...submitData,
       password: encryptedPassword,
       kid: getCachedKid(),

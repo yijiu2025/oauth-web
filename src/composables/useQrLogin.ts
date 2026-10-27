@@ -4,7 +4,7 @@
  * 统一封装"生成二维码 + 轮询扫码状态 + 确认后回调"流程，
  * 替代 StandardLogin/MiniLogin 两份重复实现。
  *
- * 流程：generate() → 调 authApi.generateQR 拿 qrKey + 生成二维码图片
+ * 流程：generate() → 调 qrApi.generateQR 拿 qrKey + 生成二维码图片
  *       → startPolling 每 2s 查状态 → CONFIRMED 调 onSuccess(res)
  *       → EXPIRED/ERROR 标记过期
  *
@@ -16,7 +16,7 @@
  */
 import { ref, onUnmounted } from 'vue';
 import QRCode from 'qrcode';
-import { authApi } from '@/api/auth';
+import { qrApi } from '@/api';
 import { parseQrStatus, qrGenerateSchema } from '@/types/external';
 import type { QrStatusResponse } from '@/types/external';
 
@@ -36,7 +36,7 @@ export function useQrLogin(
     try {
       // scope 不前端传（app 属性，后端从 client_id 查）；
       // H5 签名（timestamp/nonce/device_id/sign）由 request 拦截器自动注入
-      const raw: unknown = await authApi.generateQR({
+      const raw: unknown = await qrApi.generateQR({
         client_id: clientId()
       });
       // zod 校验：qrKey 缺失（后端改字段）直接落到 catch，不静默生成空二维码
@@ -55,7 +55,7 @@ export function useQrLogin(
     pollTimer = setInterval(async () => {
       if (!qrKey.value) return;
       try {
-        const raw: unknown = await authApi.checkQRStatus(qrKey.value);
+        const raw: unknown = await qrApi.checkQRStatus(qrKey.value);
         const res = parseQrStatus(raw);
         if (!res) return; // 解析失败按「未确认」继续轮询
         // 兼容 JWT（accessToken）与 Session（session_token）+ 状态字段

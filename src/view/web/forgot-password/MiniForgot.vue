@@ -14,7 +14,7 @@ import { useI18n } from 'vue-i18n';
 import { useForm } from 'vee-validate';
 import { z } from 'zod';
 import { toTypedSchema } from '@vee-validate/zod';
-import { authApi } from '@/api/auth';
+import { passwordApi } from '@/api';
 import GraphicCaptcha from '@/components/common/GraphicCaptcha.vue';
 import MessageToast from '@/components/common/MessageToast.vue';
 import { useMessage } from '@/composables/useMessage';
@@ -155,7 +155,7 @@ const requestEmailAction = async (purpose: 'send' | 'resend' = 'send') => {
 /** 图形码通过后发送重置链接（link 模式） */
 const executeSendLink = async () => {
   try {
-    await authApi.sendResetLink(values.email as string, captchaKey.value);
+    await passwordApi.sendResetLink(values.email as string, captchaKey.value);
     showSuccess(t('forgot.link_sent'));
     linkStep.value = 'sent';
     startCountdown(60);
@@ -184,10 +184,10 @@ const submitReset = async () => {
   try {
     const encryptedPassword = await rsaEncrypt(values.password as string);
     if (isLinkMode) {
-      await authApi.resetPasswordByLink(linkToken.value, encryptedPassword, getCachedKid());
+      await passwordApi.resetPasswordByLink(linkToken.value, encryptedPassword, getCachedKid());
       linkStep.value = 'done';
     } else {
-      await authApi.resetPassword(
+      await passwordApi.resetPassword(
         values.email as string,
         values.code as string,
         encryptedPassword,

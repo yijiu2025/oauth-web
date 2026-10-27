@@ -16,7 +16,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { authApi } from '@/api/auth';
+import { authorizeApi, loginApi } from '@/api';
 import { postToParent } from '@/utils/parent';
 import { sanitizeLocalRedirect, sanitizeExternalRedirect } from '@/utils/redirect';
 import { useDeviceDetect } from '@/device';
@@ -117,7 +117,7 @@ const approve = async () => {
   submitting.value = true;
   try {
     if (isAuthorizeFlow.value) {
-      const res: unknown = await authApi.authorizeConsent({
+      const res: unknown = await authorizeApi.authorizeConsent({
         sessionId: sessionId.value,
         user_id: userId.value,
         action: 'approve'
@@ -126,7 +126,7 @@ const approve = async () => {
       if (redirectUrl) window.location.href = redirectUrl;
       else showError(t('auth.redirect_missing'));
     } else {
-      const res = await authApi.confirmConsent(consentKey.value);
+      const res = await loginApi.confirmConsent(consentKey.value);
       finishLoginConsent(res);
     }
   } catch (err: unknown) {
@@ -143,7 +143,7 @@ const deny = async () => {
   submitting.value = true;
   try {
     if (isAuthorizeFlow.value) {
-      const res: unknown = await authApi.authorizeConsent({
+      const res: unknown = await authorizeApi.authorizeConsent({
         sessionId: sessionId.value,
         user_id: userId.value,
         action: 'deny'

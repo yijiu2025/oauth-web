@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { authApi } from '@/api/auth';
+import { captchaApi } from '@/api';
 import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { useThemeStore } from '@/stores/theme';
 
@@ -44,7 +44,7 @@ const generateCaptcha = async () => {
   try {
     // request.ts 拦截器已解包 AxiosResponse.data，但 axios 类型签名仍是 AxiosResponse，
     // 这里用类型断言拿到真实 data 形状（captchaImage + captchaKey）
-    const res = (await authApi.getCaptcha()) as unknown as { captchaImage: string; captchaKey: string };
+    const res = (await captchaApi.getCaptcha()) as unknown as { captchaImage: string; captchaKey: string };
     captchaImage.value = res.captchaImage;
     captchaKey.value = res.captchaKey;
     userInput.value = '';
@@ -69,7 +69,7 @@ const handleVerify = async () => {
     // sendEmail=false（密码登录）：不传 email，verify-captcha 只校验图形码不消费不发码
     // sendEmail=true（邮箱码登录/注册）：传 email，端点校验图形码 + 发邮箱码 + 消费图形码
     const email = props.sendEmail ? props.email : undefined;
-    await authApi.verifyCaptcha(captchaKey.value, userInput.value, email, props.type);
+    await captchaApi.verifyCaptcha(captchaKey.value, userInput.value, email, props.type);
     emit('success', { captchaKey: captchaKey.value });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '验证失败';

@@ -35,7 +35,7 @@
  *
  * @author yijiu2025
  */
-import { authApi } from '@/api/auth';
+import { registerApi } from '@/api';
 import { useForm } from 'vee-validate';
 import { z } from 'zod';
 import { toTypedSchema } from '@vee-validate/zod';
@@ -172,7 +172,7 @@ const checkEmail = async () => {
   isEmailChecking.value = true;
   try {
     // request.ts 拦截器已解包 AxiosResponse.data，类型断言拿 isDuplicate 字段
-    const res = (await authApi.checkEmail(queriedEmail)) as unknown as { isDuplicate?: boolean };
+    const res = (await registerApi.checkEmail(queriedEmail)) as unknown as { isDuplicate?: boolean };
     if (values.email !== queriedEmail) return;
     isEmailDuplicate.value = !!res?.isDuplicate;
   } catch {
@@ -260,7 +260,7 @@ const handleRegister = handleSubmit(async data => {
     const recaptchaToken = recaptchaEnabled
       ? await withTimeout(getCaptchaToken(), RECAPTCHA_TIMEOUT, 'getCaptchaToken')
       : null;
-    await authApi.register({
+    await registerApi.register({
       ...submitData,
       password: encryptedPassword,
       kid: getCachedKid(),

@@ -11,7 +11,7 @@
  * 后续可扩展：记录拖动轨迹发后端分析（人类拖动有微小抖动，机器人匀速）。
  */
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { authApi } from '@/api/auth';
+import { loginApi } from '@/api';
 
 const props = defineProps({
   isOpen: Boolean,
@@ -105,7 +105,7 @@ const handleVerify = async () => {
   }
   isVerifying.value = true;
   try {
-    await authApi.verifyChallenge(props.verifyToken);
+    await loginApi.verifyChallenge(props.verifyToken);
     isMoving.value = false;
     isSuccess.value = true;
     // 滑块变绿停留 500ms，让用户看到成功反馈，再通知调用方重发原请求

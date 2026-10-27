@@ -18,7 +18,7 @@
  * @since 2026-08-26
  */
 import { ref } from 'vue';
-import { authApi } from '@/api/auth';
+import { loginApi } from '@/api';
 import { useAuthStore } from '@/stores/auth';
 import { postToParent } from '@/utils/parent';
 import { sanitizeLocalRedirect } from '@/utils/redirect';
@@ -127,7 +127,7 @@ export function useLoginFlow(opts: UseLoginFlowOptions) {
   async function executeLogin() {
     try {
       // values() 由各版式表单提供（含 type/username/password/code 等），
-      // 形状是 Record<string, unknown>；authApi.login 同口径接收后按需解构 + 加密。
+      // 形状是 Record<string, unknown>；loginApi.login 同口径接收后按需解构 + 加密。
       const loginPayload: Record<string, unknown> = {
         ...values(),
         keepLogin: keepLogin(),
@@ -191,7 +191,7 @@ export function useLoginFlow(opts: UseLoginFlowOptions) {
     if (!consentState.value) return;
     submittingConsent.value = true;
     try {
-      const raw: unknown = await authApi.confirmConsent(consentState.value.consentKey);
+      const raw: unknown = await loginApi.confirmConsent(consentState.value.consentKey);
       showConsent.value = false;
       consentState.value = null;
       const parsed = parseLoginResponse(raw);
@@ -207,7 +207,7 @@ export function useLoginFlow(opts: UseLoginFlowOptions) {
   async function sendEmailVerifyCode() {
     if (!emailVerifyState.value?.verifyToken || emailVerifyCountdown.active.value) return;
     try {
-      await authApi.sendLoginVerifyCode(emailVerifyState.value.verifyToken);
+      await loginApi.sendLoginVerifyCode(emailVerifyState.value.verifyToken);
       emailVerifyCountdown.start(60);
       showError('验证码已重新发送至邮箱');
     } catch (err: unknown) {
@@ -224,7 +224,7 @@ export function useLoginFlow(opts: UseLoginFlowOptions) {
       return;
     }
     try {
-      const raw: unknown = await authApi.verifyEmailLogin(
+      const raw: unknown = await loginApi.verifyEmailLogin(
         emailVerifyState.value.verifyToken,
         emailVerifyCode.value
       );
