@@ -18,7 +18,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { authApi } from '@/api/auth';
 import { postToParent } from '@/utils/parent';
-import { sanitizeLocalRedirect } from '@/utils/redirect';
+import { sanitizeLocalRedirect, sanitizeExternalRedirect } from '@/utils/redirect';
 import { useDeviceDetect } from '@/device';
 import { useMessage } from '@/composables/useMessage';
 import { pickRedirectUrl } from '@/types/external';
@@ -119,7 +119,7 @@ const approve = async () => {
         user_id: userId.value,
         action: 'approve'
       });
-      const redirectUrl = pickRedirectUrl(res);
+      const redirectUrl = sanitizeExternalRedirect(pickRedirectUrl(res));
       if (redirectUrl) window.location.href = redirectUrl;
       else showError(t('auth.redirect_missing'));
     } else {
@@ -145,7 +145,7 @@ const deny = async () => {
         user_id: userId.value,
         action: 'deny'
       });
-      const redirectUrl = pickRedirectUrl(res);
+      const redirectUrl = sanitizeExternalRedirect(pickRedirectUrl(res));
       if (redirectUrl) {
         window.location.href = redirectUrl;
         return;

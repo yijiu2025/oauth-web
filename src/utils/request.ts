@@ -69,8 +69,20 @@ service.interceptors.request.use(
         config.headers['X-Nonce'] = nonce;
 
         // 同步注入 query 参数（像抖音 x-signature 那样拼 URL 后面）
-        const sep = config.url.includes('?') ? '&' : '?';
-        config.url = `${config.url}${sep}x-sign=${clientSign}&x-timestamp=${timestamp}&x-nonce=${nonce}&x-device-id=${encodeURIComponent(deviceId)}`;
+        // 🔴 先剥离旧的签名参数再写入：风险验证通过后 handleRiskBlock 会用
+        //    service(res.config) 重发原请求，而 config.url 已被上一轮改写 ——
+        //    不剥直接拼会让 x-sign/x-timestamp/x-nonce/x-device-id 重复堆叠，
+        //    后端从 query 取签名时可能读到旧值（验签失败）。
+        const SIGN_QUERY_KEYS = ['x-sign', 'x-timestamp', 'x-nonce', 'x-device-id'];
+        const [pathPart, queryPart = ''] = config.url.split('?');
+        const signParams = new URLSearchParams(queryPart);
+        for (const key of SIGN_QUERY_KEYS) signParams.delete(key);
+        signParams.set('x-sign', clientSign);
+        signParams.set('x-timestamp', String(timestamp));
+        signParams.set('x-nonce', nonce);
+        signParams.set('x-device-id', deviceId);
+        const qs = signParams.toString();
+        config.url = qs ? `${pathPart}?${qs}` : pathPart;
       }
     }
 

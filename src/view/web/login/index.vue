@@ -16,8 +16,6 @@
  */
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { useAntiCache } from '@/composables/useAntiCache';
-import AntiCacheDebugPanel from '@/components/common/AntiCacheDebugPanel.vue';
 import { postToParent } from '@/utils/parent';
 import { device } from '@/view/devices';
 
@@ -26,22 +24,11 @@ const route = useRoute();
 /** 父应用是否禁用 SSO_READY 消息（`?notLoadSsoView=true`） */
 const notLoadSsoView = ref(false);
 
-// 使用防缓存功能
-const { rnd, debugInfo } = useAntiCache({
-  autoRefresh: true,
-  refreshInterval: 5 * 60 * 1000, // 5分钟刷新一次
-  enableDebug: false
-});
-
-// 调试面板显示状态：由 enableDebug 间接控制（debugInfo 为 undefined 时不显示）
-const showDebugPanel = ref(!!debugInfo);
-
 // 只保留本分发器真正要用的 query 参数；lang/theme/appName 等由子容器自己读 route.query。
 watch(
   () => route.query,
   query => {
     notLoadSsoView.value = query.notLoadSsoView === 'true';
-    rnd.value = (query.rnd as string) || '';
   },
   { immediate: true, deep: true }
 );
@@ -60,12 +47,6 @@ onMounted(() => {
   }
 });
 
-// 调试面板关闭事件处理
-const onDebugPanelClose = () => {
-  showDebugPanel.value = false;
-  console.warn('防缓存调试面板已关闭');
-};
-
 // 是否发送 SSO 消息给父窗口
 const shouldSendSSOMessage = computed(() => {
   return !notLoadSsoView.value && window.parent && window.parent !== window;
@@ -74,13 +55,6 @@ const shouldSendSSOMessage = computed(() => {
 
 <template>
   <div class="login-dispatcher-wrapper">
-    <!-- 调试信息面板 -->
-    <AntiCacheDebugPanel
-      :visible="showDebugPanel"
-      :refresh-interval="5 * 60 * 1000"
-      @update:visible="onDebugPanelClose"
-    />
-
     <!-- 注意：不要用 <transition mode="out-in"> 包 <component :is>。
          自动识别窄屏会在页面挂载后中途切换异步组件，out-in 与异步组件/多根节点
          组合会导致 leave 后新组件不挂载（白屏）。设备切换不需要动画，直接渲染。 -->

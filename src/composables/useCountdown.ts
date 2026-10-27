@@ -37,9 +37,13 @@ export function useCountdown(initialSeconds = 60): UseCountdownReturn {
     clear();
     remaining.value = seconds;
     active.value = true;
+    // 基于目标时间戳算差值，而非每秒递减：浏览器对后台标签页的 setInterval
+    // 会节流，递减式倒计时在切后台再切回后会明显走慢（60s 可能只过了 30s）。
+    const deadline = Date.now() + seconds * 1000;
     timer = setInterval(() => {
-      remaining.value--;
-      if (remaining.value <= 0) {
+      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      remaining.value = left;
+      if (left <= 0) {
         clear();
         active.value = false;
       }

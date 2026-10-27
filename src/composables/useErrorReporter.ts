@@ -63,7 +63,7 @@ export async function reportError(err: unknown, info?: string): Promise<void> {
   }
 }
 
-/** SHA-256 摘要（不依赖 crypto.subtle，兼容性更好） */
+/** SHA-256 摘要（crypto.subtle；不可用/异常时兜底取前 16 字符） */
 async function digestMessage(msg: string): Promise<string> {
   try {
     const buf = new TextEncoder().encode(msg);

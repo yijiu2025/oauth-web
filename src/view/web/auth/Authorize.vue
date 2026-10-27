@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import { authApi } from '@/api/auth';
 import { isMobileViewport, useDeviceDetect } from '@/device';
 import { pickRedirectUrl } from '@/types/external';
+import { sanitizeExternalRedirect } from '@/utils/redirect';
 import MessageToast from '@/components/common/MessageToast.vue';
 import { useMessage } from '@/composables/useMessage';
 
@@ -78,7 +79,7 @@ const handleApprove = async () => {
       user_id: userId.value,
       action: 'approve'
     });
-    const redirectUrl = pickRedirectUrl(res);
+    const redirectUrl = sanitizeExternalRedirect(pickRedirectUrl(res));
     if (redirectUrl) {
       window.location.href = redirectUrl;
     } else {
@@ -103,7 +104,7 @@ const handleDeny = async () => {
       user_id: userId.value,
       action: 'deny'
     })) as unknown as { redirect_url?: string; data?: { redirect_url?: string } };
-    const redirectUrl = pickRedirectUrl(res);
+    const redirectUrl = sanitizeExternalRedirect(pickRedirectUrl(res));
     if (redirectUrl) {
       window.location.href = redirectUrl;
     } else {

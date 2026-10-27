@@ -217,8 +217,10 @@ export function useLoginFlow(opts: UseLoginFlowOptions) {
 
   /** 提交邮箱二次验证码 */
   async function submitEmailVerify() {
-    if (!emailVerifyState.value || emailVerifyCode.value.length < 4) {
-      showError('请输入4位验证码');
+    // 与注册页同口径：邮箱验证码为 6 位数字（主题版式输入框 maxlength=6，
+    // auth.ts 的 RegisterPayload 注释也声明「6 位数字」）—— 这里不能只验 >=4
+    if (!emailVerifyState.value || !/^\d{6}$/.test(emailVerifyCode.value)) {
+      showError('请输入6位验证码');
       return;
     }
     try {

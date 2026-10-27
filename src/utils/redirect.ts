@@ -20,3 +20,23 @@ export function sanitizeLocalRedirect(raw: unknown): string | null {
   if (raw.includes('://')) return null;
   return raw;
 }
+
+/**
+ * 外域重定向白名单校验（OAuth 授权完成后的 `redirect_url`）
+ *
+ * 与 `sanitizeLocalRedirect` 互补：这里只放行**绝对 http(s) URL**（授权回调必须落到
+ * 客户端注册的回调域）。后端已按注册值校验过 redirect_uri，但前端这层是纵深防御 ——
+ * 若后端因配置错误 / 被入侵返回 `javascript:` / `data:` 等 scheme，直接
+ * `window.location.href = url` 会执行它们。取不到或非法一律返回 null，由调用方报错。
+ */
+export function sanitizeExternalRedirect(raw: unknown): string | null {
+  if (typeof raw !== 'string' || !raw) return null;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+  return raw;
+}
