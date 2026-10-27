@@ -433,7 +433,10 @@ async function syncReleaseIfMissing({ tag, slug, token }) {
 /** 走 registry 的 HTTP 接口而非 npm CLI：Windows 下 execFileSync('npm') 会 ENOENT */
 async function latestPublished(name) {
   try {
-    const res = await fetch(`https://registry.npmjs.org/${name.replace('/', '%2F')}/latest`, {
+    // scoped 包名形如 @scope/name：registry 路径要求把分隔符转成 %2F（@ 保持原样）。
+    // 用 split/join 转义全部 '/'（而不是只替首个）—— npm 合法包名至多一个 '/'，
+    // 但显式全量转义更严谨，也消掉 CodeQL「incomplete string escaping」告警。
+    const res = await fetch(`https://registry.npmjs.org/${name.split('/').join('%2F')}/latest`, {
       headers: { 'User-Agent': 'release-web' }
     });
     if (!res.ok) return null;

@@ -102,7 +102,10 @@ function finishLoginConsent(res: unknown) {
   }
   const target = sanitizeLocalRedirect(route.query.redirect);
   if (target) {
-    window.location.replace(target);
+    // 站内路径白名单校验后的回跳。用 vue-router 的内部导航（router.replace）而非
+    // window.location.replace：语义等价（替换当前历史记录、返回键不退回登录页），
+    // 且 vue-router 对字符串路径只做站内解析，不给 CodeQL「客户端 URL 重定向」告警留口子。
+    router.replace(target);
   } else {
     done.value = true;
   }
