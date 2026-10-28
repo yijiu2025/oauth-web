@@ -483,15 +483,15 @@ docker push ghcr.io/<owner>/oauth-web:latest
 **GHCR + Docker Hub** 两个仓库。发新版只需两条命令，无需本机装 Docker、无需手动敲构建/推送：
 
 ```bash
-git tag v1.1.1 && git push origin v1.1.1
+git tag v1.1.2 && git push origin v1.1.2
 ```
 
-实际镜像地址（2026-10-28 跑通 `v1.1.1`）：
+实际镜像地址（最新 `v1.1.2`，2026-10-28 跑通）：
 
 | 仓库 | 镜像 | 说明 |
 | --- | --- | --- |
-| Docker Hub | `docker.io/qirly/oauth-web:1.1.1` / `:latest` | ✅ 公开，匿名可 pull |
-| GHCR | `ghcr.io/yijiu2025/oauth-web:1.1.1` / `:latest` | 已推送，但默认 private（见下方说明） |
+| Docker Hub | `docker.io/qirly/oauth-web:1.1.2` / `:latest` | ✅ 公开，匿名可 pull |
+| GHCR | `ghcr.io/yijiu2025/oauth-web:1.1.2` / `:latest` | ✅ 已设为 public，匿名可 pull（设置方式见下方说明） |
 
 workflow 用 `secrets.GITHUB_TOKEN` 免密钥推 GHCR（`packages: write` 权限），Docker Hub 走仓库
 secrets `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`。**需在仓库 Settings → Secrets and variables →
@@ -543,7 +543,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -560,11 +560,12 @@ jobs:
 
 > - **`SIGN_APP_KEY` 必须配**：否则镜像里会是仓库的占位值 `coreflow-sign-key-2026-change-me`，
 >   签名对不上后端，所有请求 401/403。真实值只在 CI secrets 里，不进 git、不进镜像明文仓库。
-> - **GHCR 默认 private**：`ghcr.io/yijiu2025/oauth-web` 推上去后是私有包，匿名 `docker pull` 会 401。
->   要公开：GitHub 头像 → Packages → `oauth-web` → Package settings → Change visibility → Public。
->   只想自己用就保持 private，拉取前 `docker login ghcr.io` 即可。
-> - **版本号与 tag 同步**：`docker/metadata-action` 用 `type=semver,pattern={{version}}` 从 `v1.1.1`
->   生成 `1.1.1` 镜像 tag，所以 `git tag` 的版本要和 `package.json` 的 `version` 一致（本仓发版
+> - **GHCR 默认 private**：`ghcr.io/yijiu2025/oauth-web` 推上去后默认是私有包，匿名 `docker pull` 会 401。
+>   本仓已将其设为 public，匿名可 pull。设置/改回方式：GitHub 头像 → Packages → `oauth-web` →
+>   Package settings → Change visibility → Public / Private。
+>   若要保持 private，拉取前先 `docker login ghcr.io` 即可。
+> - **版本号与 tag 同步**：`docker/metadata-action` 用 `type=semver,pattern={{version}}` 从 `v1.1.2`
+>   生成 `1.1.2` 镜像 tag，所以 `git tag` 的版本要和 `package.json` 的 `version` 一致（本仓发版
 >   流程 `scripts/release.mjs` 已保证这一点）。
 
 ##### 4) 公共库的安全注意
