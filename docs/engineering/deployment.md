@@ -102,8 +102,8 @@ npm run doctor        # 检查 node/npm 版本、依赖、env 文件、端口、
 | `VITE_TURNSTILE_ENABLED` | `false` | 用 Cloudflare Turnstile 才设 `true`（与 hCaptcha 二选一，Turnstile 优先） |
 | `VITE_TURNSTILE_SITE_KEY` | 空 | 启用 Turnstile 时填 |
 | `VITE_PASSWORD_RESET_MODE` | `code` | 🔴 必须与后端 `PASSWORD_RESET_MODE` 一致（`code` 验证码 / `link` 邮件链接） |
-| `VITE_SOCIAL_ENDPOINT` | 空 | 第三方登录授权端点，**只接受站内相对路径**（如 `/api/oauth/social/authorize`） |
-| `VITE_SOCIAL_PROVIDERS` | 空 | 默认展示的 provider：`wechat,alipay,qq,weibo,github,apple` 子集 |
+| `VITE_SOCIAL_ENDPOINT` | 空 | 第三方登录授权端点，**只接受站内相对路径**（`/` 开头且非 `//`，如 `/api/oauth/social/authorize`）。刻意不支持绝对地址，见 [2.4 第三方登录接入](#24-第三方登录社交登录接入详解) |
+| `VITE_SOCIAL_PROVIDERS` | 空 | 默认展示的 provider：`wechat,alipay,qq,weibo,github,apple` 子集，逗号分隔；留空 = 登录页不渲染第三方登录行。见 [2.4](#24-第三方登录社交登录接入详解) |
 | `VITE_ALLOWED_PARENT_ORIGINS` | 空（dev 回落 localhost） | 🔴 **生产必填**，iframe SSO 父应用 origin 白名单，逗号分隔。**显式空串 = 拒绝一切**（不回落到 dev 值） |
 | `VITE_SIGN_APP_KEY` | 空 | 🔴 必须与后端 `SIGN_APP_KEY` 一致，H5 签名（弱防爬） |
 | `VITE_THEME_ENDPOINT` | 空 | 后端主题下发端点（`GET {端点}?client_id=...`），不配 = 机制不生效 |
@@ -119,6 +119,148 @@ VITE_ALLOWED_PARENT_ORIGINS=https://app.example.com
 VITE_SIGN_APP_KEY=<与后端 SIGN_APP_KEY 相同的值>
 VITE_PASSWORD_RESET_MODE=code   # 与后端一致
 ```
+
+### 2.4 第三方登录（社交登录）接入详解
+
+> 这一节回答「`VITE_SOCIAL_ENDPOINT` 是干啥的」以及「三方登录真实使用怎么处理」。
+
+#### 先说清楚现状：前端目前**没有**第三方登录的后端实现
+
+`src/api/` 里没有任何社交登录端点（微信/支付宝的授权、换取用户信息都在**后端**）。
+所以前端这一整套（`useSocialLogin` composable + `MauthSocialRow` 组件）只做**两件事**：
+
+1. 算出「这次要显示哪几个 provider」；
+2. 把用户的点击交给真正能处理它的地方——**配置好的授权端点**，或**父应用**。
+
+「没有后端却渲染一排点了没反应的图标，比不显示更糟」是这套设计的出发点。
+
+#### `VITE_SOCIAL_ENDPOINT` 是干啥的
+
+它是**前端点击社交图标后要跳转去的「授权入口」地址**。用户点了微信图标，前端就拼出
+`<endpoint>?provider=wechat&client_id=xxx&redirect_uri=<当前页URL>` 然后 `location.href` 跳过去，
+剩下「唤起微信授权、换 code、换 token、建 session」全由这个端点（后端）负责。
+
+**为什么刻意不支持绝对地址（`https://…` / `//host/x`）**：
+
+```
+VITE_SOCIAL_ENDPOINT=/api/oauth/social/authorize   ✅ 合法（站内相对路径）
+VITE_SOCIAL_ENDPOINT=//evil.com/x                  ❌ 拒绝（协议相对 = 外域绝对地址）
+VITE_SOCIAL_ENDPOINT=https://evil.com/x            ❌ 拒绝（外域）
+VITE_SOCIAL_ENDPOINT=javascript:alert(1)           ❌ 拒绝（不是 / 开头）
+```
+
+授权端点是「跳转目标」——一旦能由外部（父应用注入或配置）指定成任意外域，
+**「把用户送去任意外域」就从漏洞变成了配置问题**，而配置总会被写错。所以代码里用
+`isSafeEndpoint()`（`/` 开头且非 `//`）硬约束，不合法就置空，走「未配置」分支。
+真正要跨域接第三方，应该让**后端**那个授权端点（同源）去负责 302 跳转到微信/支付宝，前端始终只跳同源入口。
+
+#### `VITE_SOCIAL_PROVIDERS` 怎么用
+
+它决定登录页**默认渲染哪几个** provider，取值为 `wechat,alipay,qq,weibo,github,apple`
+（这是 `SocialProviderId` 封闭联合的全集）的任意子集，逗号分隔：
+
+```
+VITE_SOCIAL_PROVIDERS=wechat,qq        # 只显示微信 + QQ
+VITE_SOCIAL_PROVIDERS=wechat,alipay,qq,weibo,github,apple   # 全部
+VITE_SOCIAL_PROVIDERS=                 # 留空 → 登录页不渲染第三方登录行（默认外观零变化）
+```
+
+**provider 列表的优先级（由高到低）**，`useSocialLogin` 按此顺序取值：
+
+| 优先级 | 来源 | 用途 |
+| --- | --- | --- |
+| 1 | URL `?social=wechat,qq` | 单次会话 / 联调最方便 |
+| 2 | 父应用注入 `window.__MAUTH_SOCIAL_PROVIDERS__` | iframe 嵌入方统一下发 |
+| 3 | 构建期 `VITE_SOCIAL_PROVIDERS` | 部署默认值 |
+
+三个来源都只做**精确匹配白名单**：`__evil__`、`wx`、`wechat/../x`、空串一律丢弃，
+因为 provider id 最终会被拼进跳转 URL，不校验就等于让 URL 决定去哪儿。最多显示 6 个。
+
+同理，授权端点也有父应用注入通道 `window.__MAUTH_SOCIAL_ENDPOINT__`（优先级高于 env），
+两者都必须过 `isSafeEndpoint()` 校验。
+
+#### 真实使用时，三方登录的完整链路
+
+前端 + 后端 + 第三方平台三方协作，前端这一环**只负责「把用户带过去 + 记住选择」**：
+
+```
+① 用户点微信图标
+   └─ 前端 startLogin('wechat')：拼 endpoint?provider=wechat&client_id=..&redirect_uri=..
+② 跳转到 VITE_SOCIAL_ENDPOINT（后端同源授权入口）
+   └─ 后端校验 client_id / redirect_uri，302 跳到微信开放平台授权页
+③ 用户在微信授权页确认
+   └─ 微信回调后端，后端换 code → access_token → openid，建 session / 发 token
+④ 后端 302 回 redirect_uri（前端登录页，带 lastLogin=wechat 等参数）
+   └─ 前端 rememberProvider('wechat')，下次该图标显示「上次登录」徽标
+```
+
+**三种「点击后行为」分支**（`startLogin` 的返回值）：
+
+| 分支 | 触发条件 | 行为 |
+| --- | --- | --- |
+| `redirected` | 配了合法 `VITE_SOCIAL_ENDPOINT` | 直接 `location.href` 跳到授权端点 |
+| `notified` | iframe 嵌入且**没配**端点 | `postToParent({ type: 'SOCIAL_LOGIN', ... })` 交给父应用（父应用自己知道跳哪）；父 origin 必须过 `VITE_ALLOWED_PARENT_ORIGINS` 白名单 |
+| `unconfigured` | 全屏直连且没配端点 | 明确提示「尚未配置授权地址」，**不静默失败** |
+
+**上线前你需要做的**（前端侧）：
+
+1. 后端先实现同源授权端点（如 `/api/oauth/social/authorize`），处理 `provider` / `client_id` / `redirect_uri` 三个入参；
+2. 把该端点路径填进 `VITE_SOCIAL_ENDPOINT`（站内相对路径）；
+3. 把要开放的渠道填进 `VITE_SOCIAL_PROVIDERS`；
+4. 图标目前是**符号化功能图形**（stroke 风格），不是官方 logo——正式上线需替换成对应平台的**授权素材**（避免品牌合规问题），替换 `<svg>` 节点即可，颜色/尺寸由 `--mauth-social-ink-<id>` / `--mauth-social-size` 控制。
+
+### 2.5 shell 环境变量怎么用（构建期注入）
+
+Vite 的 `VITE_*` 变量是**构建期静态替换**（不是运行期读的）。所以「注入」发生在 `npm run build`
+那一刻，shell 里 export 的值会被 Vite 读进去。
+
+#### 优先级（见 2.1）
+
+**shell 环境变量 > `.env.production.local` > `.env.production` > `.env`**。
+即：构建时 shell 里 `export VITE_XXX=yyy` 会**覆盖**同名 `.env` 文件里的值。
+
+#### Linux / macOS（bash / zsh）
+
+```bash
+# 方式一：临时注入（只对本次构建生效，最干净）
+VITE_SIGN_APP_KEY=xxx \
+VITE_ALLOWED_PARENT_ORIGINS=https://app.example.com \
+VITE_SOCIAL_PROVIDERS=wechat,qq \
+npm run build
+
+# 方式二：先 export 再构建
+export VITE_SIGN_APP_KEY=xxx
+export VITE_ALLOWED_PARENT_ORIGINS=https://app.example.com
+npm run build
+```
+
+#### Windows（PowerShell / Git Bash）
+
+```powershell
+# PowerShell：用 $env: 注入
+$env:VITE_SIGN_APP_KEY = "xxx"
+$env:VITE_ALLOWED_PARENT_ORIGINS = "https://app.example.com"
+npm run build
+```
+
+```bash
+# Git Bash：与 Linux 一样
+VITE_SIGN_APP_KEY=xxx VITE_ALLOWED_PARENT_ORIGINS=https://app.example.com npm run build
+```
+
+#### CI（GitHub Actions）里的写法
+
+```yaml
+- name: Build
+  env:
+    VITE_SIGN_APP_KEY: ${{ secrets.SIGN_APP_KEY }}
+    VITE_ALLOWED_PARENT_ORIGINS: https://app.example.com
+    VITE_SOCIAL_PROVIDERS: wechat,qq
+  run: npm run build
+```
+
+> ⚠️ 变量名**必须以 `VITE_` 前缀**才会被注入到客户端代码；没有前缀的 shell 变量 Vite 默认忽略
+> （除非在 `vite.config.ts` 里显式声明 `envPrefix`）。这一点对所有 12 个变量都成立。
 
 ---
 
@@ -263,9 +405,13 @@ COPY . .
 ARG VITE_API_BASE_URL=""
 ARG VITE_ALLOWED_PARENT_ORIGINS=""
 ARG VITE_SIGN_APP_KEY=""
+ARG VITE_SOCIAL_ENDPOINT=""
+ARG VITE_SOCIAL_PROVIDERS=""
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_ALLOWED_PARENT_ORIGINS=$VITE_ALLOWED_PARENT_ORIGINS \
-    VITE_SIGN_APP_KEY=$VITE_SIGN_APP_KEY
+    VITE_SIGN_APP_KEY=$VITE_SIGN_APP_KEY \
+    VITE_SOCIAL_ENDPOINT=$VITE_SOCIAL_ENDPOINT \
+    VITE_SOCIAL_PROVIDERS=$VITE_SOCIAL_PROVIDERS
 RUN npm run build
 
 FROM nginx:1.27-alpine
@@ -277,9 +423,131 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 docker build \
   --build-arg VITE_ALLOWED_PARENT_ORIGINS=https://app.example.com \
   --build-arg VITE_SIGN_APP_KEY=xxx \
+  --build-arg VITE_SOCIAL_ENDPOINT=/api/oauth/social/authorize \
+  --build-arg VITE_SOCIAL_PROVIDERS=wechat,qq \
   -t oauth-web:latest .
 docker run -d -p 8080:80 oauth-web:latest
 ```
+
+> 🔴 **Docker 与 lockfile**：本仓 `npm ci` 依赖已入库的 lockfile，但主仓 workspace 形态下根 lock
+> 会记录 `link:` 软链（见 memory 里「后端三 job 用 `--no-package-lock`」的坑）。单仓 clone 出来的
+> oauth-web 是普通形态，`npm ci` 正常。若你在 monorepo 里构建，注意 `--workspaces=false` 只装本包。
+
+#### 方式 D.1：上传到公共 Docker 库（Docker Hub / GHCR）
+
+**为什么要传公共库**：让服务器 / CI / 协作者直接 `docker pull` 现成镜像，而不是每台机器各自
+跑一遍 `npm ci + build`（慢、且构建环境漂移）。
+
+**两个主流目标**：
+
+| 目标 | 地址格式 | 说明 |
+| --- | --- | --- |
+| Docker Hub | `docker.io/<用户名>/<镜像名>:<tag>` | 最通用，公开仓库可匿名 pull |
+| GitHub Container Registry (GHCR) | `ghcr.io/<owner>/<镜像名>:<tag>` | 与 GitHub 生态贴合，支持 OIDC 无密钥推送 |
+
+##### 1) 推到 Docker Hub
+
+```bash
+# ① 登录（首次交互式输入账号密码 / token）
+docker login
+# 或显式指定：
+docker login -u <你的DockerHub用户名>
+
+# ② 构建时直接打上目标 tag（含用户名前缀）
+docker build \
+  --build-arg VITE_ALLOWED_PARENT_ORIGINS=https://app.example.com \
+  --build-arg VITE_SIGN_APP_KEY=xxx \
+  -t <用户名>/oauth-web:1.0.0 \
+  -t <用户名>/oauth-web:latest \
+  .
+
+# ③ 推送
+docker push <用户名>/oauth-web:1.0.0
+docker push <用户名>/oauth-web:latest
+
+# ④ 别处拉取
+docker pull <用户名>/oauth-web:latest
+docker run -d -p 8080:80 <用户名>/oauth-web:latest
+```
+
+**命名约定**：Docker Hub 的镜像名必须是 `<用户名>/<镜像名>`（不带头 `library/` 默认走官方仓库）。
+`latest` 只是约定 tag，不代表真最新，生产建议打**语义化版本 tag**（如 `1.0.0`）。
+
+##### 2) 推到 GHCR（GitHub Container Registry）
+
+```bash
+# ① 登录 GHCR（用 GitHub Personal Access Token，权限勾 read:packages + write:packages）
+echo $GITHUB_TOKEN | docker login ghcr.io -u <GitHub用户名> --password-stdin
+
+# ② 构建并打 GHCR tag
+docker build \
+  --build-arg VITE_ALLOWED_PARENT_ORIGINS=https://app.example.com \
+  --build-arg VITE_SIGN_APP_KEY=xxx \
+  -t ghcr.io/<owner>/oauth-web:1.0.0 \
+  -t ghcr.io/<owner>/oauth-web:latest \
+  .
+
+# ③ 推送
+docker push ghcr.io/<owner>/oauth-web:1.0.0
+docker push ghcr.io/<owner>/oauth-web:latest
+```
+
+> GHCR 首次使用前，需在 GitHub 仓库 **Settings → Packages** 里把该包设为 **Public**
+> （默认 private，匿名 pull 会 401）。公开后任意机器 `docker pull ghcr.io/<owner>/oauth-web:latest`。
+
+##### 3) 用 GitHub Actions 自动构建 + 推送（推荐，免手敲）
+
+写进本仓 `.github/workflows/docker-publish.yml`，push tag 时自动出镜像（用 **OIDC 免密钥**，
+仓库不存任何 Docker 长期 token——与本仓 npm 发布同款机制）：
+
+```yaml
+name: docker-publish
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  packages: write   # 允许推送 GHCR
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/oauth-web
+          tags: |
+            type=semver,pattern={{version}}
+            type=ref,event=tag
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            VITE_ALLOWED_PARENT_ORIGINS=https://app.example.com
+            VITE_SIGN_APP_KEY=${{ secrets.SIGN_APP_KEY }}
+            VITE_SOCIAL_PROVIDERS=wechat,qq
+```
+
+> `secrets.GITHUB_TOKEN` 是 Actions 自动注入的临时 token，`packages: write` 权限下可直接推 GHCR，
+> 无需配置任何 PAT。这是最省事、最不容易泄露密钥的方式。
+
+##### 4) 公共库的安全注意
+
+- 🔴 **构建参数 `VITE_SIGN_APP_KEY` 会打进镜像产物**（前端代码里明文可见）。签名 key 本就是
+  弱防爬、需下发前端的值，但**仍不要**把更敏感的密钥（如后端 secret）用 build-arg 注入公共镜像；
+- 镜像分层会残留 `ARG`/`ENV` 值，若某变量属敏感信息，宁可运行时注入（nginx 反代在运行时读），
+  也不要 bake 进公开镜像层；
+- 公开镜像 = 任何人可 pull，务必确认里面只有静态产物 + nginx，没有 `.env`、没有源码里的密钥。
 
 ---
 
