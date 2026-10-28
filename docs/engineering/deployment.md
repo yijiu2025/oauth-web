@@ -391,33 +391,15 @@ server {
 
 ### 方式 D：Docker（可选，一条龙构建 + 运行）
 
-仓库没有内置 oauth-web 的 Dockerfile（根目录的 Dockerfile 是**后端** nodeServers 的，别混）。
-如需容器化部署前端，用「多阶段构建」：
+本仓**已内置** `Dockerfile`（多阶段构建：`node:22-slim` 构建 + `nginx:1.27-alpine` 托管）、
+`nginx.conf`（SPA 回退 + 同源反代）和 `.dockerignore`（排除 node_modules/dist/.env，防密钥进镜像层）。
+（根目录 nodeServers 的 Dockerfile 是**后端**的，别跟本仓这份混。）
 
-```dockerfile
-# Dockerfile（部署机自建，勿提交真实密钥进镜像）
-FROM node:22-slim AS build
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts --no-audit --no-fund
-COPY . .
-# 🔴 构建期注入生产变量（用 CI secrets / 构建参数，不要写死在镜像里）
-ARG VITE_API_BASE_URL=""
-ARG VITE_ALLOWED_PARENT_ORIGINS=""
-ARG VITE_SIGN_APP_KEY=""
-ARG VITE_SOCIAL_ENDPOINT=""
-ARG VITE_SOCIAL_PROVIDERS=""
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
-    VITE_ALLOWED_PARENT_ORIGINS=$VITE_ALLOWED_PARENT_ORIGINS \
-    VITE_SIGN_APP_KEY=$VITE_SIGN_APP_KEY \
-    VITE_SOCIAL_ENDPOINT=$VITE_SOCIAL_ENDPOINT \
-    VITE_SOCIAL_PROVIDERS=$VITE_SOCIAL_PROVIDERS
-RUN npm run build
+> 🔴 **Docker 与 lockfile**：本仓 `npm ci` 依赖已入库的 lockfile，但主仓 workspace 形态下根 lock
+> 会记录 `link:` 软链（见 memory 里「后端三 job 用 `--no-package-lock`」的坑）。单仓 clone 出来的
+> oauth-web 是普通形态，`npm ci` 正常。若你在 monorepo 里构建，注意 `--workspaces=false` 只装本包。
 
-FROM nginx:1.27-alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-```
+本地构建 + 运行：
 
 ```bash
 docker build \
@@ -429,9 +411,9 @@ docker build \
 docker run -d -p 8080:80 oauth-web:latest
 ```
 
-> 🔴 **Docker 与 lockfile**：本仓 `npm ci` 依赖已入库的 lockfile，但主仓 workspace 形态下根 lock
-> 会记录 `link:` 软链（见 memory 里「后端三 job 用 `--no-package-lock`」的坑）。单仓 clone 出来的
-> oauth-web 是普通形态，`npm ci` 正常。若你在 monorepo 里构建，注意 `--workspaces=false` 只装本包。
+> 构建参数（`--build-arg`）会把 `VITE_*` 变量 bake 进镜像；哪些变量各是什么含义见
+> [2.2 全部 12 个变量逐条说明](#22-全部-12-个变量逐条说明)。`nginx.conf` 里的后端反代默认指向
+> `http://backend:3000`（容器网络里的服务名），单机跑需改 `proxy_pass` 或起个同名 network。
 
 #### 方式 D.1：上传到公共 Docker 库（Docker Hub / GHCR）
 
@@ -495,16 +477,43 @@ docker push ghcr.io/<owner>/oauth-web:latest
 > GHCR 首次使用前，需在 GitHub 仓库 **Settings → Packages** 里把该包设为 **Public**
 > （默认 private，匿名 pull 会 401）。公开后任意机器 `docker pull ghcr.io/<owner>/oauth-web:latest`。
 
-##### 3) 用 GitHub Actions 自动构建 + 推送（推荐，免手敲）
+##### 3) 用 GitHub Actions 自动构建 + 推送（✅ 已实际跑通，推荐）
 
-写进本仓 `.github/workflows/docker-publish.yml`，push tag 时自动出镜像（用 **OIDC 免密钥**，
-仓库不存任何 Docker 长期 token——与本仓 npm 发布同款机制）：
+本仓已内置 `.github/workflows/docker-publish.yml`，**打 tag `v*` 即触发**，同时推送到
+**GHCR + Docker Hub** 两个仓库。发新版只需两条命令，无需本机装 Docker、无需手动敲构建/推送：
+
+```bash
+git tag v1.1.1 && git push origin v1.1.1
+```
+
+实际镜像地址（2026-10-28 跑通 `v1.1.1`）：
+
+| 仓库 | 镜像 | 说明 |
+| --- | --- | --- |
+| Docker Hub | `docker.io/qirly/oauth-web:1.1.1` / `:latest` | ✅ 公开，匿名可 pull |
+| GHCR | `ghcr.io/yijiu2025/oauth-web:1.1.1` / `:latest` | 已推送，但默认 private（见下方说明） |
+
+workflow 用 `secrets.GITHUB_TOKEN` 免密钥推 GHCR（`packages: write` 权限），Docker Hub 走仓库
+secrets `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`。**需在仓库 Settings → Secrets and variables →
+Actions 里配好**：
+
+| 类型 | 名称 | 说明 |
+| --- | --- | --- |
+| Secret | `DOCKERHUB_USERNAME` | Docker Hub 用户名（本仓为 `qirly`） |
+| Secret | `DOCKERHUB_TOKEN` | Docker Hub Access Token（🔴 不是网页密码，去 hub.docker.com/settings/security 生成 Read & Write token） |
+| Secret | `SIGN_APP_KEY` | 后端 `SIGN_APP_KEY` 真实值，覆盖仓库里占位符 `coreflow-sign-key-2026-change-me` |
+| Variable | `ALLOWED_PARENT_ORIGINS` | iframe 父应用 origin（可选，不配 = 空 = 拒绝一切） |
+| Variable | `SOCIAL_ENDPOINT` | 第三方授权端点（可选） |
+| Variable | `SOCIAL_PROVIDERS` | 如 `wechat,qq`（可选） |
+
+完整 workflow（本仓已提交，此处是原样摘录）：
 
 ```yaml
 name: docker-publish
 on:
   push:
     tags: ['v*']
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -515,31 +524,48 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - uses: docker/metadata-action@v5
         id: meta
         with:
-          images: ghcr.io/${{ github.repository_owner }}/oauth-web
+          images: |
+            ghcr.io/yijiu2025/oauth-web
+            docker.io/qirly/oauth-web
           tags: |
             type=semver,pattern={{version}}
             type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            VITE_ALLOWED_PARENT_ORIGINS=https://app.example.com
+            VITE_API_BASE_URL=
+            VITE_ALLOWED_PARENT_ORIGINS=${{ vars.ALLOWED_PARENT_ORIGINS }}
             VITE_SIGN_APP_KEY=${{ secrets.SIGN_APP_KEY }}
-            VITE_SOCIAL_PROVIDERS=wechat,qq
+            VITE_SOCIAL_ENDPOINT=${{ vars.SOCIAL_ENDPOINT }}
+            VITE_SOCIAL_PROVIDERS=${{ vars.SOCIAL_PROVIDERS }}
 ```
 
-> `secrets.GITHUB_TOKEN` 是 Actions 自动注入的临时 token，`packages: write` 权限下可直接推 GHCR，
-> 无需配置任何 PAT。这是最省事、最不容易泄露密钥的方式。
+> - **`SIGN_APP_KEY` 必须配**：否则镜像里会是仓库的占位值 `coreflow-sign-key-2026-change-me`，
+>   签名对不上后端，所有请求 401/403。真实值只在 CI secrets 里，不进 git、不进镜像明文仓库。
+> - **GHCR 默认 private**：`ghcr.io/yijiu2025/oauth-web` 推上去后是私有包，匿名 `docker pull` 会 401。
+>   要公开：GitHub 头像 → Packages → `oauth-web` → Package settings → Change visibility → Public。
+>   只想自己用就保持 private，拉取前 `docker login ghcr.io` 即可。
+> - **版本号与 tag 同步**：`docker/metadata-action` 用 `type=semver,pattern={{version}}` 从 `v1.1.1`
+>   生成 `1.1.1` 镜像 tag，所以 `git tag` 的版本要和 `package.json` 的 `version` 一致（本仓发版
+>   流程 `scripts/release.mjs` 已保证这一点）。
 
 ##### 4) 公共库的安全注意
 
