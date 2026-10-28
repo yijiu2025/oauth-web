@@ -6,7 +6,12 @@ import axios from 'axios';
 import type { AxiosRequestConfig } from 'axios';
 
 const service = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
+  // 🔴 baseURL 兜底口径（2026-10-28 修正，与 crypto.ts / .env.example「留空 = 同源」对齐）：
+  //   · 生产（PROD）未配置 → ''（相对路径）→ 请求走当前 origin，由 Nginx/网关同源反代到后端；
+  //   · 开发（DEV）未配置 → 兜底 http://localhost:3000，避免无 .env 时 /auth/v1 等前缀没被 vite proxy 覆盖；
+  //   · 显式配置（如 https://api.example.com）→ 跨域直连。
+  //   旧实现 `|| 'http://localhost:3000'` 会让生产空值也打到「用户本机 localhost」，同源部署形同虚设。
+  baseURL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3000' : ''),
   timeout: 15_000,
   withCredentials: true // 允许跨域请求携带 Cookie
 });

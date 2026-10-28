@@ -22,9 +22,10 @@ const reference = [
   { text: '设备版式', link: '/reference/devices' }
 ];
 
-// 工程：发版 / 测试 / 性能
+// 工程：发版 / 部署 / 测试 / 性能
 const engineering = [
   { text: 'Git 提交与发版', link: '/engineering/release' },
+  { text: '部署流程', link: '/engineering/deployment' },
   { text: '性能调优', link: '/engineering/performance' }
 ];
 

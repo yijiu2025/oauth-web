@@ -11,7 +11,11 @@
  * 取出并随登录/注册请求回传，后端用该 kid 查私钥解密。
  */
 
-const SERVER = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+// 🔴 与 utils/request.ts 同口径（2026-10-28 修正）：
+//   生产未配置 → ''（相对路径，同源反代）；开发未配置 → localhost:3000；显式配置 → 跨域直连。
+//   注意这里用字符串拼接 `${SERVER}/...`：SERVER 为 '' 时得到相对路径 `/oauth2.1/...`，
+//   绝不要给 SERVER 填 '/'（会拼成 `//host` 协议相对 URL，指向错误主机）。
+const SERVER = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
 const STORAGE_KEY = 'cf_oauth_pubkey';
 
 let cachedPublicKey: CryptoKey | null = null;

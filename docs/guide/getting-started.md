@@ -55,7 +55,7 @@ npm run dev            # http://localhost:5174
 
 | 变量 | 说明 | 默认 |
 | --- | --- | --- |
-| `VITE_API_BASE_URL` | 后端 API 基地址；开发由 vite proxy 转发 `/api` | 代码内兜底 `http://localhost:3000` |
+| `VITE_API_BASE_URL` | 后端 API 基地址；开发由 vite proxy 转发 `/api` | 留空 = 同源（生产走相对路径）；dev 未配置兜底 `http://localhost:3000` |
 | `VITE_SIGN_APP_KEY` | H5 签名 appKey（前后端共享；弱防爬） | — |
 | `VITE_RECAPTCHA_ENABLED` | 启用人机验证 hCaptcha | `false` |
 | `VITE_TURNSTILE_ENABLED` | 启用 Cloudflare Turnstile | `false` |
