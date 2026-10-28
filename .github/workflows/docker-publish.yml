@@ -1,0 +1,69 @@
+name: docker-publish
+
+# 打 tag（v*）时构建前端镜像并同时推送到 GHCR + Docker Hub。
+#
+# 触发方式：
+#   git tag v1.1.0 && git push origin v1.1.0
+#
+# 镜像产物：
+#   ghcr.io/yijiu2025/oauth-web:<version> / :latest
+#   docker.io/qirly/oauth-web:<version> / :latest
+#
+# 凭据：
+#   - GHCR 用 secrets.GITHUB_TOKEN（Actions 自动注入，免配置）
+#   - Docker Hub 用仓库 secret DOCKERHUB_USERNAME / DOCKERHUB_TOKEN
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch: {}   # 手动触发兜底
+
+permissions:
+  contents: read
+  packages: write          # 允许推送 GHCR
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # GHCR 登录（免密钥）
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Docker Hub 登录（需仓库配置 DOCKERHUB_USERNAME / DOCKERHUB_TOKEN）
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 生成 tag（latest + semver）
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: |
+            ghcr.io/yijiu2025/oauth-web
+            docker.io/qirly/oauth-web
+          tags: |
+            type=semver,pattern={{version}}
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_API_BASE_URL=
+            VITE_ALLOWED_PARENT_ORIGINS=${{ vars.ALLOWED_PARENT_ORIGINS }}
+            VITE_SIGN_APP_KEY=${{ secrets.SIGN_APP_KEY }}
+            VITE_SOCIAL_ENDPOINT=${{ vars.SOCIAL_ENDPOINT }}
+            VITE_SOCIAL_PROVIDERS=${{ vars.SOCIAL_PROVIDERS }}

@@ -1,0 +1,27 @@
+# Docker 构建上下文排除项（COPY . . 时不要把这些带进镜像）
+
+# 依赖与构建产物（镜像内会重新 npm ci + build）
+node_modules
+dist
+dist-*
+docs/.vitepress/dist
+docs/.vitepress/cache
+
+# 版本控制与 IDE
+.git
+.gitignore
+.vscode
+.idea
+*.md
+
+# 环境变量与密钥（🔴 绝不打进镜像层）
+.env
+.env.*
+!.env.example
+
+# 日志与临时文件
+logs
+*.log
+*.tar.gz
+.mimosa
+.tmp-*
