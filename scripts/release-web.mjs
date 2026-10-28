@@ -319,6 +319,104 @@ function localPkg() {
   }
 }
 
+/* ═══════════════ 宿主：CHANGELOG 提升 ═══════════════ */
+
+/**
+ * 取今天日期（本地时区 YYYY-MM-DD）。
+ * 不手算时间戳 —— 直接走 `date`，避免跨时区/跨年算错。
+ */
+function todayISO() {
+  const r = tryRun('date', ['+%Y-%m-%d']);
+  return r.ok && r.out ? r.out : new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * 读 CHANGELOG.md；不存在返回 null（纯静态仓 / 未建 changelog 的仓自动跳过）。
+ */
+function readChangelog() {
+  const p = path.join(ROOT, 'CHANGELOG.md');
+  if (!existsSync(p)) return null;
+  try {
+    return readFileSync(p, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 把 CHANGELOG 顶部的「未发布（Unreleased）」区块提升为带版本号 + 日期的正式区块。
+ *
+ * 约定（见 git-release-rules.md 发布 checklist）：
+ *   - 未发布区块的标题行固定是 `## 未发布（Unreleased）`（支持 CRLF）；
+ *   - 提升后变成 `## <version> — <date>`，紧随其后插入一个**空的**未发布区块；
+ *   - 未发布区块为空时**不提升**（返回 { changed: false }，避免发一个只有空壳的版本）。
+ *
+ * 纯函数：输入旧文本，输出新文本 + 是否变化，便于单测锁住行为。
+ *
+ * @param {string} text CHANGELOG 原文
+ * @param {string} version 不带 v 的版本号，如 `1.1.2`
+ * @param {string} date YYYY-MM-DD
+ * @returns {{ text: string, changed: boolean }}
+ */
+function bumpChangelog(text, version, date) {
+  const heading = '## 未发布（Unreleased）';
+  const idx = text.indexOf(heading);
+  if (idx === -1) {
+    return { text, changed: false, reason: '未找到「未发布（Unreleased）」标题' };
+  }
+
+  const afterHeading = idx + heading.length;
+  const nextHeading = text.indexOf('\n## ', afterHeading + 1);
+  const bodyEnd = nextHeading === -1 ? text.length : nextHeading;
+
+  // 未发布区块正文：标题行之后到下一个 ## 之前
+  const body = text.slice(afterHeading, bodyEnd).trim();
+  const hasContent = /\S/.test(body) && !/^>\s*$/.test(body.replace(/\n/g, ''));
+  if (!hasContent) {
+    return { text, changed: false, reason: '未发布区块为空，无可提升内容' };
+  }
+
+  const head = text.slice(0, idx);
+  const tail = text.slice(bodyEnd);
+
+  const newSection = `## ${version} — ${date}\n\n${body}\n`;
+  // 重建的空未发布区块：只留标题，正文留空（保持幂等——下次提升前由人补内容）。
+  const placeholder = `${heading}\n`;
+
+  return {
+    text: `${head}${newSection}\n${placeholder}${tail}`,
+    changed: true,
+    reason: null
+  };
+}
+
+/**
+ * 对齐 package.json 的 version 到新版本号（单向跟随 tag，见 git-release-rules.md §2.2）。
+ * 返回 null 表示无 package.json 或不需要改。
+ *
+ * @param {string} version 不带 v 的新版本号
+ * @returns {{ path: string, from: string, to: string } | null}
+ */
+function alignPackageVersion(version) {
+  const p = path.join(ROOT, 'package.json');
+  if (!existsSync(p)) return null;
+  let pkg;
+  try {
+    pkg = JSON.parse(readFileSync(p, 'utf8'));
+  } catch {
+    return null;
+  }
+  if (!pkg.version || pkg.version === version) return null;
+  return { path: p, from: pkg.version, to: version };
+}
+
+/** 写回 package.json（保留 2 空格缩进 + 末尾换行，与 npm 默认一致） */
+function writePackageVersion(pkgPath, version) {
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+  pkg.version = version;
+  writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
+}
+
 /* ═══════════════ 宿主：GitHub 通道 ═══════════════ */
 
 /** GCM 里存有 GitHub 凭据时可直接调 API，无需 gh CLI */
@@ -521,11 +619,27 @@ async function main() {
   const tag = `v${next}`;
   log(`→ 判定：${kind} 递增，${from ?? '(无)'} → ${tag}`);
 
-  // 版本号配置漂移检查：tag 是版本源，package.json 应单向跟随（规则文档 2.2 节）
+  // 版本号配置漂移检查 + CHANGELOG 提升预览（tag 是版本源，见规则文档 2.2 节）
   const pkg = localPkg();
-  if (pkg?.version && pkg.version !== next) {
-    log(`  ⚠ package.json version=${pkg.version} 与将打的 ${tag} 不一致 —— 版本源是 tag，`);
-    log('    发版后请把 package.json 对齐（提交一个 chore: 对齐版本号），本脚本不代改');
+  const changelog = readChangelog();
+  const changelogBump = changelog ? bumpChangelog(changelog, next, todayISO()) : null;
+  const pkgAlign = alignPackageVersion(next);
+
+  if (changelogBump) {
+    log('── 收尾 1/3：CHANGELOG ────────────');
+    if (changelogBump.changed) {
+      log(`   ${APPLY ? '将提升' : '提升'}「未发布（Unreleased）」→「${next} — ${todayISO()}」并重建空未发布区块`);
+    } else {
+      log(`   ⚠ ${changelogBump.reason} —— 发版前请先在 CHANGELOG 的「未发布」区块补上本次变更`);
+    }
+  }
+
+  log('── 收尾 2/3：package.json 版本号 ──');
+  if (!pkg?.version) log('   · 无 package.json（纯静态仓），跳过');
+  else if (pkg.version !== next) {
+    log(`   ${APPLY ? '将对齐' : '将对齐'} package.json version ${pkg.version} → ${next}`);
+  } else {
+    log(`   ✓ package.json version=${pkg.version} 已与 ${tag} 一致`);
   }
 
   if (gitTry('rev-parse', '-q', '--verify', `refs/tags/${tag}`).ok) {
@@ -572,13 +686,27 @@ async function main() {
 
   if (!APPLY) {
     log('');
+    if (changelogBump && !changelogBump.changed) {
+      log('⚠ 提示：CHANGELOG「未发布」区块为空，发版前请先补上本次变更，否则不会自动提升。');
+    }
     log('预览结束。确认无误后执行：node scripts/release-web.mjs --apply');
     return;
   }
 
-  // 3) 通道 1：tag + push
+  // 3) 收尾：CHANGELOG 提升 + package.json 对齐（先写，再打 tag，保证 tag 指向含新 CHANGELOG 的提交）
   log('');
   log('执行中…');
+
+  if (changelogBump?.changed) {
+    writeFileSync(path.join(ROOT, 'CHANGELOG.md'), changelogBump.text);
+    log(`  ✓ CHANGELOG 已提升：未发布 → ${next}`);
+  }
+  if (pkgAlign) {
+    writePackageVersion(pkgAlign.path, next);
+    log(`  ✓ package.json version ${pkgAlign.from} → ${next}`);
+  }
+
+  // 4) 通道 1：tag + push
   git('tag', '-a', tag, '-m', notes);
   log(`  ✓ 已创建 tag ${tag}`);
 
@@ -636,3 +764,6 @@ async function main() {
 // 仅在被直接执行时跑主流程；被 import（单元测试）时不产生任何副作用
 const isDirectRun = Boolean(process.argv[1]) && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isDirectRun) await main();
+
+/* 导出纯函数供单测（vitest 导入时 main 不会执行，见上方 isDirectRun 守卫） */
+export { bumpChangelog, alignPackageVersion, bumpVersion, parseSubject, classify, decideBump, buildNotes };

@@ -133,8 +133,8 @@ fix(theme): 修复深色模式下 token 对比度不足
 本仓用自包含脚本 `scripts/release-web.mjs`（可拷走单独用）：
 
 ```bash
-node scripts/release-web.mjs            # 预览：算版本、生成 Release 说明
-node scripts/release-web.mjs --apply    # 执行：打 tag + 推 tag + 建 GitHub Release
+node scripts/release-web.mjs            # 预览：算版本、生成 Release 说明、展示 CHANGELOG/版本号将如何变更
+node scripts/release-web.mjs --apply    # 执行：CHANGELOG 提升 → package.json 对齐 → 打 tag → 推 main+tag → 建 Release
 node scripts/release-web.mjs --npm      # 追加：发布 npm 包（默认不发）
 ```
 
@@ -145,7 +145,12 @@ node scripts/release-web.mjs --npm      # 追加：发布 npm 包（默认不发
 | 有破坏性变更（commit footer `BREAKING CHANGE:`） | major    |
 | 其余（docs / chore / refactor…）                 | 不发版   |
 
-版本源是 git tag，`package.json` 单向跟随。完整规则（提交 / 版本号 / 分支三合一）见 [docs/git-release-rules.md](docs/git-release-rules.md)。
+版本源是 git tag，`package.json` 单向跟随（脚本 `--apply` 自动对齐）。
+完整规则（提交 / 版本号 / 分支三合一）见 [docs/git-release-rules.md](docs/git-release-rules.md)。
+
+**一次完整发布的动作顺序**（更新 CHANGELOG → 完善文档 → 对齐版本号 → 跑门禁 → 发版 → 镜像 → 校验）
+见 fullstack-rules 技能的 `references/release-checklist.md`；本仓的镜像发布细节见
+[docs/engineering/deployment.md](docs/engineering/deployment.md) 方式 D.1。
 
 ## 四、PR 流程
 
