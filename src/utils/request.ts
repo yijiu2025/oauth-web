@@ -23,6 +23,54 @@ import { generateSignWithKey, serializeParamsForSign, getAppKey } from './sign';
 import { isMobileViewport } from '@/device';
 import { reportError } from '../composables/useErrorReporter';
 
+/* ========== CSRF（U21） ========== */
+
+/**
+ * Double-submit CSRF：后端在 `/oauth2.1` 作用域下发 `_csrf`（非 HttpOnly），
+ * 非安全方法必须原值回传到 `x-csrf-token`，两者不一致即 403。
+ *
+ * 为什么需要 `ensureCsrfToken`：登录前用户还没有任何 `_csrf` cookie（它由安全方法签发），
+ * 而登录本身就是非安全方法。所以第一次提交前先打一次引导端点 `GET /oauth2.1/csrf`
+ * 把 cookie 铺好 —— 否则「打开登录页直接登录」会被自己的 CSRF 保护挡成 403。
+ */
+const SAFE_METHODS = new Set(['get', 'head', 'options']);
+
+/** 从 cookie 读当前 token（读不到返回 null） */
+function readCsrfCookie(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)_csrf=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/** 引导请求去重：并发多个非安全请求时只打一次 */
+let csrfBootstrap: Promise<string> | null = null;
+
+/**
+ * 确保拿到可用的 CSRF token
+ *
+ * 失败时返回空串（调用方照样发请求）：后端会以 403 明确拒绝，
+ * 比在拦截器里静默挂起更容易定位。
+ */
+async function ensureCsrfToken(): Promise<string> {
+  const existing = readCsrfCookie();
+  if (existing) return existing;
+
+  if (!csrfBootstrap) {
+    csrfBootstrap = service
+      .get('/oauth2.1/csrf', { timeout: 5_000 })
+      .then(res => {
+        const fromBody = (res as { token?: string } | undefined)?.token;
+        return fromBody || readCsrfCookie() || '';
+      })
+      .catch(() => readCsrfCookie() || '')
+      .then(token => {
+        csrfBootstrap = null;
+        return token;
+      });
+  }
+
+  return csrfBootstrap;
+}
+
 service.interceptors.request.use(
   async config => {
     // 纯 Cookie 鉴权模式，不需要手动往 Headers 注入 Authorization 头部
@@ -31,6 +79,15 @@ service.interceptors.request.use(
     // 后端 getDeviceId 优先读此头，跨账号复用同设备码（localStorage 持久）
     if (config.headers) {
       config.headers['x-device-id'] = getStableDeviceId();
+    }
+
+    // CSRF：/oauth2.1 下的非安全方法必须回传 double-submit token
+    // （登录 / 授权确认 / 扫码确认 / 登出都在保护范围内，token/revoke 后端口已排除）
+    const method = (config.method || 'get').toLowerCase();
+    const urlPath = (config.url || '').split('?')[0];
+    if (config.headers && urlPath.startsWith('/oauth2.1') && !SAFE_METHODS.has(method)) {
+      const csrfToken = await ensureCsrfToken();
+      if (csrfToken) config.headers['x-csrf-token'] = csrfToken;
     }
 
     // 设备指纹注入（仅 DEVICE_FINGERPRINT_ENABLED=true 时，配合后端验证码/consent 指纹增强）
