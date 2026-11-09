@@ -53,6 +53,22 @@ describe('parseLoginResponse', () => {
       expect(parsed.value.user.id).toBe(42);
     });
 
+    it('scopeDetails 必须透传（zod 默认 strip，漏声明就整段消失）', () => {
+      // 这一条守的是真实故障：面板弹出来了，但「申请获取以下权限」下面一片空白，
+      // 网络面板里 scopeDetails 明明有数据 —— 因为 schema 里没写这个键，被 strip 了。
+      const parsed = parseLoginResponse(CONSENT_WITHOUT_ID);
+      expect(parsed.kind).toBe('action');
+      if (parsed.kind !== 'action' || parsed.value.action !== 'consent') return;
+      expect(parsed.value.scopeDetails).toHaveLength(2);
+      expect(parsed.value.scopeDetails?.[0]).toMatchObject({
+        id: 'openid',
+        name: 'openid',
+        required: true,
+        sensitive: false
+      });
+      expect(parsed.value.scopeDetails?.[1].fields).toEqual(['username']);
+    });
+
     it('user 整块缺失也不拖死登录（展示字段容错）', () => {
       const { user: _omit, ...withoutUser } = CONSENT_WITHOUT_ID;
       const parsed = parseLoginResponse(withoutUser);

@@ -188,8 +188,32 @@ export const loginResponseSchema = z.discriminatedUnion('action', [
     action: z.literal('consent'),
     // 驱动后续提交的字段保持严格：consentKey 缺失时「批准」按不下去
     consentKey: z.string(),
+    client_id: z.string().optional(),
     client_name: z.string(),
     scope: z.string(),
+    /**
+     * 授权面板要逐条列出的权限项 —— **必须显式声明，否则会被整段丢掉**。
+     *
+     * 🔴 zod 的 object 默认是 "strip"：没写进 schema 的键在解析结果里**不存在**，
+     *    即使后端原样下发了。这里漏写 `scopeDetails` 的后果是：面板弹得出来、
+     *    但「申请获取以下权限」下面一片空白（实测踩过），而网络面板里数据齐全 ——
+     *    很容易被误判成后端没给或前端 v-for 写错。
+     *
+     * 展示字段依旧容错（optional）：真的缺了只是列表为空，不该让整条登录失败。
+     */
+    scopeDetails: z
+      .array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          desc: z.string(),
+          /** 该 scope 会读取的具体字段（如 username / email），面板可选展示 */
+          fields: z.array(z.string()).optional(),
+          required: z.boolean().optional(),
+          sensitive: z.boolean().optional()
+        })
+      )
+      .optional(),
     /**
      * `user` 只用于展示，`ConsentPanel` 甚至不读它。
      *
