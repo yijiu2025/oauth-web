@@ -186,10 +186,23 @@ export type LoginSuccessResponse = z.infer<typeof loginSuccessSchema>;
 export const loginResponseSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('consent'),
+    // 驱动后续提交的字段保持严格：consentKey 缺失时「批准」按不下去
     consentKey: z.string(),
     client_name: z.string(),
     scope: z.string(),
-    user: loginUserSchema
+    /**
+     * `user` 只用于展示，`ConsentPanel` 甚至不读它。
+     *
+     * 🔴 后端 consent 分支下发的 user 只有 username / name / email（**不带 id**，
+     *    见 `login.service.js` 的 consent 响应）。若这里沿用 `loginUserSchema`
+     *    的必填 `id`，`safeParse` 会整条失败 → `kind='unknown'` → 用户看到
+     *    「登录响应格式异常，请重试」，而真实原因只是"少了一个没人用的字段"。
+     *    实测踩过：console 首次登录必然触发 consent，于是 100% 登录失败。
+     *
+     * 处理原则：**展示字段容错，驱动字段严格**。id 放可选，整体再 `.catch()`
+     * 兜底 —— 后端以后换字段名也不会让登录链路直接死掉。
+     */
+    user: loginUserSchema.extend({ id: z.union([z.string(), z.number()]).optional() }).catch({ username: '' })
   }),
   z.object({
     action: z.literal('needs_email_verify'),
