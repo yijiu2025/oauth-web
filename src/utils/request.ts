@@ -22,6 +22,7 @@ import { generateNonce } from './crypto';
 import { generateSignWithKey, serializeParamsForSign, getAppKey } from './sign';
 import { isMobileViewport } from '@/device';
 import { reportError } from '../composables/useErrorReporter';
+import { notifyHostChallengeRequired } from './challenge-bridge';
 
 /* ========== CSRF（U21） ========== */
 
@@ -216,8 +217,12 @@ service.interceptors.response.use(
      * 若按错误上报，每次加载都会往监控里灌两条同源噪音（实测一次加载 2 条
      * `[ClientError]`）。这里只把 `status` 挂在 error 上、照常 reject ——
      * 调用方仍能识别并引导验证，监控侧不再污染。
+     *
+     * 另一个动作是**通知宿主**：本应用常被以 iframe 嵌入后台，自己没有验证页
+     * （见 `utils/challenge-bridge.ts` 的文件头）。
      */
     if (error.response?.status === 428) {
+      notifyHostChallengeRequired();
       const challengeError = new Error(backendMessage || '需要完成人机验证后才能继续访问') as Error & {
         status?: number;
       };
