@@ -461,87 +461,136 @@ const emailVerifyOpen = computed(() => ctx.value.panel === 'emailVerify');
   animation: scan 2.5s linear infinite;
 }
 
-/* ── paper 外壳：窄幅「票据」卡（iframe 854×484 内居中） ──────────── */
+/* ── paper 外壳：窄幅「票据」卡（iframe 内居中） ────────────────
+   这一版的取舍：卡片必须**能从背景里站出来**。旧版卡片贴着背景（浅色档
+   #fff on #f8fafc、深色档 #121212 on #000），亮度差只有个位数 —— 看起来像
+   表单直接飘在页面上，而不是一张卡。现在用三件事拉开层次：
+     ① 页面加一层柔光 + 点阵（有底纹，卡片边缘才看得见）
+     ② 卡片抬高（深色档用 surface-2）+ 一圈描边 + 大范围投影
+     ③ 顶部一条渐隐强调线，把视线收到标题上
+*/
 .paper-root {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   height: 100%;
-  padding: 16px;
+  padding: 18px;
+  overflow: hidden;
   background:
-    radial-gradient(closest-side, var(--mauth-primary-soft, rgba(37, 99, 235, 0.1)), transparent) 16% 10% / 48% 62% no-repeat,
+    radial-gradient(closest-side, var(--mauth-primary-soft, rgba(37, 99, 235, 0.1)), transparent) 18% 8% / 52% 58% no-repeat,
+    radial-gradient(closest-side, var(--mauth-success-soft, rgba(88, 160, 33, 0.1)), transparent) 88% 96% / 46% 52% no-repeat,
     var(--mauth-bg, #f8fafc);
+}
+
+/* 点阵底纹：极淡，只在边缘可见（中心被卡片压住，不会干扰表单） */
+.paper-root::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(currentColor 1px, transparent 1.2px);
+  background-size: 22px 22px;
+  color: var(--mauth-border, rgba(15, 23, 42, 0.1));
+  opacity: 0.55;
+  mask-image: radial-gradient(90% 80% at 50% 50%, transparent 34%, #000 78%);
 }
 
 .paper-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  width: min(398px, 100%);
+  width: min(444px, 100%);
   max-height: 100%;
-  padding: 20px 20px 14px;
-  border-radius: 16px;
-  border: 1px solid var(--mauth-border, rgba(15, 23, 42, 0.1));
+  padding: 22px 22px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--mauth-border-strong, rgba(15, 23, 42, 0.14));
   background: var(--mauth-surface, #fff);
-  box-shadow: 0 22px 44px -26px rgba(16, 20, 24, 0.36);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 26px 54px -26px rgba(16, 20, 24, 0.38),
+    0 2px 10px -6px rgba(16, 20, 24, 0.16);
   overflow-y: auto;
 }
 
-/* 抬头一道强调线：票据语汇，比整块阴影更轻 */
+/* 顶部强调线：两端渐隐，比整条实线更像"票据抬头" */
 .paper-card::before {
   content: '';
   position: absolute;
-  left: 20px;
-  right: 20px;
+  left: 18px;
+  right: 18px;
   top: 0;
   height: 2px;
   border-radius: 2px;
-  background: linear-gradient(90deg, var(--mauth-primary, #2563eb), transparent 85%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--mauth-primary, #2563eb) 18%,
+    var(--mauth-primary, #2563eb) 42%,
+    transparent
+  );
+  opacity: 0.85;
+}
+
+/* 深色档：卡片抬到 surface-2（#1c1c1c 一类），再加一圈亮描边与内高光 */
+.paper-root.dark .paper-card {
+  background: var(--mauth-surface-2, #1c1c1c);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 30px 64px -28px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+
+.paper-root.dark::before {
+  opacity: 0.5;
 }
 
 .paper-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 24px;
-  margin-bottom: 10px;
+  gap: 10px;
+  min-height: 26px;
+  margin-bottom: 12px;
 }
 
 .paper-brand {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
 }
 
 .paper-mark {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
-  background: var(--mauth-primary, #2563eb);
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: linear-gradient(150deg, var(--mauth-primary, #2563eb), rgba(37, 99, 235, 0.72));
   color: #fff;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
+  box-shadow: 0 6px 14px -6px var(--mauth-primary, rgba(37, 99, 235, 0.7));
 }
 
 .paper-app {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 12.5px;
+  font-weight: 620;
   letter-spacing: 0.01em;
   color: var(--mauth-text-soft, #64748b);
 }
 
 .paper-title h2 {
-  margin: 0 0 4px;
+  margin: 0 0 5px;
 }
 
-/* 扫码/表单切换：落在抬头右侧（标题区仍占满宽度） */
+/* 扫码/表单切换：落在抬头右侧 */
 .paper-qr {
   position: absolute;
-  right: 18px;
-  top: 18px;
+  right: 16px;
+  top: 16px;
 }
 
 .paper-body {
@@ -554,10 +603,10 @@ const emailVerifyOpen = computed(() => ctx.value.panel === 'emailVerify');
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
-/* 比 default 略紧凑的控件尺寸：窄卡里 44px 会显得笨重 */
+/* 窄卡里 44px 的输入框显得笨重，收到 42px 并略微收窄圆角 */
 .paper-card .mlogin-field {
   height: 42px;
   border-radius: 10px;
