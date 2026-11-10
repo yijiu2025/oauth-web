@@ -2,7 +2,7 @@
 
 本仓库遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)：major（破坏性变更）/ minor（新增功能，向后兼容）/ patch（修复）。
 
-## 未发布（Unreleased）
+## 1.2.0 — 2026-11-10
 
 ### 新增
 
@@ -30,6 +30,8 @@
 - 补齐 `SUPPORT.md` / `CHANGELOG.md` / `.github/FUNDING.yml`
 - `docs/engineering/deployment.md` 更新 GHCR 已设 public、镜像地址升至 1.1.2；`CONTRIBUTING.md` 引用端到端发布 checklist
 - `docs/git-release-rules.md` 与根仓 `docs/standards/git-release-rules.md` 同步（发版 checklist 引用、4.2 新增第 9/10 条、4.3 改为发布后校验、接入清单补 CI 门禁 + docs 校验）
+
+## 未发布（Unreleased）
 
 ## 1.1.0 — 2026-10-17
 
