@@ -238,8 +238,7 @@ const emailVerifyOpen = computed(() => ctx.value.panel === 'emailVerify');
           {{ ctx.submitting ? ctx.t('login.logging_in') : ctx.t('login.submit') }}
         </button>
       </form>
-
-      </div>
+</div>
 
       <!-- 底部控制与跳转 -->
       <footer class="paper-foot" v-if="!consentOpen">
