@@ -189,6 +189,12 @@ service.interceptors.response.use(
   error => {
     if (axios.isCancel(error)) return Promise.reject(error);
 
+    // 失败响应同样要同步设备 ID：服务端判定「设备 ID 丢失/变更」时，是把
+    // X-Device-Id（+ Set-Cookie device_id）和 403 拦在**同一次响应**里回写的。
+    // 只在成功分支同步会丢掉这份回写 → 客户端永远不采纳 → 下一个写请求继续 403，
+    // 只能等某次 GET 200 才收敛（跨域读不到头时则永久不收敛）。
+    if (error.response) handleDeviceSyncInResponse(error.response);
+
     // 风险拦截（HTTP 403 响应走 error 分支，因为拦截器抛非 2xx）
     if (error.response?.status === 403 && error.response?.data?.__risk__) {
       return handleRiskBlock({ data: error.response.data, config: error.config });
@@ -202,6 +208,23 @@ service.interceptors.response.use(
 
     // 优先从后端返回的 JSON 数据中提取 message
     const backendMessage = error.response?.data?.message;
+
+    /*
+     * 428 = 防火墙要求先完成人机验证（`x-firewall-challenge`）。
+     *
+     * 这是**预期前置条件**，不是客户端错误：h5-token 预取与首个业务请求都会命中一次，
+     * 若按错误上报，每次加载都会往监控里灌两条同源噪音（实测一次加载 2 条
+     * `[ClientError]`）。这里只把 `status` 挂在 error 上、照常 reject ——
+     * 调用方仍能识别并引导验证，监控侧不再污染。
+     */
+    if (error.response?.status === 428) {
+      const challengeError = new Error(backendMessage || '需要完成人机验证后才能继续访问') as Error & {
+        status?: number;
+      };
+      challengeError.status = 428;
+      return Promise.reject(challengeError);
+    }
+
     if (backendMessage) {
       reportError(new Error(backendMessage), `[API Error] status=${error.response?.status}`);
       return Promise.reject(new Error(backendMessage));

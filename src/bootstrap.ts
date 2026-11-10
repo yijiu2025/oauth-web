@@ -81,6 +81,9 @@ app.use(theme, { router });
 // 未登录场景（QR 生成等公开端点）也需要签名防爬，cookie 预取后所有请求都能签名
 // fire-and-forget：不阻塞挂载；失败时首个请求会被后端自动下发 cookie 并放行
 request.get('/auth/v1/h5-token').catch(err => {
+  // 428（防火墙要求人机验证）是预期前置条件，不算失败：首个业务请求会由后端按需下发
+  // 签名 cookie（见上），这里既不上报也不打日志，避免每次加载都刷一条噪音。
+  if ((err as { status?: number } | null)?.status === 428) return;
   // 不阻塞主流程，但留痕便于排查（fire-and-forget 不上抛）
   reportError(err, '[H5Token] 预取失败（首次请求会由后端自动下发）');
 });
