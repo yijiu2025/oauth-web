@@ -9,7 +9,12 @@
  *        （写错整段跳过；2026-09-25 三值化，mini 从 web 的变体升为独立设备）
  *     3. `<设备>/` 下一层目录 = **页面**，目录名即页面名（`login` / `register` / `forgot-password`）
  *     4. 🔴 **一个主题包 = 一种版式**（2026-09-26 定案，用户：「变体版式使用新包」）：
- *          • `<页面>/` 下**只有** `index.vue` 与 `colors/`
+ *          • `<页面>/` 下**只允许** `index.vue` 与 `colors/` 两类条目
+ *          • 🔴 但**不要求两者都有**（2026-11-10 修正）：只有 `colors/` 的页面目录
+ *            是合法形态 —— 它表示"只接该页配色、版式回退 default 包"。这是必需的，
+ *            因为 `getThemeRecord` 只在「同包 × 同设备 × 同页」找配色，缺记录即
+ *            空 token（不跨包回退）；典型例子是 `paper`
+ *            （版式只有 login，配色铺满 mini 全部页面）。
  *          • **没有**「版式」这一层目录（旧形态 `<页面>/<版式>/colors/` 已删除）
  *          • 换一套版式 = **新建一个主题包**；注册表里配色记录的 `view` **恒等于包名**
  *     5. 包根与配色都必须有 `index.ts`，且默认导出里带 `meta`
@@ -21,7 +26,8 @@
  *          • 每页都应同时有 `black` 与 `white` 两个实体目录
  *
  *   结构 · 版式在包里、且按设备分区
- *     9. 版式实现住在 `<包>/<设备>/<页面>/index.vue`（唯一版式，没有名字层）
+ *     9. 版式实现住在 `<包>/<设备>/<页面>/index.vue`（唯一版式，没有名字层）；
+ *        页面目录可以只有 `colors/`（仅配色覆盖，见第 4 条）
  *    10. `<设备>/` 下除页面目录外，不得有别的子目录（`colors` 已下沉到页面下）
  *    11. 版式的契约 + 注册表是 `theme/views/` 下的页面文件，不在 theme 根平铺
  *
@@ -501,10 +507,17 @@ for (const pkg of PACKAGES) {
       const pageDir = join(PKGS, pkg, device, page);
       if (!isDir(pageDir)) continue;
       const entries = readdirSync(pageDir);
+      // 🔴 2026-11-10 修正：这里此前断言 entries **等于** `colors,index.vue`，
+      //    等于要求每个页面目录都必须有版式。但 `coverage.pages` 同时承担"配色覆盖"
+      //    的语义（见 paper 包：版式只有 login，配色铺满 mini 全部页面）——
+      //    `getThemeRecord` 只在**同包同设备同页**里找配色，找不到返回空记录，
+      //    所以只有 `colors/` 没有 `index.vue` 的页面目录是**合法形态**，不是残缺。
+      //    判据改为"只允许这两类条目，且不能为空"，野目录仍会被 4b 与本条同时拦下。
+      const unexpected = entries.filter(n => !['index.vue', COLORS_DIR].includes(n));
       check(
-        `「${pkg}/${device}/${page}」只有 index.vue 与 ${COLORS_DIR}/`,
-        entries.sort().join(',') === ['colors', 'index.vue'].sort().join(','),
-        `实际：${entries.sort().join(', ')}`
+        `「${pkg}/${device}/${page}」只含 index.vue 与 ${COLORS_DIR}/`,
+        entries.length > 0 && unexpected.length === 0,
+        unexpected.length > 0 ? `多出：${unexpected.join(', ')}` : '页面目录是空的'
       );
       break; // 每设备只抽第一页做条目级断言，全量由 4b 目录断言覆盖
     }
@@ -622,6 +635,22 @@ for (const e of paletteEntries) {
 console.log(`\n=== 7. 版式实现住在包内、按设备分区 ===`);
 for (const pkg of PACKAGES) {
   const cov = coverageOf(pkg);
+  // 🔴 2026-11-10 新增：声明必须先落在**已知词汇表**里。
+  //    此前 `coverage.pages/devices` 只被 `includes()` 消费，写错（拼错页名 / 已退役的
+  //    设备名）不会报错 —— 循环根本走不到它，等于声明被静默丢弃。典型症状是
+  //    "改了 coverage 但关卡纹丝不动"，与"声明 ≤ 实际目录"这条契约一起才完整。
+  const unknownPages = cov.pages.filter(p => !PAGES.includes(p));
+  const unknownDevices = cov.devices.filter(d => !DEVICES.includes(d));
+  check(
+    `「${pkg}」coverage.pages 都是已知页面`,
+    unknownPages.length === 0,
+    `未知页面：${unknownPages.join(', ')}（已知：${PAGES.join(' / ')}）`
+  );
+  check(
+    `「${pkg}」coverage.devices 都是已知设备`,
+    unknownDevices.length === 0,
+    `未知设备：${unknownDevices.join(', ')}（已知：${DEVICES.join(' / ')}）`
+  );
   for (const device of DEVICES) {
     const deviceDir = join(PKGS, pkg, device);
     if (!isDir(deviceDir)) continue;
@@ -629,10 +658,20 @@ for (const pkg of PACKAGES) {
       // 2026-09-25 起：包可只覆盖部分页面。覆盖范围由包**自述**（coverage.pages），
       // 缺页面目录不算违规 —— 跨包路由由其它包或该端自带版式兜底。
       if (!cov.pages.includes(page)) continue;
+      // 🔴 2026-11-10：`coverage.pages` 是**覆盖声明**，横跨两条轴，别混成一条：
+      //    · 有 index.vue  = 该页有本包版式；
+      //    · 只有 colors/  = 只接该页配色（版式回退 default 包）。
+      //    后者是必要的：`getThemeRecord` 只在「同包 × 同设备 × 同页」里找配色，
+      //    找不到返回**空记录**（不跨包回退）⇒ 缺配色 = 该页 token 全空 = 无样式。
+      //    paper 正是这种形态（版式只有 login，配色必须铺满 mini 全部页面）。
+      //    故这里只要求"声明过的页在目录里真的有东西"，版式不是必要条件。
+      const pageDir = join(deviceDir, page);
+      const hasView = existsSync(join(pageDir, 'index.vue'));
+      const hasColors = existsSync(join(pageDir, COLORS_DIR));
       check(
-        `「${pkg}/${device}」有 ${page}/index.vue（该包该设备的唯一版式）`,
-        existsSync(join(deviceDir, page, 'index.vue')),
-        '没有版式的包/设备在该页只能回落到容器的静态兜底'
+        `「${pkg}/${device}」有 ${page}/（版式 index.vue 或 ${COLORS_DIR}/）`,
+        hasView || hasColors,
+        '声明覆盖了该页，目录里却既没有版式也没有配色 —— 声明与实现不符'
       );
       check(
         `「${pkg}/${device}」${page}/base/index.vue 已不存在（去掉 base 层）`,
