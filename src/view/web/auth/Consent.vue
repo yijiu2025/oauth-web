@@ -222,7 +222,7 @@ const ctx = assertContract<ConsentViewContext>(
 
 <template>
   <!-- 业务容器只做一件事：把 ctx 交给当前版式（加载与回退由 <ThemeView> 负责） -->
-  <ThemeView page="consent" :device="device" :ctx="ctx" />
+  <ThemeView page="consent" :device="device" :ctx="ctx" scope="inherit" />
 
   <!-- 全局 Toast：宿主级设施，留在容器 -->
   <MessageToast />

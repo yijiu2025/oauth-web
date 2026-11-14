@@ -31,4 +31,13 @@ import { DEVICES } from '@/view/devices';
 //    宿主不再手动 import 任何 `@/theme/views/*`（bootstrap 也不），机制全由内核构建插件拉齐。
 import 'virtual:theme';
 
-export const useThemeStore = defineStore('theme', () => createThemeState({ devices: DEVICES }));
+export const useThemeStore = defineStore('theme', () =>
+  /*
+   * `defaultPage` 播种「还没人调 setActivePageView 时按哪一页取配色」。
+   *
+   * 本仓全部页面都属于登录流（登录 / 注册 / 忘记密码 / 授权 / 授权确认），配色只有
+   * `login` 一页有记录 —— 播种成 `login` 后，深链直达授权页（此时还没有任何页面写过
+   * activePage）也能拿到完整的 `--mauth-*`；否则整页会退化成无样式的裸 DOM。
+   */
+  createThemeState({ devices: DEVICES, defaultPage: 'login' })
+);

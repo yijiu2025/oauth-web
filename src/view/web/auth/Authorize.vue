@@ -236,7 +236,7 @@ const ctx = assertContract<AuthorizeViewContext>(
 
 <template>
   <!-- 业务容器只做一件事：把 ctx 交给当前版式（加载与回退由 <ThemeView> 负责） -->
-  <ThemeView page="authorize" :device="device" :ctx="ctx" />
+  <ThemeView page="authorize" :device="device" :ctx="ctx" scope="inherit" />
 
   <!-- 全局 Toast：版式只管长什么样，弹窗这类宿主级设施留在容器 -->
   <MessageToast />
