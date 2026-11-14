@@ -2,6 +2,19 @@
 
 本仓库遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)：major（破坏性变更）/ minor（新增功能，向后兼容）/ patch（修复）。
 
+## 未发布（Unreleased）
+
+### 重构
+
+- **授权页与授权确认页下沉主题包**：`view/web/auth/{Authorize,Consent}.vue` 原来自带 84/51 行
+  template 与 137/160 行 scoped CSS、路由直挂，是全仓唯一绕开「机制—契约—版式—容器」四层的
+  页面。现新增契约 `theme/views/{authorize,consent}.ts` 与版式
+  `themes/default/<设备>/{authorize,consent}/`（standard 唯一实现，其余三档转发），
+  两个容器瘦身为薄容器：Authorize 398→243 行、Consent 392→229 行，模板各 7 行，scoped style 归零。
+- **关卡去假绿**：`verify-theme-dirs.mjs` 有两段断言仍在查已退役的 `THEME_DEVICE` /
+  `viewId` watch / `Views.load`，其中一段路径根本不存在、靠 `existsSync` 跳过。改写为
+  「容器用 `<ThemeView>` + 不手写加载」，容器断言收敛到有设备分发器的四页。
+
 ## 1.2.0 — 2026-11-10
 
 ### 新增
