@@ -292,6 +292,16 @@ const PAGES = (existsSync(VIEWS) ? readdirSync(VIEWS) : [])
   .map(n => /^(.+)\.ts$/.exec(n)?.[1])
   .filter(Boolean);
 
+/**
+ * 有**设备分发器**的页面（`view/web/<page>/index.vue` + `view/app|tablet/<page>/index.vue`）。
+ *
+ * 只有这几页靠「文件位置即设备身份」装配容器，因此才会去读 `readDeviceParam`
+ * 分别决定各设备渲染哪个容器。`authorize` / `consent` 是**路由直挂**的单容器页面
+ * （`view/web/auth/*.vue`，容器内按视口算 device 再交给 <ThemeView>），
+ * 没有分发器也没有 readDeviceParam —— 对它们断言分发器形态是错的。
+ */
+const DISPATCHER_PAGES = ['login', 'register', 'forgot-password', 'not-found'];
+
 /** 主题包 */
 const PACKAGES = subdirs(PKGS);
 
@@ -759,11 +769,14 @@ for (const page of PAGES) {
     !/function\s+asText/.test(src) && !/function\s+asPackage/.test(src) && !/function\s+asDevice/.test(src),
     '这三段曾是三页逐字重复的实现，漏改一处就是"三页不同形"'
   );
-  check(
-    `${page} 容器用 readDeviceParam 读设备维度参数（不从 route.query 直接取 view）`,
-    read(join(ROOT, 'view', 'app', page, 'index.vue')).includes('readDeviceParam'),
-    '`view.<设备>` / `view` 的取值链只应有一份实现（skinsuite 的 views/params.ts）'
-  );
+  // 直挂页面（authorize / consent）没有 view/app/<page>/index.vue，也不读设备维度参数
+  if (DISPATCHER_PAGES.includes(page)) {
+    check(
+      `${page} 容器用 readDeviceParam 读设备维度参数（不从 route.query 直接取 view）`,
+      read(join(ROOT, 'view', 'app', page, 'index.vue')).includes('readDeviceParam'),
+      '`view.<设备>` / `view` 的取值链只应有一份实现（skinsuite 的 views/params.ts）'
+    );
+  }
 }
 {
   // 版式**选择器**（取值链）——三页共用一份，所以这些都只断言一次
@@ -962,7 +975,7 @@ check(
   '设备判定不在装配层：宿主设备模块自管，主题 store 只经 ThemeView props 接收'
 );
 // 四个页面分发器：一行接 useDevicePage（共用装配），**不碰主题**
-const dispatcherPages = ['login', 'register', 'forgot-password', 'not-found'];
+const dispatcherPages = DISPATCHER_PAGES;
 for (const page of dispatcherPages) {
   const file = join(ROOT, 'view', 'web', page, 'index.vue');
   const src = existsSync(file) ? read(file) : '';
@@ -1027,62 +1040,43 @@ if (defaultColor) {
   );
 }
 
-for (const page of PAGES) {
-  const container = read(join(ROOT, 'view', 'app', page, 'index.vue'));
-  const imported = new RegExp(
-    `@/theme/themes/([a-z0-9-]+)/mobile/${page}/index\\.vue`
-  ).exec(container)?.[1];
-  check(
-    `${page} 容器静态引入内置包 × mobile 的版式`,
-    Boolean(imported),
-    '内置包的版式必须静态引入（首屏零请求）'
-  );
-  check(
-    `${page} 容器引入的包 === DEFAULT_THEME_PACKAGE（${builtinPkg}）`,
-    imported === builtinPkg,
-    `容器写的是 ${imported}，两边不一致时"零请求"那条路径就断了`
-  );
-  check(
-    `${page} 容器写死 THEME_DEVICE = 'mobile'（设备是页面身份）`,
-    /const\s+THEME_DEVICE\s*=\s*'mobile'\s+as\s+const/.test(container),
-    '移动端容器不跑视口判定，身份由文件位置决定'
-  );
-  check(
-    `${page} 容器的切换 watch 依赖 themeStore.packageId`,
-    /watch\(\s*\[viewId,\s*\(\)\s*=>\s*themeStore\.packageId\]/.test(container),
-    '换包但 viewId 字符串没变时必须重新取组件'
-  );
-  check(
-    `${page} 容器调 load 时传了 THEME_DEVICE`,
-    new RegExp(`Views\\.load\\([^)]*THEME_DEVICE\\)`).test(container),
-    '不传设备就查不到版式'
-  );
-}
+/**
+ * 容器形态（2026-10-17 机制下沉后）：一行 `<ThemeView page device :ctx>` ——
+ * 版式加载 / 回退 / 设备告知全在组件内部。
+ *
+ * 旧断言（`THEME_DEVICE` 常量 / `viewId` watch / `Views.load` 手写加载 /
+ * `view/web/<page>/Standard.vue`）随机制一起退役：那些符号在容器里已不存在，
+ * 留着要么读不到文件（ENOENT 把整关崩掉），要么因 `existsSync` 跳过而恒空转（假绿）。
+ */
+for (const page of DISPATCHER_PAGES) {
+  const mobileFile = join(ROOT, 'view', 'app', page, 'index.vue');
+  if (existsSync(mobileFile)) {
+    const container = read(mobileFile);
+    check(
+      `${page} 移动端容器用 <ThemeView page="${page}" device="mobile">`,
+      new RegExp(`<ThemeView[^>]*page="${page}"`).test(container) &&
+        /<ThemeView[^>]*device="mobile"/.test(container),
+      '容器只组装 ctx；加载 / 回退 / 设备告知都在 <ThemeView> 内部'
+    );
+    check(
+      `${page} 移动端容器不再手写版式加载（THEME_DEVICE / views.load 已退役）`,
+      !/THEME_DEVICE/.test(container) && !/\.views\.load\(/.test(codeOnly(container)),
+      '手写加载是机制下沉前的写法，两套取版式路径必然分家'
+    );
+  }
 
-console.log(`\n=== 8b. 三设备容器各自静态引入自己设备的版式（首屏零请求）===`);
-{
-  /** 每个设备在 `view/` 下的容器文件（设备三值化的落地形态） */
-  const DEVICE_CONTAINERS = [
-    ['mobile', p => join(ROOT, 'view', 'app', p, 'index.vue'), 'mobile'],
-    ['standard', p => join(ROOT, 'view', 'web', p, 'Standard.vue'), 'standard'],
-    ['mini', p => join(ROOT, 'view', 'web', p, 'Mini.vue'), 'mini']
-  ];
-  for (const [label, pathOf, deviceName] of DEVICE_CONTAINERS) {
-    for (const page of PAGES) {
-      const p = pathOf(page);
-      if (!existsSync(p)) continue;
-      const src = read(p);
-      check(
-        `${label}/${page} 容器静态引入 themes/${builtinPkg}/${deviceName}/${page}/index.vue`,
-        src.includes(`@/theme/themes/${builtinPkg}/${deviceName}/${page}/index.vue`),
-        `三个设备各自静态引入自己那份，load() 返回 null 才对所有设备都成立`
-      );
-      check(
-        `${label}/${page} 容器写死 THEME_DEVICE = '${deviceName}'`,
-        new RegExp(`const\\s+THEME_DEVICE\\s*=\\s*'${deviceName}'\\s+as\\s+const`).test(src),
-        '容器身份取常量，不跑视口判定'
-      );
-    }
+  // 桌面 / 紧凑容器文件名不规则（MiniLogin / StandardForgot …），按前缀扫目录
+  const webDir = join(ROOT, 'view', 'web', page);
+  const named = isDir(webDir) ? readdirSync(webDir).filter(n => /^(Standard|Mini).+\.vue$/.test(n)) : [];
+  for (const name of named) {
+    const container = read(join(webDir, name));
+    check(
+      `${page}/${name} 用 <ThemeView> 渲染版式（容器不手写加载）`,
+      /<ThemeView/.test(container) &&
+        !/THEME_DEVICE/.test(container) &&
+        !/\.views\.load\(/.test(codeOnly(container)),
+      '设备身份由容器传给 <ThemeView>；分发器不碰主题 store'
+    );
   }
 }
 

@@ -25,7 +25,10 @@ src/theme/
 ├── views/              版式信息（**页面契约 + 声明**；机制全部下沉到 `skinsuite`）
 │   ├── login.ts        login 页的契约 + 注册表（`defineThemePage` 声明）
 │   ├── register.ts     register 页的契约 + 注册表
-│   └── forgot-password.ts  forgot-password 页的契约 + 注册表
+│   ├── forgot-password.ts  forgot-password 页的契约 + 注册表
+│   ├── not-found.ts    not-found 页的契约 + 注册表
+│   ├── authorize.ts    授权页（/authorize）的契约 + 注册表
+│   ├── consent.ts      授权确认页（/consent）的契约 + 注册表
 │                       （设备清单已迁宿主 `src/view/devices.ts`，2026-10-24：词汇经
 │                         createThemeState({ devices }) 注入 store、布线分发器直接读，
 │                         defineThemeDevice 注册表退役 —— 主题域回归纯主题事实）
@@ -42,14 +45,19 @@ src/theme/
     │   │   │       ├── cyan/{index.ts, theme.scss, assets/}
     │   │   │       └── rainbow/{index.ts}
     │   │   ├── register/{index.vue, colors/{black,blue,cyan,white}/}
-    │   │   └── forgot-password/{index.vue, colors/{black,blue,cyan,white}/}
+    │   │   ├── forgot-password/{index.vue, colors/{black,blue,cyan,white}/}
+    │   │   ├── authorize/index.vue             ← 授权页（无 colors/：卡片底色跟明暗走）
+    │   │   └── consent/index.vue               ← 授权确认页（同上）
     │   ├── standard/   该设计的**桌面主窗口**呈现（结构同上；原 `web/` 更名，2026-09-25）
     │   │   ├── login/index.vue                 ← 容器 + 版式已拆分
     │   │   ├── login/colors/{black,white}/index.ts
     │   │   ├── register/{index.vue, colors/{black,white}/}
-    │   │   └── forgot-password/{index.vue, colors/{black,white}/}
+    │   │   ├── forgot-password/{index.vue, colors/{black,white}/}
+    │   │   ├── authorize/index.vue             ← 授权页：唯一实现，另三设备转发它
+    │   │   └── consent/index.vue               ← 授权确认页：同上
     │   └── mini/       该设计的**iframe 紧凑版**呈现（2026-09-25 起独立设备，与 standard 并列）
-    │       └── login · register · forgot-password（各 index.vue + colors/{black,white}/）
+    │       ├── login · register · forgot-password（各 index.vue + colors/{black,white}/）
+    │       └── authorize · consent —— 转发 standard 的实现（结构一致，只差可用宽度）
     └── compact/        另一套设计的包：只做「注册页紧凑版式」示例，只建了 mobile
         └── mobile/register/{index.vue, colors/{black,blue,cyan,white}/}
 ```
