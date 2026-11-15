@@ -4,6 +4,14 @@
 
 ## 未发布（Unreleased）
 
+### 新增
+
+- **「岛屿米」配色**（`island`，21 份）：奶油米底 + 可可棕字 + 松石绿主操作，色板取自
+  animal-island-ui（MIT）。覆盖 `default` 四设备 × 四页 + `paper/mini` × 四页 +
+  `compact/mobile/register`，tablet 四页按仓内惯例 re-export standard。
+  主色 `#0b7f74` 是对原作亮松石 `#19c8b9` 的有意压深：后者在奶油底上只有 **2.1:1**，
+  当链接 / 按钮小字看不清；深档对奶油底 4.4:1、对白面 4.8:1。键序与各目录 `white` 表逐键对齐。
+
 ### 重构
 
 - **授权页与授权确认页下沉主题包**：`view/web/auth/{Authorize,Consent}.vue` 原来自带 84/51 行
@@ -14,6 +22,22 @@
 - **关卡去假绿**：`verify-theme-dirs.mjs` 有两段断言仍在查已退役的 `THEME_DEVICE` /
   `viewId` watch / `Views.load`，其中一段路径根本不存在、靠 `existsSync` 跳过。改写为
   「容器用 `<ThemeView>` + 不手写加载」，容器断言收敛到有设备分发器的四页。
+
+- **认证界面不再硬编码调色板**（共 674 处）：9 个认证版式 + `AuthContainer` + 6 个共享组件
+  （密码强度条 / 滑块验证码 / 密码框 / 授权确认面板 / 缺 appName 兜底页 / 悬浮明暗开关）+
+  2 份协议文档，`text-slate-400` / `bg-white` / `border-slate-200` / `text-[#2563eb]` 这类
+  Tailwind 字面量全部换成 `var(--mauth-*)`。此前换任何配色，登录卡里都还是白底蓝字
+  （选「岛屿米」尤其明显：奶油米外壳里嵌一块白蓝表单）。`dark:` 前缀的颜色类整条删除 ——
+  令牌由配色表按明暗给值，留着会把深色态钉成 slate。
+- **`@theme` 的 `--color-primary` 优先取 `--mauth-primary`**：`bg-primary` / `ring-primary` /
+  `shadow-primary/20` 这批 shadcn 式工具类此前写死在蓝 HSL（`221.2 83.2% 53.3%`）上，
+  与配色表自相矛盾（白套表里写着"CTA 用深板岩色"却渲染成蓝）。回落那一层保留原 HSL，
+  给"首帧 / 未挂主题的独立页"兜底。
+- **语义色不再靠猜**：成功态走 `--mauth-success`（基线 `mobile-auth.scss` 已有，无需给 60 份表
+  加键）、进行中走 `--mauth-accent`、失败走 `--mauth-danger`；表单底 / 边走 `--mauth-field-*`。
+- `ConsentPanel` 的淡入动画从 Tailwind 工具类 `.bg-slate-50` 挪到语义类 `.consent-panel`
+  —— 挂在工具类上时，类名一换动画就静默消失。对应单测的断言同步从 `.bg-slate-50` 改成
+  `data-testid="consent-panel"`（原断言把测试绑在配色类名上，改配色就会红）。
 
 ## 1.2.0 — 2026-11-10
 
@@ -43,8 +67,6 @@
 - 补齐 `SUPPORT.md` / `CHANGELOG.md` / `.github/FUNDING.yml`
 - `docs/engineering/deployment.md` 更新 GHCR 已设 public、镜像地址升至 1.1.2；`CONTRIBUTING.md` 引用端到端发布 checklist
 - `docs/git-release-rules.md` 与根仓 `docs/standards/git-release-rules.md` 同步（发版 checklist 引用、4.2 新增第 9/10 条、4.3 改为发布后校验、接入清单补 CI 门禁 + docs 校验）
-
-## 未发布（Unreleased）
 
 ## 1.1.0 — 2026-10-17
 
