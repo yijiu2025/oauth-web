@@ -2,7 +2,7 @@
 
 本仓库遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)：major（破坏性变更）/ minor（新增功能，向后兼容）/ patch（修复）。
 
-## 未发布（Unreleased）
+## 1.4.0 — 2026-11-15
 
 ### 新增
 
@@ -38,6 +38,8 @@
 - `ConsentPanel` 的淡入动画从 Tailwind 工具类 `.bg-slate-50` 挪到语义类 `.consent-panel`
   —— 挂在工具类上时，类名一换动画就静默消失。对应单测的断言同步从 `.bg-slate-50` 改成
   `data-testid="consent-panel"`（原断言把测试绑在配色类名上，改配色就会红）。
+
+## 未发布（Unreleased）
 
 ## 1.2.0 — 2026-11-10
 
