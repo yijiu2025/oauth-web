@@ -230,7 +230,7 @@ Host apps (same pattern as retroweb / posecraft / firewall) embed `/mini-login` 
 
 ## Sponsorship
 
-If this project helps you, feel free to buy the author a coffee:
+If this project helps you, feel free to buy the author a coffee (or open the [sponsorship page](https://yijiu2025.github.io/CoreFlow/payment.html) — same codes, easier to zoom on a phone):
 
 | WeChat Pay (scan to transfer) | Alipay |
 | --- | --- |
