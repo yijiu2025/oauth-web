@@ -57,7 +57,7 @@ function onKeyup(e: KeyboardEvent) {
 <template>
   <div class="relative" :class="wrapperClass">
     <!-- 左侧锁图标 -->
-    <div class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none">
+    <div class="absolute left-4 top-1/2 -translate-y-1/2 text-[color:var(--mauth-text-faint)] pointer-events-none">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
         <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
@@ -72,10 +72,10 @@ function onKeyup(e: KeyboardEvent) {
       :placeholder="placeholder"
       :autofocus="autofocus"
       :class="[
-        'w-full h-11 pl-11 pr-11 rounded-xl border bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-all',
+        'w-full h-11 pl-11 pr-11 rounded-xl border bg-[color:var(--mauth-field-bg)] text-sm text-[color:var(--mauth-text-strong)] placeholder:text-[color:var(--mauth-text-faint)] dark:placeholder:text-[color:var(--mauth-text-faint)] transition-all',
         hasError
-          ? 'border-rose-400 dark:border-rose-500 bg-rose-50/30 dark:bg-rose-950/30 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
-          : 'border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20',
+          ? 'border-[color:var(--mauth-danger)] bg-[color:color-mix(in_srgb,var(--mauth-danger-bg)_60%,transparent)] focus:border-[color:var(--mauth-danger)] focus:ring-2 focus:ring-[color:color-mix(in_srgb,var(--mauth-danger)_20%,transparent)]'
+          : 'border-[color:var(--mauth-field-border)] focus:border-[color:var(--mauth-border-focus)] focus:ring-2 focus:ring-[color:color-mix(in_srgb,var(--mauth-accent)_20%,transparent)]',
         inputClass
       ]"
     />
@@ -84,7 +84,7 @@ function onKeyup(e: KeyboardEvent) {
       type="button"
       @click="showPassword = !showPassword"
       :title="showPassword ? '隐藏密码' : '显示密码'"
-      class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+      class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-[color:var(--mauth-text-faint)] hover:text-[color:var(--mauth-text-body)] transition-colors"
     >
       <svg v-if="showPassword" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>

@@ -33,10 +33,10 @@ const emailVerifyOpen = computed(() => ctx.value.panel === 'emailVerify');
       :isMobile="false"
     >
       <template #header>
-        <h2 class="text-xl font-bold dark:text-white leading-tight">
+        <h2 class="text-xl font-bold leading-tight">
           {{ consentOpen ? ctx.t('login.consent_title') : ctx.showQr ? ctx.t('login.qr_title') : ctx.t('login.welcome') }}
         </h2>
-        <p class="text-xs text-slate-400 mt-1">
+        <p class="text-xs text-[color:var(--mauth-text-faint)] mt-1">
           {{
             consentOpen
               ? ctx.t('login.consent_desc', { app: ctx.consentState?.client_name || ctx.t('login.third_party') })
@@ -52,7 +52,7 @@ const emailVerifyOpen = computed(() => ctx.value.panel === 'emailVerify');
         <button
           type="button"
           @click="ctx.actions.toggleQr()"
-          class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800/80 text-slate-400 hover:text-[#2563eb] transition-all border border-slate-100 dark:border-slate-800"
+          class="w-10 h-10 flex items-center justify-center rounded-xl bg-[color:var(--mauth-surface-2)] text-[color:var(--mauth-text-faint)] hover:text-[color:var(--mauth-accent)] transition-all border border-[color:var(--mauth-border)]"
           :title="ctx.showQr ? ctx.t('login.qr_title') : ctx.t('login.welcome')"
         >
           <svg v-if="!ctx.showQr" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
@@ -71,11 +71,11 @@ const emailVerifyOpen = computed(() => ctx.value.panel === 'emailVerify');
       <!-- 二维码面板 -->
       <div v-if="ctx.showQr && !consentOpen" class="qr-container flex flex-col items-center justify-center flex-1 py-4">
         <div
-          class="p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 relative group overflow-hidden cursor-pointer"
-          :class="{ 'border-rose-300': ctx.qrStatus === 'expired' }"
+          class="p-4 bg-[color:var(--mauth-surface)] rounded-2xl shadow-sm border border-[color:var(--mauth-border)] relative group overflow-hidden cursor-pointer"
+          :class="{ 'border-[color:color-mix(in_srgb,var(--mauth-danger)_45%,transparent)]': ctx.qrStatus === 'expired' }"
           @click="ctx.qrStatus === 'expired' && ctx.actions.generateQr()"
         >
-          <div class="absolute top-0 left-0 w-full h-[2px] bg-[#2563eb] blur-[2px] animate-scan z-10" v-if="ctx.qrStatus !== 'expired'"></div>
+          <div class="absolute top-0 left-0 w-full h-[2px] bg-[color:var(--mauth-accent)] blur-[2px] animate-scan z-10" v-if="ctx.qrStatus !== 'expired'"></div>
           <img
             v-if="ctx.qrDataUrl"
             :src="ctx.qrDataUrl"
@@ -83,22 +83,22 @@ const emailVerifyOpen = computed(() => ctx.value.panel === 'emailVerify');
             :class="ctx.qrStatus === 'expired' ? 'opacity-30' : 'opacity-90 group-hover:opacity-100'"
           />
           <div v-else class="w-40 h-40 flex items-center justify-center">
-            <div class="w-8 h-8 border-2 border-slate-200 border-t-[#2563eb] rounded-full animate-spin"></div>
+            <div class="w-8 h-8 border-2 border-[color:var(--mauth-border)] border-t-[color:var(--mauth-accent)] rounded-full animate-spin"></div>
           </div>
           <div
             v-if="ctx.qrStatus === 'expired'"
-            class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-white/60 dark:bg-slate-900/60"
+            class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-[color:color-mix(in_srgb,var(--mauth-surface)_60%,transparent)]"
           >
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" class="text-rose-500">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" class="text-[color:var(--mauth-danger)]">
               <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
               <path d="M21 3v5h-5" />
               <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
               <path d="M3 21v-5h5" />
             </svg>
-            <span class="text-xs font-medium text-rose-500">点击刷新</span>
+            <span class="text-xs font-medium text-[color:var(--mauth-danger)]">点击刷新</span>
           </div>
         </div>
-        <p class="mt-6 text-xs text-slate-500 text-center">
+        <p class="mt-6 text-xs text-[color:var(--mauth-text-mid)] text-center">
           {{ ctx.t('login.qr_scan_hint', { app: ctx.appName }) }}
         </p>
       </div>
@@ -115,14 +115,14 @@ const emailVerifyOpen = computed(() => ctx.value.panel === 'emailVerify');
       <!-- 邮箱二次验证 -->
       <div v-else-if="emailVerifyOpen" class="flex-1 flex flex-col justify-center py-2 space-y-4 w-full">
         <div class="text-center space-y-2">
-          <div class="w-12 h-12 mx-auto rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+          <div class="w-12 h-12 mx-auto rounded-full bg-[color:var(--mauth-warn-bg)] flex items-center justify-center">
             <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#f59e0b" stroke-width="2">
               <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
             </svg>
           </div>
-          <h3 class="text-sm font-bold dark:text-white">环境变更验证</h3>
-          <p class="text-xs text-slate-400">检测到{{ ctx.emailVerifyState?.reason }}，为保护账号安全，请验证邮箱</p>
-          <p class="text-xs text-slate-500 dark:text-slate-400">验证码已发送至 <strong>{{ ctx.emailVerifyState?.email }}</strong></p>
+          <h3 class="text-sm font-bold">环境变更验证</h3>
+          <p class="text-xs text-[color:var(--mauth-text-faint)]">检测到{{ ctx.emailVerifyState?.reason }}，为保护账号安全，请验证邮箱</p>
+          <p class="text-xs text-[color:var(--mauth-text-mid)]">验证码已发送至 <strong>{{ ctx.emailVerifyState?.email }}</strong></p>
         </div>
 
         <div class="mlogin-field">
@@ -139,7 +139,7 @@ const emailVerifyOpen = computed(() => ctx.value.panel === 'emailVerify');
 
         <div class="flex items-center justify-between text-xs">
           <button type="button" @click="ctx.actions.sendEmailVerifyCode()" :disabled="ctx.emailVerifyCountingDown"
-            class="text-[#2563eb] disabled:text-slate-400 disabled:cursor-not-allowed font-medium">
+            class="text-[color:var(--mauth-accent)] disabled:text-[color:var(--mauth-text-faint)] disabled:cursor-not-allowed font-medium">
             {{ ctx.emailVerifyCountingDown ? `${ctx.emailVerifyCountdown}s 后重发` : '重新发送验证码' }}
           </button>
         </div>
@@ -152,11 +152,11 @@ const emailVerifyOpen = computed(() => ctx.value.panel === 'emailVerify');
       <!-- 登录表单 -->
       <form v-else @submit.prevent="ctx.actions.submit()" class="form-container flex-1 flex flex-col justify-center mt-3">
         <!-- 登录类型 Tab -->
-        <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-4 border border-slate-200/60 dark:border-slate-700/60">
+        <div class="flex bg-[color:var(--mauth-surface-3)] p-1 rounded-xl mb-4 border border-[color:var(--mauth-border)]">
           <button
             type="button"
             @click="ctx.actions.switchMode('email')"
-            :class="ctx.mode === 'email' ? 'bg-white dark:bg-slate-700 text-[#2563eb] shadow-sm font-bold' : 'text-slate-500 dark:text-slate-400 font-medium hover:text-slate-700 dark:hover:text-slate-300'"
+            :class="ctx.mode === 'email' ? 'bg-[color:var(--mauth-surface)] text-[color:var(--mauth-accent)] shadow-sm font-bold' : 'text-[color:var(--mauth-text-mid)] font-medium hover:text-[color:var(--mauth-text-body)]'"
             class="flex-1 py-2 text-sm rounded-lg transition-all"
           >
             {{ ctx.t('login.email_login') }}
@@ -164,7 +164,7 @@ const emailVerifyOpen = computed(() => ctx.value.panel === 'emailVerify');
           <button
             type="button"
             @click="ctx.actions.switchMode('pwd')"
-            :class="ctx.mode === 'pwd' ? 'bg-white dark:bg-slate-700 text-[#2563eb] shadow-sm font-bold' : 'text-slate-500 dark:text-slate-400 font-medium hover:text-slate-700 dark:hover:text-slate-300'"
+            :class="ctx.mode === 'pwd' ? 'bg-[color:var(--mauth-surface)] text-[color:var(--mauth-accent)] shadow-sm font-bold' : 'text-[color:var(--mauth-text-mid)] font-medium hover:text-[color:var(--mauth-text-body)]'"
             class="flex-1 py-2 text-sm rounded-lg transition-all"
           >
             {{ ctx.t('login.password_login') }}
@@ -231,7 +231,7 @@ const emailVerifyOpen = computed(() => ctx.value.panel === 'emailVerify');
 
         <!-- 提交按钮 -->
         <button type="submit" :disabled="ctx.submitting" class="mlogin-submit flex items-center justify-center gap-2 mt-1">
-          <span v-if="ctx.submitting" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+          <span v-if="ctx.submitting" class="w-4 h-4 border-2 border-[color:color-mix(in_srgb,var(--mauth-primary-fg,#ffffff)_30%,transparent)] border-t-white rounded-full animate-spin"></span>
           {{ ctx.submitting ? ctx.t('login.logging_in') : ctx.t('login.submit') }}
         </button>
       </form>
@@ -246,18 +246,18 @@ const emailVerifyOpen = computed(() => ctx.value.panel === 'emailVerify');
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
             </span>
-            <span class="text-xs text-slate-400 hover:text-slate-500 transition-colors">{{ ctx.t('login.keep_login') }}</span>
+            <span class="text-xs text-[color:var(--mauth-text-faint)] hover:text-[color:var(--mauth-text-mid)] transition-colors">{{ ctx.t('login.keep_login') }}</span>
           </label>
 
           <div class="flex items-center gap-3">
             <a
               href="#"
               @click.stop.prevent="ctx.actions.goForgot()"
-              class="text-xs text-slate-400 hover:text-[#2563eb] transition-colors"
+              class="text-xs text-[color:var(--mauth-text-faint)] hover:text-[color:var(--mauth-accent)] transition-colors"
             >
               {{ ctx.t('login.forgot_password') }}
             </a>
-            <span class="text-slate-300 dark:text-slate-700">|</span>
+            <span class="text-[color:var(--mauth-text-faint)]">|</span>
             <a
               href="#"
               @click.stop.prevent="ctx.actions.goRegister()"
@@ -276,7 +276,7 @@ const emailVerifyOpen = computed(() => ctx.value.panel === 'emailVerify');
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
           </span>
-          <span class="text-xs text-slate-400 hover:text-slate-500 transition-colors">
+          <span class="text-xs text-[color:var(--mauth-text-faint)] hover:text-[color:var(--mauth-text-mid)] transition-colors">
             {{ ctx.t('login.agree_prefix') || '我已阅读并同意' }}
             <a href="#" class="mlogin-highlight-link" @click.stop.prevent="ctx.actions.openAgreement('service')">{{ ctx.t('login.agree_link_service') || '《服务协议》' }}</a>
             {{ ctx.t('login.agree_and') || '与' }}

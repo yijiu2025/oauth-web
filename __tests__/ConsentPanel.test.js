@@ -58,7 +58,7 @@ describe('ConsentPanel.vue', () => {
       }
     });
 
-    expect(wrapper.find('.bg-slate-50').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="consent-panel"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('测试应用');
     expect(wrapper.text()).toContain('正在请求授权');
     expect(wrapper.text()).toContain('请求的权限');

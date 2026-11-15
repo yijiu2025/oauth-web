@@ -17,7 +17,7 @@ const themeStore = useThemeStore();
 <template>
   <button
     @click="themeStore.toggleTheme()"
-    class="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-slate-800 shadow-lg border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 hover:scale-105 active:scale-95 transition-all z-50"
+    class="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-[color:var(--mauth-surface)] shadow-lg border border-[color:var(--mauth-border)] text-sm font-medium text-[color:var(--mauth-text-body)] hover:scale-105 active:scale-95 transition-all z-50"
     :title="themeStore.isDark ? '切换到浅色' : '切换到深色'"
   >
     <Icons v-if="themeStore.isDark" name="moon" :size="16" />

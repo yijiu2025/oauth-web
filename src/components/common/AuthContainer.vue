@@ -79,28 +79,28 @@ const showBrandPanel = computed(() => !props.isMobile && windowWidth.value >= 60
   <div class="auth-viewport" :class="containerClasses">
     <!-- 自适应卡片：宽屏 max-854 居中，窄屏 100% 宽平滑压缩 -->
     <div
-      class="auth-card bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-[10px] shadow-2xl overflow-hidden flex w-full"
+      class="auth-card bg-[color:var(--mauth-surface)] border border-[color:var(--mauth-border)] rounded-[10px] shadow-2xl overflow-hidden flex w-full"
     >
       <!-- 左栏：品牌入口
            显示条件：!isMobile AND 视口 >= 600px（窄屏强制单栏）
            默认品牌内容可 #branding 覆盖；整个左栏外壳（背景/装饰/结构）可 #brand-panel 完全覆盖 -->
       <aside
         v-if="showBrandPanel"
-        class="auth-brand hidden min-[600px]:flex flex-col justify-center p-12 relative overflow-hidden bg-slate-50 dark:bg-slate-800/40 border-r border-slate-100 dark:border-slate-800/60"
+        class="auth-brand hidden min-[600px]:flex flex-col justify-center p-12 relative overflow-hidden bg-[color:var(--mauth-surface-2)] border-r border-[color:var(--mauth-border)]"
       >
         <slot name="brand-panel">
           <div class="relative z-10">
             <slot name="branding">
               <!-- 默认品牌内容（调用方可 #branding 覆盖） -->
               <div
-                class="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white mb-8 shadow-lg shadow-primary/20"
+                class="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-[color:var(--mauth-primary-fg,#ffffff)] mb-8 shadow-lg shadow-primary/20"
               >
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3">
                   <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                 </svg>
               </div>
-              <h1 class="text-3xl font-bold dark:text-white mb-4 tracking-tight">{{ appName }}</h1>
-              <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed max-w-[240px]">
+              <h1 class="text-3xl font-bold mb-4 tracking-tight">{{ appName }}</h1>
+              <p class="text-[color:var(--mauth-text-mid)] text-sm leading-relaxed max-w-[240px]">
                 {{ t('login.brand_desc', '安全、快速、统一的身份认证中心。 为您的企业应用提供坚实的防护屏障。') }}
               </p>
             </slot>
@@ -108,12 +108,12 @@ const showBrandPanel = computed(() => !props.isMobile && windowWidth.value >= 60
 
           <!-- 装饰光斑 -->
           <div class="absolute -bottom-20 -left-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
-          <div class="absolute -top-20 -right-20 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl"></div>
+          <div class="absolute -top-20 -right-20 w-64 h-64 bg-[color:color-mix(in_srgb,var(--mauth-accent)_5%,transparent)] rounded-full blur-3xl"></div>
 
           <!-- 底部指示点 -->
           <div class="absolute bottom-8 left-12 flex gap-4">
-            <div class="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700"></div>
-            <div class="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+            <div class="w-1.5 h-1.5 rounded-full bg-[color:var(--mauth-border-strong)]"></div>
+            <div class="w-1.5 h-1.5 rounded-full bg-[color:var(--mauth-border-strong)]"></div>
             <div class="w-1.5 h-1.5 rounded-full bg-primary/40"></div>
           </div>
         </slot>
@@ -129,9 +129,9 @@ const showBrandPanel = computed(() => !props.isMobile && windowWidth.value >= 60
             <slot name="header">
               <!-- 默认 header：appName 标题 + 欢迎语（可 #header-app-name 覆盖 appName 展示） -->
               <slot name="header-app-name">
-                <h2 class="text-xl font-bold dark:text-white">{{ appName }}</h2>
+                <h2 class="text-xl font-bold">{{ appName }}</h2>
               </slot>
-              <p class="text-xs text-slate-400 mt-1">{{ t('login.fill_credentials', '请填写您的登录凭据') }}</p>
+              <p class="text-xs text-[color:var(--mauth-text-faint)] mt-1">{{ t('login.fill_credentials', '请填写您的登录凭据') }}</p>
             </slot>
           </div>
           <!-- 右侧附加区：调用方按需注入（如扫码切换按钮），无注入则不占位 -->

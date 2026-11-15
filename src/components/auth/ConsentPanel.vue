@@ -36,36 +36,36 @@ function firstChar(name: string): string {
 
 <template>
   <!-- 授权确认面板 -->
-  <div class="flex-1 flex flex-col justify-center py-2 space-y-5 w-full">
-    <div class="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-100 dark:border-slate-800 space-y-3">
+  <div class="flex-1 flex flex-col justify-center py-2 space-y-5 w-full" data-testid="consent-panel">
+    <div class="consent-panel bg-[color:var(--mauth-surface-2)] p-4 rounded-xl border border-[color:var(--mauth-border)] space-y-3">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-[#2563eb]/10 flex items-center justify-center text-[#2563eb] font-bold text-lg">
+        <div class="w-10 h-10 rounded-xl bg-[color:color-mix(in_srgb,var(--mauth-accent)_10%,transparent)] flex items-center justify-center text-[color:var(--mauth-accent)] font-bold text-lg">
           {{ firstChar(consentState?.client_name || '').toUpperCase() }}
         </div>
         <div>
-          <h3 class="text-sm font-bold dark:text-white">
+          <h3 class="text-sm font-bold">
             {{ consentState?.client_name || t('login.third_party') }}
           </h3>
-          <p class="text-xs text-slate-400">{{ t('login.requesting_auth') }}</p>
+          <p class="text-xs text-[color:var(--mauth-text-faint)]">{{ t('login.requesting_auth') }}</p>
         </div>
       </div>
-      <hr class="border-slate-100 dark:border-slate-800" />
+      <hr class="border-[color:var(--mauth-border)]" />
       <div class="space-y-2">
-        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">
+        <p class="text-xs font-semibold text-[color:var(--mauth-text-mid)]">
           {{ t('login.requesting_permissions') }}
         </p>
         <ul class="space-y-1.5">
           <li
             v-for="s in (consentState?.scopeDetails || [])"
             :key="s.id"
-            class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300"
+            class="flex items-start gap-2 text-xs text-[color:var(--mauth-text-body)]"
           >
-            <Icons name="check" :size="16" class="text-green-500 shrink-0 mt-0.5" />
+            <Icons name="check" :size="16" class="text-[color:var(--mauth-success)] shrink-0 mt-0.5" />
             <span>
               <strong class="font-semibold">{{ s.name }}</strong>
               <!-- desc 可能为空（父应用未透传描述）：此时不渲染破折号，避免出现悬空的"—" -->
-              <span v-if="s.desc" class="text-slate-400 dark:text-slate-500">— {{ s.desc }}</span>
-              <span v-if="s.required" class="ml-1 text-[10px] text-slate-400">（{{ t('auth.required') }}）</span>
+              <span v-if="s.desc" class="text-[color:var(--mauth-text-faint)]">— {{ s.desc }}</span>
+              <span v-if="s.required" class="ml-1 text-[10px] text-[color:var(--mauth-text-faint)]">（{{ t('auth.required') }}）</span>
             </span>
           </li>
         </ul>
@@ -77,7 +77,7 @@ function firstChar(name: string): string {
         type="button"
         @click="props.onDeny"
         :disabled="props.submitting"
-        class="flex-1 h-11 border border-slate-200 dark:border-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        class="flex-1 h-11 border border-[color:var(--mauth-border)] rounded-xl font-bold text-xs hover:bg-[color:var(--mauth-surface-2)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {{ t('login.deny') }}
       </button>
@@ -137,7 +137,7 @@ function firstChar(name: string): string {
   }
 }
 
-.bg-slate-50 {
+.consent-panel {
   animation: fadeIn 0.3s ease-out;
 }
 

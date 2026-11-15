@@ -27,8 +27,16 @@
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
 
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
+  /*
+   * 主色优先吃**主题令牌**：`bg-primary` / `text-primary` / `ring-primary` 这些 shadcn 式
+   * 工具类是共享组件（`AuthContainer` 的品牌方块等）的主色来源，固定成 `--primary`
+   * 那个蓝 HSL 时，换任何配色它们都不动（选「岛屿米」logo 还是蓝方块 —— 2026-11-15 实测）。
+   *
+   * 回落那一层是刻意的：`--mauth-*` 由主题运行期按「包 × 设备 × 页面」写入，
+   * 首帧 / 未挂主题的独立页拿不到，此时退回原来那套 HSL，视觉与改造前一致。
+   */
+  --color-primary: var(--mauth-primary, hsl(var(--primary)));
+  --color-primary-foreground: var(--mauth-primary-fg, hsl(var(--primary-foreground)));
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
   --color-destructive: hsl(var(--destructive));

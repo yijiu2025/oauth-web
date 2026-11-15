@@ -32,8 +32,8 @@ const isStep1 = computed(() => ctx.value.step === 1);
       <template #header>
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="text-xl font-bold dark:text-white leading-tight">{{ ctx.t('register.title') }}</h2>
-            <p class="text-xs text-slate-400 mt-1">{{ ctx.subtitle }}</p>
+            <h2 class="text-xl font-bold leading-tight">{{ ctx.t('register.title') }}</h2>
+            <p class="text-xs text-[color:var(--mauth-text-faint)] mt-1">{{ ctx.subtitle }}</p>
           </div>
           <!-- 步骤指示小圆点 -->
           <div class="flex items-center gap-1.5 mr-2">
@@ -134,7 +134,7 @@ const isStep1 = computed(() => ctx.value.step === 1);
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
               </span>
-              <span class="text-xs text-slate-500 dark:text-slate-400">
+              <span class="text-xs text-[color:var(--mauth-text-mid)]">
                 {{ ctx.t('register.agree_prefix') }}<span @click.stop.prevent="ctx.actions.openAgreement('service')" class="stdreg-highlight-link">{{ ctx.t('register.agree_link_service') }}</span>{{ ctx.t('register.agree_and') }}<span @click.stop.prevent="ctx.actions.openAgreement('privacy')" class="stdreg-highlight-link">{{ ctx.t('register.agree_link_privacy') }}</span>
               </span>
             </label>
@@ -153,7 +153,7 @@ const isStep1 = computed(() => ctx.value.step === 1);
       <!-- 底部返回登录 -->
       <template #footer>
         <div class="flex items-center justify-between pt-1">
-          <span class="text-xs text-slate-400">{{ ctx.t('register.signin_hint') }}</span>
+          <span class="text-xs text-[color:var(--mauth-text-faint)]">{{ ctx.t('register.signin_hint') }}</span>
           <button type="button" @click="ctx.actions.goLogin()" class="stdreg-highlight-link font-medium text-xs">
             {{ ctx.t('register.signin_link') }}
           </button>

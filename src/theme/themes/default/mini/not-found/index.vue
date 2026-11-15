@@ -24,8 +24,8 @@ const ctx = toRef(props, 'ctx');
   <div class="mnf-root w-full h-full" data-mauth-view="default">
     <AuthContainer :app-name="'Enterprise SSO'">
       <template #header>
-        <h2 class="text-xl font-bold dark:text-white leading-tight">{{ ctx.title }}</h2>
-        <p class="text-xs text-slate-400 mt-1">{{ ctx.desc }}</p>
+        <h2 class="text-xl font-bold leading-tight">{{ ctx.title }}</h2>
+        <p class="text-xs text-[color:var(--mauth-text-faint)] mt-1">{{ ctx.desc }}</p>
       </template>
 
       <div class="mnf-body">

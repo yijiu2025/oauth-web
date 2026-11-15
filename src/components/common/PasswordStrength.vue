@@ -28,11 +28,11 @@ const STRENGTH_RULES = [
 ] as const;
 
 const STRENGTH_LEVELS = [
-  { label: '弱', color: '#f43f5e' },
-  { label: '弱', color: '#f43f5e' },
-  { label: '中', color: '#f59e0b' },
-  { label: '强', color: '#eab308' },
-  { label: '很强', color: '#10b981' }
+  { label: '弱', color: 'var(--mauth-danger)' },
+  { label: '弱', color: 'var(--mauth-danger)' },
+  { label: '中', color: 'var(--mauth-warn)' },
+  { label: '强', color: 'color-mix(in srgb, var(--mauth-warn) 45%, var(--mauth-success))' },
+  { label: '很强', color: 'var(--mauth-success)' }
 ] as const;
 
 const strengthScore = computed(() => STRENGTH_RULES.filter(r => r.test(props.password || '')).length);
@@ -49,7 +49,7 @@ const showTip = ref(false);
         v-for="i in 4"
         :key="i"
         class="flex-1 h-1 rounded-full transition-colors"
-        :class="i <= strengthScore ? '' : 'bg-slate-200 dark:bg-slate-700'"
+        :class="i <= strengthScore ? '' : 'bg-[color:var(--mauth-border-strong)]'"
         :style="i <= strengthScore ? { background: strengthColor } : undefined"
       ></div>
     </div>
@@ -63,22 +63,22 @@ const showTip = ref(false);
           @focus="showTip = true"
           @blur="showTip = false"
           @click="showTip = !showTip"
-          class="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[10px] font-bold flex items-center justify-center hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+          class="w-4 h-4 rounded-full bg-[color:var(--mauth-border-strong)] text-[color:var(--mauth-text-mid)] text-[10px] font-bold flex items-center justify-center hover:bg-[color:var(--mauth-surface-3)] transition-colors"
           title="查看强度要求"
         >
 ?
 </button>
         <div
           v-if="showTip"
-          class="absolute right-0 top-6 z-10 w-64 p-3 rounded-lg bg-slate-800 dark:bg-slate-700 text-white text-xs shadow-xl"
+          class="absolute right-0 top-6 z-10 w-64 p-3 rounded-lg bg-[color:var(--mauth-text-strong)] text-[color:var(--mauth-bg)] text-xs shadow-xl"
         >
-          <div class="font-semibold mb-2 text-slate-100">密码强度要求</div>
+          <div class="font-semibold mb-2 text-[color:var(--mauth-surface)]">密码强度要求</div>
           <ul class="space-y-1.5">
             <li
               v-for="rule in STRENGTH_RULES"
               :key="rule.label"
               class="flex items-start gap-2"
-              :class="rule.test(password || '') ? 'text-emerald-400' : 'text-slate-400'"
+              :class="rule.test(password || '') ? 'text-[color:var(--mauth-success)]' : 'text-[color:var(--mauth-text-faint)]'"
             >
               <span class="inline-block w-3.5 flex-shrink-0 font-bold">
                 {{ rule.test(password || '') ? '✓' : '✗' }}

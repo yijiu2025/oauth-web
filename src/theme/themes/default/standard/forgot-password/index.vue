@@ -32,8 +32,8 @@ const ctx = toRef(props, 'ctx');
   <div class="stdforgot-root" data-mauth-view="default">
     <AuthContainer :app-name="'Enterprise SSO'">
       <template #header>
-        <h2 class="text-xl font-bold dark:text-white leading-tight">{{ ctx.title }}</h2>
-        <p class="text-xs text-slate-400 mt-1">{{ ctx.subtitle }}</p>
+        <h2 class="text-xl font-bold leading-tight">{{ ctx.title }}</h2>
+        <p class="text-xs text-[color:var(--mauth-text-faint)] mt-1">{{ ctx.subtitle }}</p>
       </template>
 
       <!-- ===== 方式一：验证码重置（3 步） ===== -->
@@ -224,7 +224,7 @@ const ctx = toRef(props, 'ctx');
       <!-- 底部返回登录 -->
       <template #footer>
         <div class="flex items-center justify-between pt-1">
-          <span class="text-xs text-slate-400">{{ ctx.t('forgot.remembered') }}</span>
+          <span class="text-xs text-[color:var(--mauth-text-faint)]">{{ ctx.t('forgot.remembered') }}</span>
           <button type="button" @click="ctx.actions.goLogin()" class="stdforgot-highlight-link font-medium text-xs">
             {{ ctx.t('forgot.back_to_login') }}
           </button>

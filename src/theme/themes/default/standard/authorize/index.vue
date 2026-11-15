@@ -24,33 +24,33 @@ const ctx = toRef(props, 'ctx');
       <!-- 加载中 -->
       <div v-if="ctx.loading" class="auth-state">
         <div class="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-        <p class="mt-4 text-sm text-slate-400">{{ ctx.t('auth.loading') }}</p>
+        <p class="mt-4 text-sm text-[color:var(--mauth-text-faint)]">{{ ctx.t('auth.loading') }}</p>
       </div>
 
       <!-- 缺参数（全屏直接打开 /authorize 的常见情况） -->
       <div v-else-if="ctx.paramsMissing" class="auth-state">
         <div
-          class="w-12 h-12 mx-auto rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mb-4"
+          class="w-12 h-12 mx-auto rounded-2xl bg-[color:var(--mauth-warn-bg)] flex items-center justify-center mb-4"
         >
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#f59e0b" stroke-width="2">
             <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
           </svg>
         </div>
-        <h2 class="text-lg font-bold dark:text-white mb-2">{{ ctx.t('auth.params_missing_title') }}</h2>
-        <p class="text-slate-400 text-xs leading-relaxed">{{ ctx.t('auth.params_missing_desc') }}</p>
+        <h2 class="text-lg font-bold mb-2">{{ ctx.t('auth.params_missing_title') }}</h2>
+        <p class="text-[color:var(--mauth-text-faint)] text-xs leading-relaxed">{{ ctx.t('auth.params_missing_desc') }}</p>
       </div>
 
       <!-- 出错 -->
       <div v-else-if="ctx.errorMessage" class="auth-state">
         <div
-          class="w-12 h-12 mx-auto rounded-2xl bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center mb-4"
+          class="w-12 h-12 mx-auto rounded-2xl bg-[color:var(--mauth-danger-bg)] flex items-center justify-center mb-4"
         >
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#f43f5e" stroke-width="2">
             <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
           </svg>
         </div>
-        <h2 class="text-lg font-bold dark:text-white mb-2">{{ ctx.t('auth.failed_title') }}</h2>
-        <p class="text-slate-400 text-xs leading-relaxed break-words">{{ ctx.errorMessage }}</p>
+        <h2 class="text-lg font-bold mb-2">{{ ctx.t('auth.failed_title') }}</h2>
+        <p class="text-[color:var(--mauth-text-faint)] text-xs leading-relaxed break-words">{{ ctx.errorMessage }}</p>
       </div>
 
       <!-- 授权确认 -->
@@ -58,47 +58,47 @@ const ctx = toRef(props, 'ctx');
         <!-- 应用 Header -->
         <div class="flex flex-col items-center text-center mb-6 sm:mb-10">
           <div
-            class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-primary to-indigo-600 p-[2px] shadow-xl shadow-primary/20 mb-4 sm:mb-6"
+            class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-primary to-[color:color-mix(in_srgb,var(--mauth-primary)_78%,#000)] p-[2px] shadow-xl shadow-primary/20 mb-4 sm:mb-6"
           >
             <div
-              class="w-full h-full bg-white dark:bg-slate-900 rounded-[14px] flex items-center justify-center text-2xl sm:text-3xl"
+              class="w-full h-full bg-[color:var(--mauth-surface)] rounded-[14px] flex items-center justify-center text-2xl sm:text-3xl"
             >
               {{ ctx.appName.charAt(0).toUpperCase() }}
             </div>
           </div>
-          <h2 class="text-xl sm:text-2xl font-bold dark:text-white mb-2">
+          <h2 class="text-xl sm:text-2xl font-bold mb-2">
             {{ ctx.appName }} {{ ctx.t('auth.requests_auth') }}
           </h2>
-          <p class="text-slate-400 text-xs px-2 sm:px-10">{{ ctx.appDescription }}</p>
+          <p class="text-[color:var(--mauth-text-faint)] text-xs px-2 sm:px-10">{{ ctx.appDescription }}</p>
         </div>
 
         <!-- 权限列表 -->
         <div
-          class="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 sm:p-6 mb-6 sm:mb-10 border border-slate-100 dark:border-slate-800"
+          class="bg-[color:var(--mauth-surface-2)] rounded-2xl p-4 sm:p-6 mb-6 sm:mb-10 border border-[color:var(--mauth-border)]"
         >
-          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">
+          <p class="text-[10px] font-bold text-[color:var(--mauth-text-faint)] uppercase tracking-widest mb-4">
             {{ ctx.t('auth.permissions_title') }}
           </p>
           <div class="space-y-4 sm:space-y-5">
             <div v-for="scope in ctx.scopes" :key="scope.id" class="flex items-start gap-3 sm:gap-4">
               <div
-                class="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mt-0.5 shrink-0"
+                class="w-5 h-5 rounded-full bg-[color:color-mix(in_srgb,var(--mauth-success)_10%,transparent)] text-[color:var(--mauth-success)] flex items-center justify-center mt-0.5 shrink-0"
               >
                 <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="4">
                   <path d="M20 6L9 17l-5-5" />
                 </svg>
               </div>
               <div class="min-w-0">
-                <p class="text-sm font-bold dark:text-slate-200">
+                <p class="text-sm font-bold">
                   {{ scope.name }}
-                  <span v-if="scope.required" class="ml-1 text-[10px] font-medium text-rose-500">
+                  <span v-if="scope.required" class="ml-1 text-[10px] font-medium text-[color:var(--mauth-danger)]">
                     {{ ctx.t('auth.required') }}
                   </span>
                 </p>
-                <p class="text-[11px] text-slate-400 leading-tight mt-1 break-words">{{ scope.desc }}</p>
+                <p class="text-[11px] text-[color:var(--mauth-text-faint)] leading-tight mt-1 break-words">{{ scope.desc }}</p>
               </div>
             </div>
-            <p v-if="!ctx.scopes.length" class="text-xs text-slate-400">{{ ctx.t('auth.no_scopes') }}</p>
+            <p v-if="!ctx.scopes.length" class="text-xs text-[color:var(--mauth-text-faint)]">{{ ctx.t('auth.no_scopes') }}</p>
           </div>
         </div>
 
@@ -107,7 +107,7 @@ const ctx = toRef(props, 'ctx');
           <button :disabled="ctx.submitting" class="auth-btn" type="button" @click="ctx.actions.approve()">
             <span
               v-if="ctx.submitting"
-              class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2 align-[-2px]"
+              class="inline-block w-4 h-4 border-2 border-[color:color-mix(in_srgb,var(--mauth-primary-fg,#ffffff)_30%,transparent)] border-t-white rounded-full animate-spin mr-2 align-[-2px]"
             ></span>
             {{ ctx.submitting ? ctx.t('auth.processing') : ctx.t('auth.allow_continue') }}
           </button>
@@ -116,7 +116,7 @@ const ctx = toRef(props, 'ctx');
           </button>
         </div>
 
-        <p class="mt-6 sm:mt-8 text-center text-[10px] text-slate-400 leading-relaxed">
+        <p class="mt-6 sm:mt-8 text-center text-[10px] text-[color:var(--mauth-text-faint)] leading-relaxed">
           {{ ctx.t('auth.footer_hint') }}
         </p>
       </div>
