@@ -23,6 +23,7 @@ import { generateSignWithKey, serializeParamsForSign, getAppKey } from './sign';
 import { isMobileViewport } from '@/device';
 import { reportError } from '../composables/useErrorReporter';
 import { notifyHostChallengeRequired } from './challenge-bridge';
+import { humanizeApiMessage } from './api-error';
 
 /* ========== CSRF（U21） ========== */
 
@@ -182,8 +183,9 @@ service.interceptors.response.use(
         return Promise.reject(new Error(message || '登录已过期，请重新登录'));
       }
       // 非 401 业务错误：上报到监控（生产 console 已被 drop），不影响主流程
+      // 上报保留原始报文（含领域码，便于按码聚合），**给调用方/界面的则要剥掉码**
       reportError(new Error(message || '请求失败'), `[API Error] url=${res.config?.url || ''}`);
-      return Promise.reject(new Error(message || 'Error'));
+      return Promise.reject(new Error(humanizeApiMessage(message)));
     }
     return data;
   },
@@ -223,7 +225,9 @@ service.interceptors.response.use(
      */
     if (error.response?.status === 428) {
       notifyHostChallengeRequired();
-      const challengeError = new Error(backendMessage || '需要完成人机验证后才能继续访问') as Error & {
+      const challengeError = new Error(
+        humanizeApiMessage(backendMessage, '需要完成人机验证后才能继续访问')
+      ) as Error & {
         status?: number;
       };
       challengeError.status = 428;
@@ -231,8 +235,9 @@ service.interceptors.response.use(
     }
 
     if (backendMessage) {
+      // 同上：日志留原始码，界面只看到说明
       reportError(new Error(backendMessage), `[API Error] status=${error.response?.status}`);
-      return Promise.reject(new Error(backendMessage));
+      return Promise.reject(new Error(humanizeApiMessage(backendMessage)));
     }
 
     console.error(error.message || '网络异常');

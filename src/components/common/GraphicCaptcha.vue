@@ -73,11 +73,18 @@ const handleVerify = async () => {
     emit('success', { captchaKey: captchaKey.value });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : '验证失败';
-    error.value = msg;
 
-    // 验证失败自动清空并刷新
+    /*
+     * 🔴 顺序不能反：**先刷新图形码，再把错误写回**。
+     *
+     * `generateCaptcha()` 成功时会执行 `error.value = ''`（新图加载后清空旧提示）。
+     * 旧写法先赋值再刷新，导致"发送过于频繁，请在 35 秒后再试"这类业务错误
+     * 只闪一下就被擦掉 —— 用户界面上看不到任何原因，只有开发者工具里的
+     * `[API Error]` 日志能看见。真实故障，2026-11-21 修复。
+     */
     userInput.value = '';
-    generateCaptcha();
+    await generateCaptcha();
+    error.value = msg;
   } finally {
     isVerifying.value = false;
   }
