@@ -58,6 +58,12 @@ export default defineConfig(() => ({
     host: '0.0.0.0', // 允许内网 IP 访问（手机调试）
     port: 5174,
     strictPort: true, // 端口被占直接报错，不自动换端口（避免手机连错端口）
+    /*
+     * 允许 `*.localhost`：cookie 只按 host 划分、端口不参与，本地多应用都用
+     * `localhost:517x` 会共享同一个 `sid`（登录 B 顶掉 A）。改用
+     * `console.localhost` / `oauth.localhost` 这类 hostname 即可按 host 隔离。
+     */
+    allowedHosts: ['.localhost'],
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
